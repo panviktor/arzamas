@@ -15,7 +15,7 @@ pub struct Model {
     pub totp_active: bool,
     pub totp_token: Option<String>,
     pub totp_backups: Option<String>,
-    pub created_at: DateTimeWithTimeZone,
+    pub created_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
