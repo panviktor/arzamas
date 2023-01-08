@@ -1,12 +1,10 @@
 /// Module for the ServiceError struct.
 
-use actix_web::http::{header, StatusCode};
+use actix_web::http::{StatusCode};
 use actix_web::{HttpRequest, HttpResponse, ResponseError};
 use std::fmt;
 use log::error;
 use serde::Serialize;
-use crate::core::config;
-
 
 /// A generic error for the web server.
 #[derive(Debug)]
@@ -14,7 +12,7 @@ pub struct ServiceError {
     pub code: StatusCode,
     pub path: String,
     pub message: String,
-    pub show_message: bool,
+    pub show_message: bool
 }
 
 impl ServiceError {
@@ -22,7 +20,8 @@ impl ServiceError {
         ServiceErrorSerialized {
             code: self.code.to_string(),
             path: self.path.to_string(),
-            message: self.message.to_string()
+            message: self.message.to_string(),
+            show_message: self.show_message
         }
     }
 }
@@ -33,6 +32,7 @@ pub struct ServiceErrorSerialized {
     pub code: String,
     pub path: String,
     pub message: String,
+    pub show_message: bool
 }
 
 impl ServiceError {

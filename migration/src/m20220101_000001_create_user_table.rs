@@ -32,7 +32,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::TotpActive).boolean().not_null())
                     .col(ColumnDef::new(User::TotpToken).string().null())
                     .col(ColumnDef::new(User::TotpBackups).string().null())
-                    .col(ColumnDef::new(User::CreatedAt).timestamp_with_time_zone().not_null())
+                    .col(ColumnDef::new(User::CreatedAt).timestamp().not_null())
                     .to_owned(),
             )
             .await

@@ -2,7 +2,7 @@
 
 mod server_error;
 mod service_error;
-mod user;
+pub mod user;
 mod response;
 
 pub use server_error::ErrorCode;

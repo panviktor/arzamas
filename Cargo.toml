@@ -36,6 +36,10 @@ log = { version = "0.4.17", features = ["max_level_debug", "release_max_level_in
 chrono = "0.4.23"
 hex = "0.4.3"
 sha2 = "0.10.6"
+regex = "1.4.1"
+rust-argon2 = "1.0.0"
+lazy_static = "1.4.0"
+unicode-normalization = "0.1.13"
 getrandom = "0.2.8"
 time = "0.3.17"
 
