@@ -7,6 +7,7 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i64,
+    #[sea_orm(unique)]
     pub user_id: String,
     pub email: String,
     pub username: String,
@@ -16,6 +17,7 @@ pub struct Model {
     pub totp_token: Option<String>,
     pub totp_backups: Option<String>,
     pub created_at: DateTime,
+    pub updated_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

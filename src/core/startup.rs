@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-use std::fmt::Display;
 use actix_web::{middleware, web, App, HttpServer};
 use actix_files::Files;
 use actix_web::dev::Server;

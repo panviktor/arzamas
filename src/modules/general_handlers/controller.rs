@@ -1,5 +1,4 @@
-use actix_web::{HttpRequest, HttpResponse};
-use crate::models::ServiceError;
+use actix_web::{ HttpResponse};
 
 pub async fn ping() -> HttpResponse {
     HttpResponse::Ok()

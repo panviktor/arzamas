@@ -1,13 +1,12 @@
 use crate::modules::auth::service::get_user_by_email;
 use crate::modules::auth::service::get_user_by_username;
-use crate::models::{ServerError, User};
-
+use entity::user::Model as User;
+use crate::models::ServerError;
 use argon2::{hash_encoded, verify_encoded, Config};
 use lazy_static::lazy_static;
 use regex::Regex;
 use unicode_normalization::UnicodeNormalization;
 use crate::{err_input, err_server};
-use sea_orm::{ DbConn, };
 
 lazy_static! {
     static ref EMAIL_REGEX: Regex = Regex::new(

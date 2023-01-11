@@ -9,6 +9,7 @@ use crate::models::ServerError;
 mod controller;
 mod service;
 mod credentials;
+mod email;
 
 pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -30,7 +31,7 @@ pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
 pub fn generate_token() -> Result<String, ServerError> {
     let mut token = [0u8; 32];
     getrandom::getrandom(&mut token).map_err(|e| err_server!("Error generating token: {}", e))?;
-    Ok(hex::encode(token.to_vec()))
+    Ok(encode(token.to_vec()))
 }
 
 /// Hash a token with SHA256.

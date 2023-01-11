@@ -1,12 +1,19 @@
 use actix_web::{web, HttpResponse, HttpRequest};
-use chrono::{DateTime, Utc};
-use sea_orm::{DbConn, EntityTrait, NotSet, Set};
+use sea_orm::{DbConn, EntityTrait};
 use serde::{Deserialize, Serialize};
-use entity::user;
+use entity::user::{Model as User};
 use crate::models::{ServiceError};
-use crate::modules::auth::credentials::{generate_password_hash, generate_user_id, validate_email_rules, validate_password_rules, validate_username_rules};
-use crate::modules::auth::service::{get_user_by_email, get_user_by_username};
-use crate::core::db::DB;
+use crate::modules::auth::credentials::{
+    generate_user_id,
+    validate_email_rules,
+    validate_password_rules,
+    validate_username_rules
+};
+use crate::modules::auth::service::{
+    create_user_and_try_save,
+    get_user_by_email, get_user_by_username
+};
+use crate::modules::auth::email::validate_email;
 
 pub async fn create_user(
     mut req: HttpRequest,
@@ -65,36 +72,65 @@ pub async fn create_user(
         ));
     }
 
-    // create password hash
-    let hash = generate_password_hash(&params.password).map_err(|s| s.general(&req))?;
+    let mut user_error: Option<ServiceError> = None;
+    let mut saved_user: Option<User> = None;
+    let mut user_id = "".to_string();
 
-    let id = "123123";
+    for i in 0..10 {
+        user_id = generate_user_id().map_err(|s| s.general(&req))?;
 
-    // insert user
-    let db = &*DB;
+        match  create_user_and_try_save(&user_id, &params.0, &req).await {
+            Ok(user) => {
+                saved_user = Some(user);
+                break;
+            }
+            Err(err) => {
+                log::warn!(
+                    "Problem creating user ID for new user {} (attempt {}/10): {}",
+                    user_id,
+                    i + 1,
+                    err
+                );
+                user_error = Some(err);
+            }
+        }
+    }
 
-    let _ = user::Entity::insert(user::ActiveModel {
-        user_id: Set(id.to_string()),
-        email: Set(params.0.email.to_string()),
-        username: Set(params.0.username.to_string()),
-        pass_hash: Set(hash.to_string()),
-        totp_active: Set(true),
-        totp_token: NotSet,
-        totp_backups: NotSet,
-        created_at: Set( Utc::now().naive_utc()),
-        ..Default::default()
-    })
-        .exec(db)
+    if let Some(e) = user_error {
+        return Err(ServiceError::general(
+            &req,
+            format!("Error generating user ID: {}", e),
+            false,
+        ));
+    }
+
+    let saved_user = saved_user.expect("Error unwrap saved user");
+
+    // Send a validation email
+    validate_email(&saved_user.user_id, &saved_user.email)
         .await
-        .map_err (|e| {
-            println!("{}", e.to_string());
-        });
+        .map_err(|s| s.general(&req))?;
 
 
+    /// MARK: - Need refactoring
+    Ok(HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(format!("
+             User {},\
 
+             Was created {},
 
+             A verification email has been sent to: {}. \
 
-    Ok(HttpResponse::Ok().finish())
+             Follow the link in the message to verify your email.
+
+             The link will only be valid for 24 hours.",
+                       &saved_user.username,
+                       &saved_user.created_at,
+                       &saved_user.email
+        )
+        )
+    )
 }
 
 pub async fn find_user(
