@@ -1,15 +1,19 @@
-use actix_web::{ middleware, web, App, HttpServer};
+use std::borrow::Borrow;
+use std::fmt::Display;
+use actix_web::{middleware, web, App, HttpServer};
 use actix_files::Files;
 use actix_web::dev::Server;
 use std::net::TcpListener;
-use sea_orm::DbConn;
-use tracing_actix_web::TracingLogger;
 
+use tracing_actix_web::TracingLogger;
 use crate::modules::general_handlers;
 use crate::modules::auth;
+use crate::core::db::DB;
 
-pub fn run(listener: TcpListener, db: DbConn) -> Result<Server, std::io::Error> {
-    let db = web::Data::new(db);
+pub async fn run(listener: TcpListener) -> Result<Server, std::io::Error> {
+
+    let db = web::Data::new(&*DB);
+
     let server = HttpServer::new(move || {
         App::new()
             // Removes trailing slash in the URL to make is so I don't need as many services

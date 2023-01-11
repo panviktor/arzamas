@@ -47,11 +47,10 @@ pub fn credential_validator(user: &User, password: &str) -> Result<bool, ServerE
 pub async fn credential_validator_username_email(
     identifier: &str,
     password: &str,
-    conn: &DbConn
 ) -> Result<Option<User>, ServerError> {
     let user = match EMAIL_REGEX.is_match(identifier) {
-        true => get_user_by_email(identifier, conn).await,
-        false => get_user_by_username(identifier, conn).await,
+        true => get_user_by_email(identifier).await,
+        false => get_user_by_username(identifier).await,
     };
 
    return match user {

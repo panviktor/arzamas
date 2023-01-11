@@ -1,8 +1,8 @@
+use std::borrow::Borrow;
 use lib::core::config::get_config;
 use lib::core::startup::run;
 use lib::core::telemetry::{get_subscriber, init_subscriber};
-use migration::{Migrator, MigratorTrait};
-use secrecy::ExposeSecret;
+use lib::core::db::init_db;
 use std::env;
 use std::net::TcpListener;
 
@@ -12,7 +12,7 @@ const APPLICATION_NAME: &str = "Arzamas";
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     let application_telemetry_path = env::var("APPLICATION_TELEMETRY_PATH").unwrap_or_else(|_| "".to_string());
-    let migration = env::var("MIGRATION").unwrap_or_else(|_| "".to_string());
+
 
     match application_telemetry_path {
         application_telemetry_path if application_telemetry_path != "" => {
@@ -38,21 +38,7 @@ async fn main() -> std::io::Result<()> {
     // Read the configuration from the environment.
     let config = get_config().expect("Failed to read configuration.");
 
-    // Create a database connection pool.
-    let conn = sea_orm::Database::connect(&*config.database.connection_string().expose_secret())
-        .await
-        .unwrap();
 
-    // ❗ If enabled, automatically migrate the database to the latest version when the application starts up.
-    if migration == "auto" {
-        if let Err(_) = Migrator::up(&conn, None).await {
-            panic!("Failed to run migration.");
-        }
-    }
-
-    let conn = sea_orm::Database::connect(&*config.database.connection_string().expose_secret())
-        .await
-        .unwrap();
 
     // Create a TCP listener at the configured address.
     let address = format!("127.0.0.1:{}", config.application_port);
@@ -60,5 +46,7 @@ async fn main() -> std::io::Result<()> {
     let listener = TcpListener::bind(address)?;
 
     // Run the App 🚀
-    run(listener, conn)?.await
+
+    init_db().await;
+    run(listener).await?.await
 }
