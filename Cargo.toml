@@ -67,3 +67,16 @@ features = [
     "runtime-actix-rustls",
     "postgres",
 ]
+
+[dependencies.lettre]
+version = "0.10"
+default-features = false
+features = [
+    "smtp-transport",
+    "tokio1",
+    "native-tls",
+    "tokio1-native-tls",
+    "hostname",
+    "builder",
+    "tracing",
+]

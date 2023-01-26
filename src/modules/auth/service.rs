@@ -94,7 +94,6 @@ pub async fn create_user_and_try_save(
     match result {
         Ok(user) => { Ok(user) }
         Err(err) => {
-            let ds = err.to_string();
             Err(ServiceError {
                 code: StatusCode::INTERNAL_SERVER_ERROR,
                 path: req.path().to_string(),

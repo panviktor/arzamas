@@ -17,6 +17,8 @@ pub enum SslMode {
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application_port: u16,
+    pub app_domain: String,
+    pub email_settings: EmailSettings,
 }
 
 #[derive(Deserialize)]
@@ -27,6 +29,14 @@ pub struct DatabaseSettings {
     pub host: String,
     pub database_name: String,
     pub ssl_mode: SslMode,
+}
+
+#[derive(Deserialize)]
+pub struct EmailSettings {
+    pub email_from: String,
+    pub email_server: String,
+    pub email_user: String,
+    pub email_pass: Secret<String>,
 }
 
 impl DatabaseSettings {
@@ -69,8 +79,16 @@ pub fn get_config() -> Result<Settings, dotenv::Error> {
         other => panic!("SSL_MODE: {} is not a valid value", other),
     };
 
+    let app_domain = env::var("APP_DOMAIN").unwrap_or("http://127.0.0.1:8080/".to_string());
     let app_port = env::var("APPLICATION_PORT").expect("APPLICATION_PORT is not set in .env file");
     let app_port = app_port.parse().expect("APPLICATION_PORT is not a number");
+
+    // EMAIL
+    let email_from = env::var("EMAIL_FROM").expect("EMAIL_FROM is not set in .env file");
+    let email_server = env::var("EMAIL_SERVER").expect("EMAIL_SERVER is not set in .env file");
+    let email_user  = env::var("EMAIL_USER").expect("EMAIL_USER is not set in .env file");
+    let email_pass  = env::var("EMAIL_PASS").expect("EMAIL_PASS is not set in .env file");
+
     Ok(Settings {
         database: DatabaseSettings {
             username: db_username,
@@ -81,6 +99,13 @@ pub fn get_config() -> Result<Settings, dotenv::Error> {
             ssl_mode: db_ssl_mode
         },
         application_port: app_port,
+        app_domain,
+        email_settings: EmailSettings {
+            email_from,
+            email_server,
+            email_user,
+            email_pass: Secret::new(email_pass)
+        }
     })
 
 }

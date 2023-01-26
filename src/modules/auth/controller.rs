@@ -111,7 +111,6 @@ pub async fn create_user(
         .await
         .map_err(|s| s.general(&req))?;
 
-
     /// MARK: - Need refactoring
     Ok(HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
