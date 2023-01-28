@@ -91,7 +91,7 @@ impl fmt::Display for ServiceError {
     }
 }
 
-// // This allows Actix to directly turn the server error
+//  This allows Actix to directly turn the server error
 impl ResponseError for ServiceError {
     fn error_response(&self) -> HttpResponse {
         error!("Path: {} | Message: {}", self.path, self.message);

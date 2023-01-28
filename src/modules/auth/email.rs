@@ -2,7 +2,7 @@ use chrono::{Duration, Utc};
 use lazy_static::lazy_static;
 use crate::core::config::{get_config,};
 use crate::models::ServerError;
-use crate::core::email::add_email_token;
+use crate::core::email::{add_email_token, find_email_verify_token, verify_email_by};
 use crate::err_server;
 
 use lettre::{
@@ -32,13 +32,13 @@ lazy_static! {
  pub async fn send_verification_email(to_email: &str, token: &str) -> Result<(), ServerError> {
 
     let config = get_config().expect("Failed to read configuration.");
-    let domain = config.app_domain.to_string();
     let from = config.email_settings.email_from;
 
     let text = format!(
             "This email was used to register for the Arzamas App.\n\
-             To verify your email follow this link: {}email?token={}\n\
-             This link will expire in 24 hours.", domain, token
+             To verify your email copy your token to app! \n\
+             Token: {}\n\
+             This token will expire in 24 hours.",  token
     );
 
     let email = LettreMessage::builder()
@@ -123,7 +123,7 @@ pub async fn validate_email(user_id: &str, email: &str) -> Result<(), ServerErro
     let mut insert_error: Option<ServerError> = None;
     let mut email_token = "".to_string();
     for i in 0..10 {
-        email_token = super::generate_token()?;
+        email_token = super::generate_email_verification_code()?;
         match add_email_token(user_id, email, &email_token, Utc::now() + Duration::days(1)).await {
             Ok(_) => {
                 insert_error = None;
@@ -148,4 +148,21 @@ pub async fn validate_email(user_id: &str, email: &str) -> Result<(), ServerErro
     }
     send_verification_email(email, &email_token).await?;
     Ok(())
+}
+
+pub async fn verify_user_email(
+    email: &str,
+    token: &str
+) -> Result<(), ServerError> {
+    let verification = find_email_verify_token(email).await;
+    match verification {
+        Ok(model) => {
+            let now = Utc::now().naive_utc();
+            if model.otp_hash == token && model.expiry > now {
+                return verify_email_by(&model.user_id).await
+            }
+            Err(err_server!("Problem: expiry or invalid code from email!"))
+        }
+        Err(_) => { Err(err_server!("Problem finding email and token {}", email)) }
+    }
 }

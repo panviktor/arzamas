@@ -1,5 +1,5 @@
 use actix_web::{web, HttpResponse, HttpRequest};
-use sea_orm::{DbConn, EntityTrait};
+use sea_orm::{EntityTrait};
 use serde::{Deserialize, Serialize};
 use entity::user::{Model as User};
 use crate::models::{ServiceError};
@@ -13,10 +13,10 @@ use crate::modules::auth::service::{
     create_user_and_try_save,
     get_user_by_email, get_user_by_username
 };
-use crate::modules::auth::email::validate_email;
+use crate::modules::auth::email::{validate_email, verify_user_email};
 
 pub async fn create_user(
-    mut req: HttpRequest,
+    req: HttpRequest,
     params: web::Json<NewUserParams>
 ) -> Result<HttpResponse, ServiceError> {
 
@@ -115,14 +115,10 @@ pub async fn create_user(
     Ok(HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
         .body(format!("
-             User {},\
-
-             Was created {},
-
-             A verification email has been sent to: {}. \
-
-             Follow the link in the message to verify your email.
-
+             User {},\n
+             Was created {},\n
+             A verification email has been sent to: {}. \n
+             Follow the link in the message to verify your email.\n
              The link will only be valid for 24 hours.",
                        &saved_user.username,
                        &saved_user.created_at,
@@ -132,13 +128,18 @@ pub async fn create_user(
     )
 }
 
-pub async fn find_user(
-    conn: web::Data<DbConn>,
-    data: web::Json<NewUserParams>
-) ->  Result<HttpResponse, ServiceError> {
-    // let response = find_user_by_id_from_bd(&conn, &data).await?;
-    // Ok(response)
+// Accepts email verification request
+pub async fn verify_email(
+    req: HttpRequest,
+    params: web::Json<VerifyEmailParams>
+) -> Result<HttpResponse, ServiceError> {
+    // делаем запрос к бд хранящий конфирмейшены
+    // ищем емайл и токен
+    // сравниваем токен емейл и дату
+    // помечаем в бд пользователя как активированного
 
+    verify_user_email(&params.email, &params.email_token).await
+        .map_err(|s| s.general(&req))?;
 
     Ok(HttpResponse::Ok().finish())
 }
@@ -150,4 +151,11 @@ pub struct NewUserParams {
     pub(crate) email: String,
     pub(crate) password: String,
     pub(crate) password_confirm: String,
+}
+
+/// Struct for holding the form parameters with the new user form
+#[derive(Serialize, Deserialize)]
+pub struct VerifyEmailParams {
+    pub(crate) email: String,
+    pub(crate) email_token: String,
 }

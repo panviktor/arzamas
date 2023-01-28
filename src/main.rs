@@ -12,26 +12,26 @@ async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     let application_telemetry_path = env::var("APPLICATION_TELEMETRY_PATH").unwrap_or_else(|_| "".to_string());
 
-    match application_telemetry_path {
-        application_telemetry_path if application_telemetry_path != "" => {
-            // Set up a subscriber for logging to files, rolling daily
-            let subscriber = get_subscriber(
-                APPLICATION_NAME.to_owned(),
-                "info".to_string(),
-                tracing_appender::rolling::daily(application_telemetry_path, "log"),
-            );
-            init_subscriber(subscriber);
-        }
-        _ => {
-            // Set up a subscriber for logging to the terminal -- good for development
-            let subscriber = get_subscriber(
-                APPLICATION_NAME.to_owned(),
-                "info".to_string(),
-                std::io::stdout,
-            );
-            init_subscriber(subscriber);
-        }
-    }
+    // match application_telemetry_path {
+    //     application_telemetry_path if application_telemetry_path != "" => {
+    //         // Set up a subscriber for logging to files, rolling daily
+    //         let subscriber = get_subscriber(
+    //             APPLICATION_NAME.to_owned(),
+    //             "info".to_string(),
+    //             tracing_appender::rolling::daily(application_telemetry_path, "log"),
+    //         );
+    //         init_subscriber(subscriber);
+    //     }
+    //     _ => {
+    //         // Set up a subscriber for logging to the terminal -- good for development
+    //         let subscriber = get_subscriber(
+    //             APPLICATION_NAME.to_owned(),
+    //             "info".to_string(),
+    //             std::io::stdout,
+    //         );
+    //         init_subscriber(subscriber);
+    //     }
+    // }
 
     // Read the configuration from the environment.
     let config = get_config().expect("Failed to read configuration.");

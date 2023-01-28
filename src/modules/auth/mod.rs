@@ -20,8 +20,8 @@ pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
                         .route(web::post().to(controller::create_user))
             )
             .service(
-                web::resource("/find")
-                    .route(web::get().to(controller::find_user))
+                web::resource("/verify_email")
+                    .route(web::post().to(controller::verify_email))
             )
     );
 }
@@ -30,6 +30,13 @@ pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
 /// Generate a generic 32 byte token, and convert it to a hex string.
 pub fn generate_token() -> Result<String, ServerError> {
     let mut token = [0u8; 32];
+    getrandom::getrandom(&mut token).map_err(|e| err_server!("Error generating token: {}", e))?;
+    Ok(encode(token.to_vec()))
+}
+
+/// Generate a generic 32 byte token, and convert it to a hex string.
+pub fn generate_email_verification_code() -> Result<String, ServerError> {
+    let mut token = [0u8; 8];
     getrandom::getrandom(&mut token).map_err(|e| err_server!("Error generating token: {}", e))?;
     Ok(encode(token.to_vec()))
 }
