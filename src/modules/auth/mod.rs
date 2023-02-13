@@ -10,6 +10,8 @@ mod controller;
 mod service;
 mod credentials;
 mod email;
+mod middleware;
+mod session;
 
 pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -22,6 +24,17 @@ pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
             .service(
                 web::resource("/verify_email")
                     .route(web::post().to(controller::verify_email))
+            )
+
+            .service(
+                web::resource("/login")
+                    .route(web::post().to(controller::login))
+            )
+
+            .service(
+                web::resource("/about")
+                    .wrap(middleware::AuthCheckService)
+                    .route(web::get().to(controller::about))
             )
     );
 }

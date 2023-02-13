@@ -1,6 +1,7 @@
 use secrecy::{ ExposeSecret, Secret };
 use serde::Deserialize;
 use std::env;
+use lazy_static::lazy_static;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -19,6 +20,8 @@ pub struct Settings {
     pub application_port: u16,
     pub app_domain: String,
     pub email_settings: EmailSettings,
+    pub redis_settings: RedisSettings,
+    pub jwt_secret: Secret<String>,
 }
 
 #[derive(Deserialize)]
@@ -37,6 +40,13 @@ pub struct EmailSettings {
     pub email_server: String,
     pub email_user: String,
     pub email_pass: Secret<String>,
+}
+
+#[derive(Deserialize)]
+pub struct RedisSettings {
+    pub host: String,
+    pub port: u16,
+    pub password: Secret<String>,
 }
 
 impl DatabaseSettings {
@@ -83,11 +93,18 @@ pub fn get_config() -> Result<Settings, dotenv::Error> {
     let app_port = env::var("APPLICATION_PORT").expect("APPLICATION_PORT is not set in .env file");
     let app_port = app_port.parse().expect("APPLICATION_PORT is not a number");
 
+    let redis_url = env::var("REDIS_URL").expect("REDIS_PASSWORD is not set in .env file");
+    let redis_port =  env::var("REDIS_PORT_ADDRESS").expect("REDIS_PORT_ADDRESS is not set in .env file");
+    let redis_port = redis_port.parse().expect("REDIS_PORT_ADDRESS is not a number");
+    let redis_password =  env::var("REDIS_PASSWORD").expect("REDIS_PASSWORD is not set in .env file");
+
     // EMAIL
     let email_from = env::var("EMAIL_FROM").expect("EMAIL_FROM is not set in .env file");
     let email_server = env::var("EMAIL_SERVER").expect("EMAIL_SERVER is not set in .env file");
     let email_user  = env::var("EMAIL_USER").expect("EMAIL_USER is not set in .env file");
     let email_pass  = env::var("EMAIL_PASS").expect("EMAIL_PASS is not set in .env file");
+
+    let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET is not set in .env file");
 
     Ok(Settings {
         database: DatabaseSettings {
@@ -105,7 +122,18 @@ pub fn get_config() -> Result<Settings, dotenv::Error> {
             email_server,
             email_user,
             email_pass: Secret::new(email_pass)
-        }
+        },
+        redis_settings: RedisSettings {
+            host: redis_url,
+            port: redis_port,
+            password: Secret::new(redis_password)
+        },
+        jwt_secret: Secret::new(jwt_secret)
     })
+}
 
+lazy_static! {
+     pub static ref APP_SETTINGS: Settings = {
+        get_config().expect("Failed to read configuration.")
+     };
 }

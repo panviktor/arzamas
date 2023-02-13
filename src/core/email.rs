@@ -1,8 +1,7 @@
 use entity::{user, user_confirmation};
 use chrono::{DateTime, Utc};
-use sea_orm::{ActiveModelTrait, ColumnTrait, DbErr, EntityTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
 use sea_orm::ActiveValue::Set;
-use entity::user::Model;
 use crate::core::db::DB;
 use crate::err_server;
 use crate::models::{ServerError};

@@ -1,19 +1,26 @@
+use actix_http::HttpMessage;
 use actix_web::{web, HttpResponse, HttpRequest};
 use sea_orm::{EntityTrait};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use entity::user::{Model as User};
+use actix_identity::{Identity};
+use crate::core::constants;
+
 use crate::models::{ServiceError};
 use crate::modules::auth::credentials::{
+    credential_validator_username_email,
     generate_user_id,
     validate_email_rules,
     validate_password_rules,
-    validate_username_rules
-};
+    validate_username_rules};
 use crate::modules::auth::service::{
     create_user_and_try_save,
-    get_user_by_email, get_user_by_username
+    get_user_by_email,
+    get_user_by_username
 };
 use crate::modules::auth::email::{validate_email, verify_user_email};
+use crate::modules::auth::session::generate_session_token;
 
 pub async fn create_user(
     req: HttpRequest,
@@ -79,7 +86,7 @@ pub async fn create_user(
     for i in 0..10 {
         user_id = generate_user_id().map_err(|s| s.general(&req))?;
 
-        match  create_user_and_try_save(&user_id, &params.0, &req).await {
+        match create_user_and_try_save(&user_id, &params.0, &req).await {
             Ok(user) => {
                 saved_user = Some(user);
                 break;
@@ -133,15 +140,92 @@ pub async fn verify_email(
     req: HttpRequest,
     params: web::Json<VerifyEmailParams>
 ) -> Result<HttpResponse, ServiceError> {
-    // делаем запрос к бд хранящий конфирмейшены
-    // ищем емайл и токен
-    // сравниваем токен емейл и дату
-    // помечаем в бд пользователя как активированного
 
     verify_user_email(&params.email, &params.email_token).await
         .map_err(|s| s.general(&req))?;
 
     Ok(HttpResponse::Ok().finish())
+}
+
+pub async fn login(
+    req: HttpRequest,
+    params: web::Json<LoginParams>
+) -> Result<HttpResponse, ServiceError> {
+    // Check the username is valid
+
+    if validate_username_rules(&params.identifier).is_err()
+        && validate_email_rules(&params.identifier).is_err()
+    {
+        return Err(ServiceError::bad_request(
+            &req,
+            "Invalid Username/Email",
+            true,
+        ));
+    }
+
+    // Check the password is valid
+    if let Err(e) = validate_password_rules(&params.password, &params.password) {
+        return Err(e.bad_request(&req));
+    }
+
+    match credential_validator_username_email(&params.identifier, &params.password)
+        .await
+        .map_err(|s| s.general(&req))?
+    {
+        Some(user) => match user.totp_active {
+            true => {
+                // Generate the token that identifies what login flow the TOTP belongs to
+                // let totp_cookie =
+                //     generate_totp_token(&user.user_id, params.persist.unwrap_or(false))
+                //         .await
+                //         .map_err(|s| s.general(&req))?;
+                // Ok(HttpResponse::SeeOther()
+                //     .append_header((header::LOCATION, "/login"))
+                //     .cookie(totp_cookie)
+                //     .finish())
+                Ok(HttpResponse::Ok().finish())
+            }
+            false => {
+                let token = generate_session_token(
+                    &user.user_id,
+                    params.persist.unwrap_or(false)
+                )
+                    .await
+                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
+                info!("Successfully generate session token in user: {}", params.identifier);
+
+                let json_response = LoginResponse::TokenResponse {
+                    token,
+                    token_type: constants::BEARER.to_string(),
+                };
+
+                // attach a verified user identity to the active session
+                Ok(HttpResponse::Ok().json(json_response))
+            }
+        },
+        None => {
+            info!("Invalid credentials: {}", &params.identifier);
+            Err(ServiceError::unauthorized(
+                &req,
+                "Invalid credentials.",
+                true,
+            ))
+        }
+    }
+}
+
+pub async fn about(
+    user: Option<Identity>
+) -> HttpResponse {
+    if let Some(user) = user {
+        HttpResponse::Ok()
+            .content_type("text/html; charset=utf-8")
+            .body(format!("Welcome! {}", user.id().unwrap()))
+    } else {
+        HttpResponse::Ok()
+            .content_type("text/html; charset=utf-8")
+            .body(format!("Welcome Anonymous!"))
+    }
 }
 
 /// Struct for holding the form parameters with the new user form
@@ -158,4 +242,29 @@ pub struct NewUserParams {
 pub struct VerifyEmailParams {
     pub(crate) email: String,
     pub(crate) email_token: String,
+}
+
+/// Struct for holding the form parameters with the new user form
+#[derive(Serialize, Deserialize)]
+pub struct LoginParams {
+    pub(crate) identifier: String,
+    pub(crate) password: String,
+    pub(crate) persist: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum LoginResponse {
+    OTPResponse { otp: String },
+    TokenResponse { token: String, token_type: String}
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TokenResponse {
+    pub token: String,
+    pub token_type: String
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct OTPResponse {
+    pub otp: String,
 }

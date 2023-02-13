@@ -7,10 +7,11 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use unicode_normalization::UnicodeNormalization;
 use crate::{err_input, err_server};
+use rand::{distributions::Alphanumeric, Rng};
 
 lazy_static! {
     static ref EMAIL_REGEX: Regex = Regex::new(
-        r"^([a-z0-9_+]([a-z0-9_+.]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
+        r"^([a-z0-9_+]([a-z0-9_+.-]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
     )
     .unwrap();
 }
@@ -31,7 +32,15 @@ pub fn generate_password_hash(password: &str) -> Result<String, ServerError> {
 
 /// Generate a random user ID
 pub fn generate_user_id() -> Result<String, ServerError> {
-    super::generate_token()
+    let str: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(3)
+        .map(char::from)
+        .collect();
+    let mut token = super::generate_token()
+        .map_err(|e| err_server!("Error generate user_id: {}", e))?;
+    token.push_str(&*str);
+    Ok(token)
 }
 
 /// Check if the username + password pair are valid
