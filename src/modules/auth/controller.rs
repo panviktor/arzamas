@@ -1,10 +1,7 @@
-use actix_http::HttpMessage;
 use actix_web::{web, HttpResponse, HttpRequest};
-use sea_orm::{EntityTrait};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use entity::user::{Model as User};
-use actix_identity::{Identity};
 use crate::core::constants;
 
 use crate::models::{ServiceError};
@@ -81,7 +78,7 @@ pub async fn create_user(
 
     let mut user_error: Option<ServiceError> = None;
     let mut saved_user: Option<User> = None;
-    let mut user_id = "".to_string();
+    let mut user_id: String;
 
     for i in 0..10 {
         user_id = generate_user_id().map_err(|s| s.general(&req))?;
@@ -215,17 +212,14 @@ pub async fn login(
 }
 
 pub async fn about(
-    user: Option<Identity>
+    // req: HttpRequest,
+    // params: web::Json<UserInfo>
 ) -> HttpResponse {
-    if let Some(user) = user {
-        HttpResponse::Ok()
-            .content_type("text/html; charset=utf-8")
-            .body(format!("Welcome! {}", user.id().unwrap()))
-    } else {
-        HttpResponse::Ok()
-            .content_type("text/html; charset=utf-8")
-            .body(format!("Welcome Anonymous!"))
-    }
+
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(format!("Welcome Anonymous!"))
+
 }
 
 /// Struct for holding the form parameters with the new user form
@@ -267,4 +261,9 @@ pub struct TokenResponse {
 #[derive(Serialize, Deserialize)]
 pub struct OTPResponse {
     pub otp: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct UserInfo {
+    pub user_id: String,
 }

@@ -1,11 +1,10 @@
-use std::collections::{ HashMap};
 use actix_web::dev::ServiceRequest;
-use chrono::{Duration, Utc};
+use chrono::{ Duration, TimeZone, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, TokenData, Validation};
 use redis::AsyncCommands;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
-use tracing::{info};
+use std::option::Option;
 use uuid::Uuid;
 
 use crate::core::config::APP_SETTINGS;
@@ -70,7 +69,7 @@ pub async fn generate_session_token(
     Ok(token_to_redis)
 }
 
-pub fn decode_token(token: String) -> jsonwebtoken::errors::Result<TokenData<UserToken>> {
+pub fn decode_token(token: &str) -> jsonwebtoken::errors::Result<TokenData<UserToken>> {
     jsonwebtoken::decode::<UserToken>(
         &token,
         &DecodingKey::from_secret(APP_SETTINGS.jwt_secret.expose_secret().as_ref()),
@@ -79,38 +78,41 @@ pub fn decode_token(token: String) -> jsonwebtoken::errors::Result<TokenData<Use
 }
 
 /// Extract the session token
-pub fn get_session_token_service_request(req: &ServiceRequest) -> Option<UserToken> {
+pub fn get_session_token_service_request(req: &ServiceRequest) -> Option<String> {
     if let Some(authed_header) = req.headers().get(constants::AUTHORIZATION) {
         if let Ok(authed_header_str) = authed_header.to_str() {
             if authed_header_str.starts_with(constants::BEARER) {
                 let token = authed_header_str[6..authed_header_str.len()].trim();
-                if let Ok(token_data) = decode_token(token.to_string()) {
-                    info!("Decoding token...");
-                    return Some(token_data.claims)
-                }
+                return Some(token.to_string())
             }
         }
     }
     None
 }
 
+// pub async fn get_user_id_from(token: &str) -> Option<String> {
+//     if let Ok(decoded_data) = decode_token(token) {
+//         let user_id = decoded_data.claims.user_id.to_string();
+//         return Some(user_id)
+//     }
+//     None
+// }
+
 /// Get username from session token
-pub async fn validate_session(token: &UserToken) -> Result<bool, ServerError> {
-    let mut con = REDIS_CLIENT.get_async_connection().await?;
+pub async fn validate_session(token_from_req: &str) -> Result<Option<String>, ServerError> {
+    if let Ok(decoded_data) = decode_token(token_from_req) {
+        let mut con = REDIS_CLIENT.get_async_connection().await?;
+        let user = decoded_data.claims.user_id.to_string();
+        let session_id = decoded_data.claims.login_session_id.to_string();
+        let token_from_redis: String = con.hget(user.to_owned(), session_id).await?;
 
-    let user = token.user_id.to_string();
-    let tokens: HashMap<String, String> = con.hgetall(user).await?;
-
-
-
-
-    println!("{:?} ", tokens);
-    //
-    // // let int: isize = con.get("my_key").await?;
-    // // println!("{:?}",int);
-    // //
-    // // let v_int: Vec<isize> = con.mget("my_key").await?;
-    // // println!("v {:?}",v_int);
-
-    Ok(true)
+        if token_from_redis == token_from_req {
+            let now = Utc::now();
+            let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
+            if datetime > now {
+                return Ok(Some(user));
+            }
+        }
+    }
+    Ok(None)
 }

@@ -1,4 +1,5 @@
 use sea_orm_migration::prelude::*;
+use entity::{ note, user };
 
 
 #[derive(DeriveMigrationName)]
@@ -11,35 +12,33 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(User::Table)
+                    .table(Note::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(User::Id)
+                        ColumnDef::new(Note::Id)
                             .big_integer()
                             .auto_increment()
                             .not_null()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(User::UserId)
+                        ColumnDef::new(Note::UserId)
                             .string()
                             .not_null()
-                            .unique_key()
                     )
-                    .col(ColumnDef::new(User::Email).string().not_null())
-                    .col(ColumnDef::new(User::Username).string().not_null())
-                    .col(ColumnDef::new(User::PassHash).string().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_note_assignee")
+                            .from(note::Entity, note::Column::UserId)
+                            .to(user::Entity, user::Column::UserId),
+                    )
                     .col(
-                        ColumnDef::new(User::EmailValidated)
-                            .boolean()
+                        ColumnDef::new(Note::Text)
+                            .string()
                             .not_null()
-                            .default(false),
                     )
-                    .col(ColumnDef::new(User::TotpActive).boolean().not_null())
-                    .col(ColumnDef::new(User::TotpToken).string().null())
-                    .col(ColumnDef::new(User::TotpBackups).string().null())
-                    .col(ColumnDef::new(User::CreatedAt).timestamp().not_null())
-                    .col(ColumnDef::new(User::UpdatedAt).timestamp().not_null())
+                    .col(ColumnDef::new(Note::CreatedAt).timestamp().not_null())
+                    .col(ColumnDef::new(Note::UpdatedAt).timestamp().not_null())
                     .to_owned(),
             )
             .await
@@ -48,24 +47,18 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Replace the sample below with your own migration scripts
         manager
-            .drop_table(Table::drop().table(User::Table).to_owned())
+            .drop_table(Table::drop().table(Note::Table).to_owned())
             .await
     }
 }
 
 /// Learn more at https://docs.rs/sea-query#iden
 #[derive(Iden)]
-pub enum User {
+pub enum Note {
     Id,
     Table,
     UserId,
-    Email,
-    Username,
-    PassHash,
-    EmailValidated,
-    TotpActive,
-    TotpToken,
-    TotpBackups,
+    Text,
     CreatedAt,
     UpdatedAt
 }

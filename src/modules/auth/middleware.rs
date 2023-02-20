@@ -4,13 +4,14 @@ use crate::modules::auth::session::{get_session_token_service_request, validate_
 use actix_http::body::BoxBody;
 use actix_service::{Service, Transform};
 use actix_web::dev::{ServiceRequest, ServiceResponse};
-use actix_web::{Error, HttpResponse};
-use futures::future::{ok, Ready};
+use actix_web::{dev, Error, FromRequest, HttpRequest, HttpResponse,};
+use futures::future::{err, ok, Ready};
 use futures::Future;
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll};
+use actix_http::HttpMessage;
 use tracing::error;
 
 /// Wrapper for checking that the user is logged in
@@ -63,22 +64,45 @@ impl<S> Service<ServiceRequest> for AuthCheckMiddleware<S>
                         Ok(v) => v,
                         Err(e) => {
                             error!("Error validating token: {}", e);
-                            false
+                            None
                         }
                     }
                 }
-                None => false
+                None => None
             };
 
-            if is_logged_in {
-                let ok = srv.call(req).await?;
-                Ok(ok)
-            } else {
-                Ok(req.into_response(
-                    HttpResponse::Unauthorized()
-                        .finish()
-                ))
+            match is_logged_in {
+                Some(user_id) => {
+                    println!("{}", &user_id);
+                    let user = LoginUser { id: user_id } ;
+                    req.extensions_mut().insert(user);
+                    let ok = srv.call(req).await?;
+                    Ok(ok)
+                }
+                None => {
+                    Ok(req.into_response(
+                        HttpResponse::Unauthorized()
+                            .finish()
+                    ))
+                }
             }
         })
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub struct LoginUser {
+   pub(crate) id: String
+}
+impl FromRequest for LoginUser {
+    type Error = Error;
+    type Future = Ready<Result<Self, Self::Error>>;
+
+    fn from_request(req: &HttpRequest, _payload: &mut dev::Payload) -> Self::Future {
+        return match req.extensions().get::<LoginUser>() {
+            Some(user) => ok(user.clone()),
+            None => err(actix_web::error::ErrorBadRequest("ups..."))
+        };
     }
 }

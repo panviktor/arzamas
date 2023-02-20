@@ -66,8 +66,8 @@ lazy_static! {
     }
 }
 
-/// Send a password reset email.
-pub async fn send_password_reset_email(user_id: &str, email: &str) -> Result<(), ServerError> {
+// Send a password reset email.
+// pub async fn send_password_reset_email(user_id: &str, email: &str) -> Result<(), ServerError> {
     // let mut password_reset_token = "".to_string();
     // let mut error: Option<ServerError> = None;
     // for i in 0..10 {
@@ -115,8 +115,8 @@ pub async fn send_password_reset_email(user_id: &str, email: &str) -> Result<(),
     // } else {
     //     log::warn!("Could not send email: {:?}", result);
     // }
-    Ok(())
-}
+//     Ok(())
+// }
 
 /// Generate an email token and then send a verification email.
 pub async fn validate_email(user_id: &str, email: &str) -> Result<(), ServerError> {

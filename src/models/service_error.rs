@@ -99,3 +99,14 @@ impl ResponseError for ServiceError {
         HttpResponse::build(status_code).json(self.convert_to_serialized())
     }
 }
+
+impl From<sea_orm::DbErr> for ServiceError {
+    fn from(value: sea_orm::DbErr) -> Self {
+        ServiceError {
+            code: StatusCode::SERVICE_UNAVAILABLE,
+            path: "DB".to_string(),
+            message: "DB ERROR".to_string(),
+            show_message: true,
+        }
+    }
+}

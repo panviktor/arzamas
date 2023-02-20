@@ -103,8 +103,3 @@ pub async fn create_user_and_try_save(
         }
     }
 }
-
-/// Get a single user from the DB searching by user ID
-pub async fn get_user_by_userid(user_id: &str)  {
-
-}

@@ -1931,6 +1931,7 @@ name = "migration"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "entity",
  "sea-orm-migration",
 ]
 
@@ -2780,9 +2781,9 @@ dependencies = [
 
 [[package]]
 name = "sea-orm-cli"
-version = "0.10.6"
+version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebcce92f0f804acd10b4378a3c8b0e5fb28f3a9ae9337006bd651baa3a95632c"
+checksum = "0ebe1f820fe8949cf6a57272ba9ebd0be766e47c9b85c04b3cabea40ab9459b3"
 dependencies = [
  "chrono",
  "clap",
@@ -2809,9 +2810,9 @@ dependencies = [
 
 [[package]]
 name = "sea-orm-migration"
-version = "0.10.6"
+version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ada716f9825e4190a0a8ebaecbf7171ce0ed6f218ea2e70086bdc72ccfc1d03c"
+checksum = "0ed3cdfa669e4c385922f902b9a58e0c2128782a4d0fe79c6c34f3b927565e5b"
 dependencies = [
  "async-trait",
  "clap",

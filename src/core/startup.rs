@@ -5,8 +5,7 @@ use std::net::TcpListener;
 use actix_identity::IdentityMiddleware;
 use actix_web::middleware::NormalizePath;
 use tracing_actix_web::TracingLogger;
-use crate::modules::general_handlers;
-use crate::modules::auth;
+use crate::modules::{auth, notes,  general_handlers,};
 use crate::core::db::DB;
 
 pub async fn run(listener: TcpListener) -> Result<Server, std::io::Error> {
@@ -27,6 +26,7 @@ pub async fn run(listener: TcpListener) -> Result<Server, std::io::Error> {
             .service(
                 web::scope("/api")
                     .configure(auth::init_auth_routes)
+                    .configure(notes::init_notes_routes)
             )
             .default_service(web::route().to(general_handlers::p404))
             // Register application-wide models data below 👇

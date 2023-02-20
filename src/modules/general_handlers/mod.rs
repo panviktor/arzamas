@@ -1,6 +1,5 @@
 use actix_web::{HttpRequest, HttpResponse, web};
 use crate::models::ServiceError;
-
 mod controller;
 
 pub fn init_general_handlers_routes(cfg: &mut web::ServiceConfig) {

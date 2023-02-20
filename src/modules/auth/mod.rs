@@ -10,7 +10,7 @@ mod controller;
 mod service;
 mod credentials;
 mod email;
-mod middleware;
+pub(crate) mod middleware;
 mod session;
 
 pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {

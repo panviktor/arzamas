@@ -23,7 +23,7 @@ pub async fn add_email_token(
         ..Default::default()
     };
 
-    let result = confirmation.insert(db)
+    let _ = confirmation.insert(db)
         .await
         .map_err(|e| err_server!("Problem adding email token {}:{}", user_id, e))?;
     Ok(())
@@ -31,7 +31,7 @@ pub async fn add_email_token(
 
 pub async fn find_email_verify_token(
     email: &str,
-) -> Result<(user_confirmation::Model), ServerError> {
+) -> Result<user_confirmation::Model, ServerError> {
     let db = &*DB;
     let confirmation = user_confirmation::Entity::find()
         .filter(user_confirmation::Column::Email.contains(email))
@@ -62,13 +62,12 @@ pub async fn verify_email_by(
 
     let user = user.unwrap();
     if user.email_validated {
-        println!("Double validated");
         return Ok(())
     }
 
     let mut item_active_model: user::ActiveModel = user.into();
     item_active_model.email_validated = Set(true);
-    let result = item_active_model
+    let _ = item_active_model
         .update(db)
         .await
         .map_err(|e| err_server!("Problem updating user {}:{}", user_id, e))?;
