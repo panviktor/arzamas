@@ -59,7 +59,7 @@ lazy_static! {
 // Send the email
     match mailer.send(email).await {
         Ok(_) => {
-            println!("Email sent successfully!");
+            tracing::debug!("Email sent successfully!");
             Ok(())
         }
         Err(e) => Err(err_server!("Error unlocking mailer: {}", e))

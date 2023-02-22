@@ -21,21 +21,15 @@ pub async fn get_user_by_username(username: &str) -> Result<Option<User>, Server
         .await
         .map_err(|e| err_server!("Problem querying database for user {}: {}", username, e));
 
-    match user {
-        Ok(user) => {
-            match user {
-                Some(user) => {
-                    Ok(Option::from(user))
-                }
-                None => {
-                    Ok(None)
-                }
+    if let Ok(user) = user {
+        return match user {
+            Some(user) => {
+                Ok(Option::from(user))
             }
-        }
-        Err(_) => {
-            Err(err_server!("Problem querying database for user: cant unwrap ORM"))
+            None => { Ok(None) }
         }
     }
+    Err(err_server!("Problem querying database for user: cant unwrap ORM"))
 }
 
 /// Get a single user from the DB, searching by username
@@ -49,21 +43,15 @@ pub async fn get_user_by_email(email: &str) -> Result<Option<User>, ServerError>
         .await
         .map_err(|e| err_server!("Problem querying database for user {}: {}", email, e));
 
-    match user {
-        Ok(user) => {
-            match user {
-                Some(user) => {
-                    Ok(Option::from(user))
-                }
-                None => {
-                    Ok(None)
-                }
+    if let Ok(user) = user {
+        return match user {
+            Some(user) => {
+                Ok(Option::from(user))
             }
-        }
-        Err(_) => {
-            Err(err_server!("Problem querying database for user: cant unwrap ORM"))
+            None => { Ok(None) }
         }
     }
+    Err(err_server!("Problem querying database for user: cant unwrap ORM"))
 }
 
 pub async fn create_user_and_try_save(
@@ -72,9 +60,7 @@ pub async fn create_user_and_try_save(
     req: &HttpRequest
 ) -> Result<User, ServiceError> {
 
-    // insert user
     let db = &*DB;
-    // create password hash
     let hash = generate_password_hash(&params.password).map_err(|s| s.general(&req))?;
 
     let user = user::ActiveModel {

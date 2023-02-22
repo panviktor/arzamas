@@ -73,7 +73,6 @@ impl<S> Service<ServiceRequest> for AuthCheckMiddleware<S>
 
             match is_logged_in {
                 Some(user_id) => {
-                    println!("{}", &user_id);
                     let user = LoginUser { id: user_id } ;
                     req.extensions_mut().insert(user);
                     let ok = srv.call(req).await?;

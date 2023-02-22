@@ -90,14 +90,6 @@ pub fn get_session_token_service_request(req: &ServiceRequest) -> Option<String>
     None
 }
 
-// pub async fn get_user_id_from(token: &str) -> Option<String> {
-//     if let Ok(decoded_data) = decode_token(token) {
-//         let user_id = decoded_data.claims.user_id.to_string();
-//         return Some(user_id)
-//     }
-//     None
-// }
-
 /// Get username from session token
 pub async fn validate_session(token_from_req: &str) -> Result<Option<String>, ServerError> {
     if let Ok(decoded_data) = decode_token(token_from_req) {

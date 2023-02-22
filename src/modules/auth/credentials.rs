@@ -1,6 +1,6 @@
 use crate::modules::auth::service::get_user_by_email;
 use crate::modules::auth::service::get_user_by_username;
-use entity::user::Model as User;
+use entity::user::{Model as User,};
 use crate::models::ServerError;
 use argon2::{hash_encoded, verify_encoded, Config};
 use lazy_static::lazy_static;
@@ -61,27 +61,19 @@ pub async fn credential_validator_username_email(
         false => get_user_by_username(identifier).await,
     };
 
-   return match user {
-        Ok(user) => {
-            match user {
-                None => {
-                    log::warn!("User doesn't exist: {}", identifier);
+    if let Ok(user) = user {
+        if let Some(user) = user {
+            return match credential_validator(&user, &password)? {
+                true => Ok(Some(user)),
+                false => {
+                    tracing::warn!("User doesn't exist: {}", identifier);
+                    Ok(None)
                 }
-                Some(user) => {
-                    return match credential_validator(&user, &password)? {
-                            true => Ok(Some(user)),
-                            false => Ok(None),
-                        };
-                }
-            }
-            log::warn!("User doesn't exist: {}", identifier);
-            Ok(None)
-        }
-        Err(_) => {
-            log::warn!("User doesn't exist: {}", identifier);
-            Ok(None)
+            };
         }
     }
+    tracing::warn!("User doesn't exist: {}", identifier);
+    return Err(err_input!("User doesn't exist!"));
 }
 
 /// Check that a password meets password requirements

@@ -4,6 +4,7 @@ use actix_web::http::{StatusCode};
 use actix_web::{HttpRequest, HttpResponse, ResponseError};
 use std::fmt;
 use log::error;
+use sea_orm::DbErr;
 use serde::Serialize;
 
 /// A generic error for the web server.
@@ -99,13 +100,79 @@ impl ResponseError for ServiceError {
         HttpResponse::build(status_code).json(self.convert_to_serialized())
     }
 }
-
 impl From<sea_orm::DbErr> for ServiceError {
     fn from(value: sea_orm::DbErr) -> Self {
+        let (status_code, message) = match value {
+            DbErr::ConnectionAcquire => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Failed to acquire a database connection".to_string(),
+            ),
+            DbErr::TryIntoErr { source, .. } => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to convert value: {}", source),
+            ),
+            DbErr::Conn(e) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                format!("Database connection error: {}", e),
+            ),
+            DbErr::Exec(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Database execution error: {}", e),
+            ),
+            DbErr::Query(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Database query error: {}", e),
+            ),
+            DbErr::ConvertFromU64(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to convert from u64: {}", e),
+            ),
+            DbErr::UnpackInsertId => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to unpack insert ID".to_string(),
+            ),
+            DbErr::UpdateGetPrimaryKey => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to get primary key for update".to_string(),
+            ),
+            DbErr::RecordNotFound(model_name) => (
+                StatusCode::NOT_FOUND,
+                format!("{} not found", model_name),
+            ),
+            DbErr::AttrNotSet(attr_name) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Attribute '{}' not set", attr_name),
+            ),
+            DbErr::Custom(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Database error: {}", e),
+            ),
+            DbErr::Type(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Database type error: {}", e),
+            ),
+            DbErr::Json(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to parse JSON: {}", e),
+            ),
+            DbErr::Migration(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Migration error: {}", e),
+            ),
+            DbErr::RecordNotInserted => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to insert record".to_string(),
+            ),
+            DbErr::RecordNotUpdated => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to update record".to_string(),
+            ),
+        };
+
         ServiceError {
-            code: StatusCode::SERVICE_UNAVAILABLE,
-            path: "DB".to_string(),
-            message: "DB ERROR".to_string(),
+            code: status_code,
+            path: "Database".to_string(),
+            message,
             show_message: true,
         }
     }

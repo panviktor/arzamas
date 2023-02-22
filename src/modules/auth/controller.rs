@@ -211,17 +211,6 @@ pub async fn login(
     }
 }
 
-pub async fn about(
-    // req: HttpRequest,
-    // params: web::Json<UserInfo>
-) -> HttpResponse {
-
-    HttpResponse::Ok()
-        .content_type("text/html; charset=utf-8")
-        .body(format!("Welcome Anonymous!"))
-
-}
-
 /// Struct for holding the form parameters with the new user form
 #[derive(Serialize, Deserialize)]
 pub struct NewUserParams {

@@ -30,12 +30,6 @@ pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
                 web::resource("/login")
                     .route(web::post().to(controller::login))
             )
-
-            .service(
-                web::resource("/about")
-                    .wrap(middleware::AuthCheckService)
-                    .route(web::get().to(controller::about))
-            )
     );
 }
 

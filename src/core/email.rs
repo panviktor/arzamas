@@ -71,7 +71,5 @@ pub async fn verify_email_by(
         .update(db)
         .await
         .map_err(|e| err_server!("Problem updating user {}:{}", user_id, e))?;
-
     Ok(())
-
 }

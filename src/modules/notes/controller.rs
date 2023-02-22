@@ -1,5 +1,4 @@
-use std::io::ErrorKind::NotFound;
-use actix_http::{HttpMessage, StatusCode};
+use actix_http::{ StatusCode };
 use actix_web::{HttpRequest, HttpResponse, web};
 use chrono::Utc;
 use sea_orm::{ActiveModelTrait, EntityTrait, ModelTrait};
@@ -7,14 +6,9 @@ use sea_orm::ActiveValue::Set;
 use sea_orm::QueryFilter;
 use sea_orm::ColumnTrait;
 use serde::{Deserialize, Serialize};
-use std::option::Option;
-use sea_orm::TryGetError::DbErr;
-use tracing::error;
 use entity::{note, user};
 use entity::prelude::Note;
-use entity::user::Model;
 use crate::core::db::DB;
-use crate::err_server;
 use crate::models::ServiceError;
 use crate::modules::auth::middleware::LoginUser;
 
@@ -64,18 +58,17 @@ pub async fn get_all_notes(
         .map_err(|e| ServiceError {
             code: StatusCode::NOT_FOUND,
             path: "BD".to_string(),
-            message: "Find user error".to_string(),
+            message: e.to_string(),
             show_message: true,
         });
 
-        if let Ok(unwrapped_user) = user {
-            if let user = unwrapped_user {
+        if let Ok(user) = user {
                 match user {
                     Some(user) => {
                         let notes: Vec<serde_json::Value> = user  //Vec<note::Model>
                             .find_related(Note)
                             .into_json()
-                            ///WARNING: Add pagination
+                            //WARNING: Add pagination
                             // .paginate(db, 50);
                             .all(db)
                             .await?;
@@ -84,7 +77,6 @@ pub async fn get_all_notes(
                     }
                     None => {}
                 }
-            }
         }
 
     Err(ServiceError {
