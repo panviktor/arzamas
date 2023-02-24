@@ -1,30 +1,38 @@
 use actix_http::{ StatusCode };
 use actix_web::{HttpRequest, HttpResponse, web};
 use chrono::Utc;
-use sea_orm::{ActiveModelTrait, EntityTrait, ModelTrait};
-use sea_orm::ActiveValue::Set;
-use sea_orm::QueryFilter;
-use sea_orm::ColumnTrait;
+use sea_orm::{
+    ActiveValue::Set,
+    ActiveModelTrait,
+    EntityTrait,
+    PaginatorTrait,
+    QueryOrder,
+    QueryFilter,
+    ColumnTrait
+};
 use serde::{Deserialize, Serialize};
 use entity::{note, user};
 use entity::prelude::Note;
 use crate::core::db::DB;
 use crate::models::ServiceError;
+use crate::models::many_response::ManyResponse;
 use crate::modules::auth::middleware::LoginUser;
+use crate::modules::generate_unique_id;
 
 pub async fn create_note(
     req: HttpRequest,
     user: LoginUser,
     params: web::Json<DTONote>
 ) -> Result<HttpResponse, ServiceError> {
-    println!("i get struct, {:?}", user.id);
     // insert note
     let db = &*DB;
     let text =  params.text.to_string();
+    let id = generate_unique_id();
 
     let user = note::ActiveModel {
         user_id: Set(user.id.to_string()),
-        text: Set(text.to_string()),
+        note_id: Set(id),
+        text: Set(text),
         created_at: Set( Utc::now().naive_utc()),
         updated_at: Set( Utc::now().naive_utc()),
         ..Default::default()
@@ -46,7 +54,9 @@ pub async fn create_note(
 
 pub async fn get_all_notes(
     req: HttpRequest,
+    info: web::Query<NotePage>,
     user: LoginUser,
+
 ) -> Result<HttpResponse, ServiceError> {
 
     let db = &*DB;
@@ -65,15 +75,35 @@ pub async fn get_all_notes(
         if let Ok(user) = user {
                 match user {
                     Some(user) => {
-                        let notes: Vec<serde_json::Value> = user  //Vec<note::Model>
-                            .find_related(Note)
-                            .into_json()
-                            //WARNING: Add pagination
-                            // .paginate(db, 50);
-                            .all(db)
-                            .await?;
+                        // Set page number and items per page
+                        let page = info.page;
+                        let per_page = info.per_page;
 
-                        return Ok(HttpResponse::Ok().json(notes))
+                        // Setup paginator
+                        let paginator = Note::find()
+                            .order_by_asc(note::Column::Id)
+                            .paginate(db, per_page);
+
+                        let num_items_and_pages = paginator.num_items_and_pages().await?;
+                        let number_of_pages= num_items_and_pages.number_of_pages;
+                        let total= num_items_and_pages.number_of_items;
+
+                        // Fetch paginated posts
+                        let page = page.max(1);
+                        let data: Vec<note::Model> = paginator
+                            .fetch_page(page - 1)
+                            .await
+                            .map_err(|e| ServiceError::general(&req, e.to_string(), true))?;
+
+                        let result = ManyResponse {
+                            data,
+                            count: per_page,
+                            total,
+                            page,
+                            page_count: number_of_pages
+                        };
+
+                        return Ok(HttpResponse::Ok().json(result))
                     }
                     None => {}
                 }
@@ -87,10 +117,22 @@ pub async fn get_all_notes(
     })
 }
 
+#[derive(Deserialize)]
+pub struct NotePage {
+    pub page: u64,
+    pub per_page: u64,
+}
+
 /// Struct for holding the form parameters with the new user form
 #[derive(Serialize, Deserialize)]
 pub struct DTONote {
     pub(crate) text: String,
 }
 
-
+#[derive( Serialize, Deserialize)]
+struct DTONoteResponse {
+    public_id: String,
+    text: String,
+    created_at: String,
+    updated_at: String,
+}

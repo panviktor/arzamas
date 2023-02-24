@@ -1,7 +1,6 @@
 use sea_orm_migration::prelude::*;
 use entity::{ note, user };
 
-
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -20,6 +19,12 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .not_null()
                             .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(Note::NoteId)
+                            .string()
+                            .not_null()
+                            .unique_key()
                     )
                     .col(
                         ColumnDef::new(Note::UserId)
@@ -57,6 +62,7 @@ impl MigrationTrait for Migration {
 pub enum Note {
     Id,
     Table,
+    NoteId,
     UserId,
     Text,
     CreatedAt,

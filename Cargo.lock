@@ -422,6 +422,7 @@ dependencies = [
  "sea-orm",
  "secrecy",
  "serde",
+ "serde_derive",
  "serde_json",
  "sha2",
  "sqlx",
@@ -1205,6 +1206,9 @@ name = "entity"
 version = "0.1.0"
 dependencies = [
  "sea-orm",
+ "serde",
+ "serde_derive",
+ "serde_json",
 ]
 
 [[package]]
