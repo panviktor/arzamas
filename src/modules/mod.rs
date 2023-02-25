@@ -4,7 +4,7 @@ pub mod user;
 pub mod notes;
 
 use uuid::Uuid;
-use chrono::{Utc, TimeZone};
+use chrono::{Utc};
 use hex::encode;
 use sha2::{Digest, Sha512};
 

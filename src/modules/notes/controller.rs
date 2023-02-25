@@ -1,21 +1,14 @@
 use actix_http::{ StatusCode };
 use actix_web::{HttpRequest, HttpResponse, web};
 use chrono::Utc;
-use sea_orm::{
-    ActiveValue::Set,
-    ActiveModelTrait,
-    EntityTrait,
-    PaginatorTrait,
-    QueryOrder,
-    QueryFilter,
-    ColumnTrait
-};
+use sea_orm::{ActiveValue::Set, ActiveModelTrait, EntityTrait, PaginatorTrait, QueryOrder, QueryFilter, ColumnTrait, CursorTrait, ModelTrait};
 use serde::{Deserialize, Serialize};
 use entity::{note, user};
+use entity::note::Model;
 use entity::prelude::Note;
 use crate::core::db::DB;
 use crate::models::ServiceError;
-use crate::models::many_response::ManyResponse;
+use crate::models::many_response::{ ManyResponse, PageQuery};
 use crate::modules::auth::middleware::LoginUser;
 use crate::modules::generate_unique_id;
 
@@ -54,9 +47,8 @@ pub async fn create_note(
 
 pub async fn get_all_notes(
     req: HttpRequest,
-    info: web::Query<NotePage>,
+    info: web::Query<PageQuery>,
     user: LoginUser,
-
 ) -> Result<HttpResponse, ServiceError> {
 
     let db = &*DB;
@@ -79,16 +71,42 @@ pub async fn get_all_notes(
                         let page = info.page;
                         let per_page = info.per_page;
 
-                        // Setup paginator
-                        let paginator = Note::find()
-                            .order_by_asc(note::Column::Id)
+                        // // Setup paginator
+                        // let paginator = Note::find()
+                        //     .order_by_asc(note::Column::Id)
+                        //     .paginate(db, per_page);
+                        //
+                        // let num_items_and_pages = paginator.num_items_and_pages().await?;
+                        // let number_of_pages= num_items_and_pages.number_of_pages;
+                        // let total= num_items_and_pages.number_of_items;
+                        //
+                        // // Fetch paginated posts
+                        // let page = page.max(1);
+                        // let data: Vec<note::Model> = paginator
+                        //     .fetch_page(page - 1)
+                        //     .await
+                        //     .map_err(|e| ServiceError::general(&req, e.to_string(), true))?;
+                        //
+                        // let result = ManyResponse {
+                        //     data,
+                        //     count: per_page,
+                        //     total,
+                        //     page,
+                        //     page_count: number_of_pages
+                        // };
+
+                        // return Ok(HttpResponse::Ok().json(result))
+
+
+
+                        let paginator = user
+                            .find_related(Note)
                             .paginate(db, per_page);
 
                         let num_items_and_pages = paginator.num_items_and_pages().await?;
                         let number_of_pages= num_items_and_pages.number_of_pages;
                         let total= num_items_and_pages.number_of_items;
 
-                        // Fetch paginated posts
                         let page = page.max(1);
                         let data: Vec<note::Model> = paginator
                             .fetch_page(page - 1)
@@ -97,13 +115,14 @@ pub async fn get_all_notes(
 
                         let result = ManyResponse {
                             data,
-                            count: per_page,
+                            per_page: per_page,
                             total,
                             page,
                             page_count: number_of_pages
                         };
 
                         return Ok(HttpResponse::Ok().json(result))
+
                     }
                     None => {}
                 }
@@ -117,22 +136,8 @@ pub async fn get_all_notes(
     })
 }
 
-#[derive(Deserialize)]
-pub struct NotePage {
-    pub page: u64,
-    pub per_page: u64,
-}
-
 /// Struct for holding the form parameters with the new user form
 #[derive(Serialize, Deserialize)]
 pub struct DTONote {
     pub(crate) text: String,
-}
-
-#[derive( Serialize, Deserialize)]
-struct DTONoteResponse {
-    public_id: String,
-    text: String,
-    created_at: String,
-    updated_at: String,
 }
