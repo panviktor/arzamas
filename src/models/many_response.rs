@@ -8,9 +8,9 @@ pub struct ManyResponse<Model> {
     /// The total number of rows available
     pub total: u64,
     /// The current page being returned
-    pub page: u64,
+    pub current_page: u64,
     /// The number of pages available
-    pub page_count: u64,
+    pub pages_count: u64,
     /// The number of rows returned in the current page
     pub per_page: u64,
 }

@@ -89,7 +89,6 @@ impl<S> Service<ServiceRequest> for AuthCheckMiddleware<S>
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct LoginUser {
    pub(crate) id: String

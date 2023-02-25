@@ -1,10 +1,19 @@
 use actix_http::{ StatusCode };
 use actix_web::{HttpRequest, HttpResponse, web};
 use chrono::Utc;
-use sea_orm::{ActiveValue::Set, ActiveModelTrait, EntityTrait, PaginatorTrait, QueryOrder, QueryFilter, ColumnTrait, CursorTrait, ModelTrait};
+use sea_orm::{
+    ActiveValue::Set,
+    ActiveModelTrait,
+    EntityTrait,
+    PaginatorTrait,
+    QueryOrder,
+    QueryFilter,
+    ColumnTrait,
+    ModelTrait,
+    DeleteResult
+};
 use serde::{Deserialize, Serialize};
 use entity::{note, user};
-use entity::note::Model;
 use entity::prelude::Note;
 use crate::core::db::DB;
 use crate::models::ServiceError;
@@ -17,7 +26,7 @@ pub async fn create_note(
     user: LoginUser,
     params: web::Json<DTONote>
 ) -> Result<HttpResponse, ServiceError> {
-    // insert note
+
     let db = &*DB;
     let text =  params.text.to_string();
     let id = generate_unique_id();
@@ -71,34 +80,6 @@ pub async fn get_all_notes(
                         let page = info.page;
                         let per_page = info.per_page;
 
-                        // // Setup paginator
-                        // let paginator = Note::find()
-                        //     .order_by_asc(note::Column::Id)
-                        //     .paginate(db, per_page);
-                        //
-                        // let num_items_and_pages = paginator.num_items_and_pages().await?;
-                        // let number_of_pages= num_items_and_pages.number_of_pages;
-                        // let total= num_items_and_pages.number_of_items;
-                        //
-                        // // Fetch paginated posts
-                        // let page = page.max(1);
-                        // let data: Vec<note::Model> = paginator
-                        //     .fetch_page(page - 1)
-                        //     .await
-                        //     .map_err(|e| ServiceError::general(&req, e.to_string(), true))?;
-                        //
-                        // let result = ManyResponse {
-                        //     data,
-                        //     count: per_page,
-                        //     total,
-                        //     page,
-                        //     page_count: number_of_pages
-                        // };
-
-                        // return Ok(HttpResponse::Ok().json(result))
-
-
-
                         let paginator = user
                             .find_related(Note)
                             .paginate(db, per_page);
@@ -115,10 +96,10 @@ pub async fn get_all_notes(
 
                         let result = ManyResponse {
                             data,
-                            per_page: per_page,
                             total,
-                            page,
-                            page_count: number_of_pages
+                            current_page: page,
+                            pages_count: number_of_pages,
+                            per_page,
                         };
 
                         return Ok(HttpResponse::Ok().json(result))
@@ -136,8 +117,108 @@ pub async fn get_all_notes(
     })
 }
 
+pub async fn get_by_id(
+    user: LoginUser,
+    params: web::Json<FindNote>
+) -> Result<HttpResponse, ServiceError> {
+
+    let db = &*DB;
+
+    let note: Option<note::Model> = Note::find()
+        .filter(note::Column::NoteId.contains(&*params.id.to_string()))
+        .order_by_asc(note::Column::Id)
+        .one(db)
+        .await?;
+
+    if let Some(note) = note {
+       if note.user_id == user.id {
+           return Ok(HttpResponse::Ok().json(note));
+       }
+    }
+
+    Err(ServiceError {
+        code: StatusCode::NOT_FOUND,
+        path: "BD".to_string(),
+        message: "Note not found".to_string(),
+        show_message: true,
+    })
+}
+
+pub async fn delete(
+    user: LoginUser,
+    params: web::Json<FindNote>
+) -> Result<HttpResponse, ServiceError> {
+
+    let db = &*DB;
+
+    let note: Option<note::Model> = Note::find()
+        .filter(note::Column::NoteId.contains(&*params.id.to_string()))
+        .order_by_asc(note::Column::Id)
+        .one(db)
+        .await?;
+
+    if let Some(note) = note {
+        if note.user_id == user.id {
+            let res: DeleteResult = note.delete(db).await?;
+            return Ok(HttpResponse::Ok().json(res.rows_affected));
+        }
+    }
+
+    Err(ServiceError {
+        code: StatusCode::NOT_FOUND,
+        path: "BD".to_string(),
+        message: "Note not found".to_string(),
+        show_message: true,
+    })
+}
+
+pub async fn update(
+    user: LoginUser,
+    params: web::Json<CreateNote>
+) -> Result<HttpResponse, ServiceError> {
+
+    let db = &*DB;
+    let new_text = params.text.to_string();
+
+    let note: Option<note::Model> = Note::find()
+        .filter(note::Column::NoteId.contains(&*params.id.to_string()))
+        .order_by_asc(note::Column::Id)
+        .one(db)
+        .await?;
+
+    if let Some(mut note) = note {
+        if note.user_id == user.id {
+            let mut active: note::ActiveModel = note.into();
+            active.text = Set(new_text.to_owned());
+            active.updated_at = Set( Utc::now().naive_utc());
+            active.update(db).await?;
+            return Ok(HttpResponse::Ok().json("Note updated"));
+        }
+    }
+
+    Err(ServiceError {
+        code: StatusCode::NOT_FOUND,
+        path: "BD".to_string(),
+        message: "Notes not found".to_string(),
+        show_message: true,
+    })
+}
+
 /// Struct for holding the form parameters with the new user form
 #[derive(Serialize, Deserialize)]
 pub struct DTONote {
+    pub(crate) text: String,
+}
+
+/// Struct for holding the form parameters with the new user form
+#[derive(Serialize, Deserialize)]
+pub struct FindNote {
+    pub(crate) id: String,
+}
+
+/// Struct for holding the form parameters with the new user form
+#[derive(Serialize, Deserialize)]
+pub struct CreateNote {
+    pub(crate) id: String,
     pub(crate) text: String,
 }
