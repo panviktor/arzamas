@@ -10,8 +10,8 @@ mod controller;
 mod service;
 mod credentials;
 mod email;
-pub(crate) mod middleware;
-mod session;
+pub mod session;
+pub mod middleware;
 
 pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -25,14 +25,12 @@ pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
                 web::resource("/verify_email")
                     .route(web::post().to(controller::verify_email))
             )
-
             .service(
                 web::resource("/login")
                     .route(web::post().to(controller::login))
             )
     );
 }
-
 
 /// Generate a generic 32 byte token, and convert it to a hex string.
 pub fn generate_token() -> Result<String, ServerError> {

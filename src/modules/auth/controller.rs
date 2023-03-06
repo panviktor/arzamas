@@ -17,7 +17,7 @@ use crate::modules::auth::service::{
     get_user_by_username
 };
 use crate::modules::auth::email::{validate_email, verify_user_email};
-use crate::modules::auth::session::generate_session_token;
+use crate::modules::auth::session::{generate_session_token};
 
 pub async fn create_user(
     req: HttpRequest,
@@ -132,7 +132,6 @@ pub async fn create_user(
     )
 }
 
-// Accepts email verification request
 pub async fn verify_email(
     req: HttpRequest,
     params: web::Json<VerifyEmailParams>

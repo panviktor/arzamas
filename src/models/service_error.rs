@@ -1,5 +1,4 @@
 /// Module for the ServiceError struct.
-
 use actix_web::http::{StatusCode};
 use actix_web::{HttpRequest, HttpResponse, ResponseError};
 use std::fmt;
@@ -76,6 +75,17 @@ impl ServiceError {
             show_message: show,
         }
     }
+
+    /// Shortcut for creating a 429 Bad Request Error
+    pub fn too_many_requests<T: Into<String>>(req: &HttpRequest, message: T, show: bool) -> Self {
+        ServiceError {
+            code: StatusCode::TOO_MANY_REQUESTS,
+            path: req.uri().path().to_string(),
+            message: message.into(),
+            show_message: show,
+        }
+    }
+
 }
 
 #[macro_export]

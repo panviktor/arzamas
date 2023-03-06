@@ -5,3 +5,4 @@ pub mod db;
 pub mod email;
 pub mod redis;
 pub mod constants;
+pub mod middleware;

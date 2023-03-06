@@ -1,14 +1,17 @@
 pub mod controller;
 use actix_web::{guard, web};
+use crate::core::middleware::rate_limiter;
 use crate::modules::auth;
 
 pub fn init_notes_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/notes")
-            .wrap(auth::middleware::AuthCheckService)
             .guard(guard::Header("content-type", "application/json"))
+            .wrap(auth::middleware::AuthCheckService)
+            .wrap(rate_limiter::RateLimitServices { requests_count: 150 })
             .service(
                 web::resource("/create")
+                    .wrap(rate_limiter::RateLimitServices { requests_count: 15 })
                     .route(web::post().to(controller::create_note))
             )
             .service(
@@ -25,6 +28,7 @@ pub fn init_notes_routes(cfg: &mut web::ServiceConfig) {
             )
             .service(
                 web::resource("/update")
+                    .wrap(rate_limiter::RateLimitServices { requests_count: 10 })
                     .route(web::put().to(controller::update))
             )
     );
