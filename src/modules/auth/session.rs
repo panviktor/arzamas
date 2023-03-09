@@ -8,10 +8,13 @@ use serde::{Deserialize, Serialize};
 use std::option::Option;
 use actix_http::header::HeaderValue;
 use actix_web::HttpRequest;
+use sea_orm::ColIdx;
 use uuid::Uuid;
 
 use crate::core::config::APP_SETTINGS;
-use crate::core::constants;
+use crate::core::constants::core_constants;
+use crate::core::constants::emojis::EMOJIS;
+
 use crate::core::redis::REDIS_CLIENT;
 use crate::err_server;
 use crate::models::{ServerError, ServiceError};
@@ -30,29 +33,39 @@ pub struct UserToken {
     pub session_name: String,
     // login ip
     pub login_ip: String,
-    // User-Agent:
-    pub user_agent: Option<String>,
+    // User-Agent
+    pub user_agent: String,
 }
 
 fn generate_random_name() -> String {
-    "random".to_string()
+    use rand::seq::SliceRandom;
+    let mut rng = &mut rand::thread_rng();
+
+    EMOJIS
+        .choose_multiple(&mut rng, 5)
+        .cloned()
+        .collect::<String>()
+        .to_string()
 }
 
 pub fn generate_token(
     user: &str,
     login_session: &str,
+    login_ip: &str,
+    user_agent: &str,
     exp: i64,
 ) -> Result<String, ServerError> {
 
     let now = Utc::now().timestamp_nanos();
+
     let payload = UserToken {
         iat: now,
         exp,
         user_id: user.to_string(),
         session_id: login_session.to_string(),
         session_name: generate_random_name(),
-        login_ip: "user ip".to_string(),
-        user_agent: None
+        login_ip: login_ip.to_string(),
+        user_agent: user_agent.to_string(),
     };
 
     let result = jsonwebtoken::encode(
@@ -68,6 +81,8 @@ pub fn generate_token(
 pub async fn generate_session_token(
     user: &str,
     persistent: bool,
+    login_ip: &str,
+    user_agent: &str
 ) -> Result<String, ServerError> {
     let expiry = match persistent {
         false => Utc::now() + Duration::days(1),
@@ -78,6 +93,8 @@ pub async fn generate_session_token(
     let token = generate_token(
         user,
         &login_session,
+        login_ip,
+        user_agent,
         expiry.timestamp_nanos()
     );
 
@@ -97,7 +114,7 @@ pub fn decode_token(token: &str) -> jsonwebtoken::errors::Result<TokenData<UserT
 
 /// Extract the session token from ServiceRequest
 pub fn get_session_token_service_request(req: &ServiceRequest) -> Option<String> {
-    if let Some(authed_header) = req.headers().get(constants::AUTHORIZATION) {
+    if let Some(authed_header) = req.headers().get(core_constants::AUTHORIZATION) {
         extract_token(authed_header)
     } else {
         None
@@ -106,7 +123,7 @@ pub fn get_session_token_service_request(req: &ServiceRequest) -> Option<String>
 
 /// Extract the session token from ServiceRequest
 pub fn get_session_token_http_request(req: &HttpRequest) -> Option<String> {
-    if let Some(authed_header) = req.headers().get(constants::AUTHORIZATION) {
+    if let Some(authed_header) = req.headers().get(core_constants::AUTHORIZATION) {
         extract_token(authed_header)
     } else {
         None
@@ -115,7 +132,7 @@ pub fn get_session_token_http_request(req: &HttpRequest) -> Option<String> {
 
 fn extract_token(authed_header: &HeaderValue) -> Option<String> {
     if let Ok(authed_header_str) = authed_header.to_str() {
-        if authed_header_str.starts_with(constants::BEARER) {
+        if authed_header_str.starts_with(core_constants::BEARER) {
             let token = authed_header_str[6..authed_header_str.len()].trim();
             return Some(token.to_string())
         }
@@ -135,6 +152,7 @@ pub async fn validate_session(token_from_req: &str) -> Result<Option<String>, Se
             let now = Utc::now();
             let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
             if datetime > now {
+                println!("{}", decoded_data.claims.session_name);
                 return Ok(Some(user));
             }
         }
@@ -166,12 +184,22 @@ pub async fn sessions_active_count(
     let str: HashMap<String, String> = client.hgetall(user.to_string()).await?;
     let tokens = str.values().cloned().collect();
 
-    let count = valid_sessions_count(tokens).expect("TODO: panic message");
-    println!("{}", count);
+    let count = valid_sessions_count(tokens)
+        .map_err(|e| e.general(&(req)));
+    println!("Valid sessions: {}", count.unwrap_or(0));
 
     if let Some(current_token) = get_session_token_http_request(&req) {
+           let dec = decode_token(&current_token.as_str());
+        match dec {
+            Ok(token) => {
 
+                println!("{}",token.claims.user_agent);
+                println!("{}",token.claims.session_name);
+                println!("{}",token.claims.login_ip);
 
+            }
+            Err(_) => {}
+        }
     }
 
     let mut valid = 0;
@@ -212,10 +240,19 @@ pub async fn sessions_active_count(
 //     Ok(true)
 // }
 
-pub fn get_ip_addr(req: &ServiceRequest) -> Result<String, ServerError> {
+pub fn get_ip_addr(req: &HttpRequest) -> Result<String, ServerError> {
     Ok(req
         .peer_addr()
         .ok_or(err_server!("Get ip address error"))?
         .ip()
-        .to_string())
+        .to_string()
+    )
+}
+
+pub fn get_user_agent(req: &HttpRequest) -> &str {
+    return if let Some(user_agent) = req.headers().get("user-agent") {
+        user_agent.to_str().unwrap_or("Unknown")
+    } else {
+        ""
+    }
 }

@@ -10,9 +10,9 @@ use actix_web::{Error, HttpResponse};
 use chrono::{Timelike, Utc};
 use futures::future::{ok, Ready};
 
-use crate::core::constants::RATE_LIMIT_KEY_PREFIX;
+use crate::core::constants::core_constants::RATE_LIMIT_KEY_PREFIX;
 use crate::core::redis::REDIS_CLIENT;
-use crate::modules::auth::session::get_ip_addr;
+use crate::err_server;
 use crate::models::ServerError;
 
 pub struct RateLimitServices {
@@ -61,7 +61,7 @@ impl<S> Service<ServiceRequest> for RateLimitMiddleware<S>
         let requests_count = self.requests_count.clone();
 
         Box::pin(async move {
-            match  get_ip_addr(&req) {
+            match get_ip_addr(&req) {
                 Ok(address) => {
                     match validate_session(address, requests_count).await{
                         Ok(value) => {
@@ -101,4 +101,12 @@ pub async fn validate_session(ip_address: String, requests_count: u64) -> Result
     }
 
     return Ok(false)
+}
+
+fn get_ip_addr(req: &ServiceRequest) -> Result<String, ServerError> {
+    Ok(req
+        .peer_addr()
+        .ok_or(err_server!("Get ip address error"))?
+        .ip()
+        .to_string())
 }

@@ -2,8 +2,8 @@ use actix_web::{web, HttpResponse, HttpRequest};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use entity::user::{Model as User};
-use crate::core::constants;
 
+use crate::core::constants::core_constants;
 use crate::models::{ServiceError};
 use crate::modules::auth::credentials::{
     credential_validator_username_email,
@@ -17,7 +17,7 @@ use crate::modules::auth::service::{
     get_user_by_username
 };
 use crate::modules::auth::email::{validate_email, verify_user_email};
-use crate::modules::auth::session::{generate_session_token};
+use crate::modules::auth::session::{generate_session_token, get_ip_addr, get_user_agent};
 
 pub async fn create_user(
     req: HttpRequest,
@@ -184,7 +184,11 @@ pub async fn login(
             false => {
                 let token = generate_session_token(
                     &user.user_id,
-                    params.persist.unwrap_or(false)
+                    params.persist.unwrap_or(false),
+                    get_ip_addr(&req)
+                        .map_err(|s| ServiceError::general(&req, s.message, false))?
+                        .as_str(),
+                    get_user_agent(&req)
                 )
                     .await
                     .map_err(|s| ServiceError::general(&req, s.message, false))?;
@@ -192,7 +196,7 @@ pub async fn login(
 
                 let json_response = LoginResponse::TokenResponse {
                     token,
-                    token_type: constants::BEARER.to_string(),
+                    token_type: core_constants::BEARER.to_string(),
                 };
 
                 // attach a verified user identity to the active session
