@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use std::option::Option;
 use actix_http::header::HeaderValue;
 use actix_web::HttpRequest;
-use sea_orm::ColIdx;
 use uuid::Uuid;
 
 use crate::core::config::APP_SETTINGS;
@@ -152,7 +151,6 @@ pub async fn validate_session(token_from_req: &str) -> Result<Option<String>, Se
             let now = Utc::now();
             let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
             if datetime > now {
-                println!("{}", decoded_data.claims.session_name);
                 return Ok(Some(user));
             }
         }
@@ -160,65 +158,63 @@ pub async fn validate_session(token_from_req: &str) -> Result<Option<String>, Se
     Ok(None)
 }
 
-fn valid_sessions_count(tokens: Vec<String>) -> Result<i32, ServerError> {
+fn valid_sessions(
+    tokens: Vec<String>
+) -> Result<Vec<UserToken>, ServerError> {
     let now = Utc::now();
-    let mut valid_token_count = 0;
+    let mut valid_tokens: Vec<UserToken> = vec![];
 
     for token in tokens.iter() {
         if let Ok(decoded_data) = decode_token(token) {
             let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
             if datetime > now {
-                valid_token_count += 1
+                let token =  decoded_data.claims;
+                valid_tokens.push(token)
             }
         }
     }
-
-    Ok(valid_token_count)
+    Ok(valid_tokens)
 }
 
-pub async fn sessions_active_count(
+pub async fn active_sessions(
     req: &HttpRequest,
     user: &str
-) -> Result<HashMap<String, String>, ServiceError> {
+) -> Result<Vec<UserToken>, ServiceError> {
     let mut client = REDIS_CLIENT.get_async_connection().await?;
-    let str: HashMap<String, String> = client.hgetall(user.to_string()).await?;
-    let tokens = str.values().cloned().collect();
+    let tokens: HashMap<String, String> = client.hgetall(user.to_string()).await?;
+    let tokens = tokens.values().cloned().collect();
 
-    let count = valid_sessions_count(tokens)
-        .map_err(|e| e.general(&(req)));
-    println!("Valid sessions: {}", count.unwrap_or(0));
+    valid_sessions(tokens)
+        .map_err(|e| e.general(&(req)))
+}
 
-    if let Some(current_token) = get_session_token_http_request(&req) {
-           let dec = decode_token(&current_token.as_str());
-        match dec {
-            Ok(token) => {
+pub async fn current_active_session(
+    req: &HttpRequest,
+) -> Result<UserToken, ServiceError> {
+    if let Some(token) = get_session_token_http_request(req) {
+        if let Ok(decoded_data) = decode_token(&token) {
+            let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
+            let now = Utc::now();
 
-                println!("{}",token.claims.user_agent);
-                println!("{}",token.claims.session_name);
-                println!("{}",token.claims.login_ip);
+            if datetime > now {
+                let mut con = REDIS_CLIENT.get_async_connection().await?;
+                let user = decoded_data.claims.user_id.to_string();
+                let session_id = decoded_data.claims.session_id.to_string();
+                let token_from_redis: String = con.hget(user.to_owned(), session_id).await?;
 
+                if token_from_redis == token {
+                    return Ok((decoded_data.claims));
+                }
             }
-            Err(_) => {}
         }
     }
-
-    let mut valid = 0;
-    let mut invalid = 0;
-
-
-
-
-
-
-
-
-
-    // if let Some(token) =  get_session_token_http_request() {
-    //
-    //
-    // }
-
-    Ok(str)
+    Err(
+        ServiceError::not_found(
+            &req,
+            "Error get session token http request".to_string(),
+            false
+        )
+    )
 }
 
 //
