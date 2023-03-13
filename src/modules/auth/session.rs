@@ -152,17 +152,21 @@ pub async fn validate_session(token_from_req: &str) -> Result<Option<String>, Se
             let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
             if datetime > now {
                 return Ok(Some(user));
+            } else {
+                let token =  decoded_data.claims;
+                let _: () = con.hdel(&token.user_id, token.session_id).await?;
             }
         }
     }
     Ok(None)
 }
 
-fn valid_sessions(
+async fn valid_sessions(
     tokens: Vec<String>
 ) -> Result<Vec<UserToken>, ServerError> {
     let now = Utc::now();
     let mut valid_tokens: Vec<UserToken> = vec![];
+    let mut con = REDIS_CLIENT.get_async_connection().await?;
 
     for token in tokens.iter() {
         if let Ok(decoded_data) = decode_token(token) {
@@ -170,6 +174,9 @@ fn valid_sessions(
             if datetime > now {
                 let token =  decoded_data.claims;
                 valid_tokens.push(token)
+            } else {
+                let token =  decoded_data.claims;
+                let _: () = con.hdel(&token.user_id, token.session_id).await?;
             }
         }
     }
@@ -185,6 +192,7 @@ pub async fn active_sessions(
     let tokens = tokens.values().cloned().collect();
 
     valid_sessions(tokens)
+        .await
         .map_err(|e| e.general(&(req)))
 }
 
@@ -203,7 +211,7 @@ pub async fn current_active_session(
                 let token_from_redis: String = con.hget(user.to_owned(), session_id).await?;
 
                 if token_from_redis == token {
-                    return Ok((decoded_data.claims));
+                    return Ok(decoded_data.claims);
                 }
             }
         }
@@ -217,24 +225,32 @@ pub async fn current_active_session(
     )
 }
 
-//
-// pub async fn remove_session_token(
-//     user: &str
-// ) -> Result<Bool, ServerError> {
-//     let mut client = REDIS_CLIENT.get_async_connection().await?;
-//     // client.hdel(user.to_string(), &login_session, &token_to_redis).await?;
-//
-//     Ok(true)
-// }
-//
-// pub async fn remove_all_sessions_token(
-//     user: &str
-// ) -> Result<Bool, ServerError> {
-//     let mut client = REDIS_CLIENT.get_async_connection().await?;
-//     // client.hdel(user.to_string(), &login_session, &token_to_redis).await?;
-//
-//     Ok(true)
-// }
+pub async fn remove_all_sessions_token(user: &str) -> Result<bool, ServiceError> {
+    let mut con = REDIS_CLIENT.get_async_connection().await?;
+    con.del(user.to_string()).await?;
+    Ok(true)
+}
+
+pub async fn remove_active_session_token(
+    req: &HttpRequest,
+) -> Result<bool, ServiceError> {
+    if let Some(token) = get_session_token_http_request(req) {
+        if let Ok(decoded_data) = decode_token(&token) {
+            let mut con = REDIS_CLIENT.get_async_connection().await?;
+            let user = decoded_data.claims.user_id.to_string();
+            let session_id = decoded_data.claims.session_id.to_string();
+            con.hdel(user, session_id).await?;
+            return Ok(true)
+        }
+    }
+    Err(
+        ServiceError::not_found(
+            &req,
+            "Error logout from current session".to_string(),
+            true
+        )
+    )
+}
 
 pub fn get_ip_addr(req: &HttpRequest) -> Result<String, ServerError> {
     Ok(req
@@ -251,4 +267,22 @@ pub fn get_user_agent(req: &HttpRequest) -> &str {
     } else {
         ""
     }
+}
+
+//System func for administration bd
+pub async fn delete_all_expired_user_tokens(user: &str)-> Result<bool, ServiceError> {
+    let now = Utc::now();
+    let mut con = REDIS_CLIENT.get_async_connection().await?;
+    let tokens: HashMap<String, String> = con.hgetall(user.to_string()).await?;
+    let tokens: Vec<String> = tokens.values().cloned().collect();
+    for token in tokens.iter() {
+        if let Ok(decoded_data) = decode_token(token) {
+            let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
+            if datetime < now {
+                let token =  decoded_data.claims;
+                let _: () = con.hdel(&token.user_id, token.session_id).await?;
+            }
+        }
+    }
+    Ok(true)
 }

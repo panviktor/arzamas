@@ -186,7 +186,7 @@ pub async fn update(
         .one(db)
         .await?;
 
-    if let Some(mut note) = note {
+    if let Some(note) = note {
         if note.user_id == user.id {
             let mut active: note::ActiveModel = note.into();
             active.text = Set(new_text.to_owned());

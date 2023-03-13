@@ -1,34 +1,25 @@
 use actix_web::{HttpRequest, HttpResponse};
 use crate::models::ServiceError;
 use crate::modules::auth::middleware::LoginUser;
-use crate::modules::auth::session::{active_sessions, current_active_session};
+use crate::modules::auth::session::{
+    active_sessions,
+    current_active_session,
+    remove_active_session_token,
+    remove_all_sessions_token
+};
 
 pub async fn logout(
     req: HttpRequest,
-    user: LoginUser,
 ) -> Result<HttpResponse, ServiceError> {
-
-
-
-    // if let Some(current_token) = get_session_token_http_request(&req) {
-
-
-    Ok(HttpResponse::Ok().json("str"))
-    // }
-
-    // Err(ServiceError::unauthorized(
-    //     &req,
-    //     "Invalid logout.",
-    //     true,
-    // ))
+    remove_active_session_token(&req).await?;
+    Ok(HttpResponse::Ok().json("logout from current session"))
 }
 
 pub async fn logout_all(
-    req: HttpRequest,
     user: LoginUser,
 ) -> Result<HttpResponse, ServiceError> {
-
-    Ok(HttpResponse::Ok().json("str"))
+    remove_all_sessions_token(&user.id).await?;
+    Ok(HttpResponse::Ok().json("logout from all sessions"))
 }
 
 pub async fn current_session(

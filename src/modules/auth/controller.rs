@@ -148,7 +148,6 @@ pub async fn login(
     params: web::Json<LoginParams>
 ) -> Result<HttpResponse, ServiceError> {
     // Check the username is valid
-
     if validate_username_rules(&params.identifier).is_err()
         && validate_email_rules(&params.identifier).is_err()
     {
