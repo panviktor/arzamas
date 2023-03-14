@@ -1,6 +1,6 @@
 use crate::modules::auth::service::get_user_by_email;
 use crate::modules::auth::service::get_user_by_username;
-use entity::user::{Model as User,};
+use entity::user::{Model as User};
 use crate::models::ServerError;
 use argon2::{hash_encoded, verify_encoded, Config};
 use lazy_static::lazy_static;

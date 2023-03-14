@@ -1,7 +1,7 @@
 use actix_web::{guard, web};
 use crate::modules::auth::middleware;
-
-pub mod controller;
+mod controller;
+mod service;
 
 pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -29,5 +29,17 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
                 web::resource("/all-sessions")
                     .route(web::get().to(controller::all_sessions))
             )
+
+            // Reset password block
+            .service(
+                web::resource("/change-password")
+                    .route(web::post().to(controller::change_password))
+            )
+
+            .service(
+                web::resource("/change-email")
+                    .route(web::post().to(controller::change_email))
+            )
+
     );
 }

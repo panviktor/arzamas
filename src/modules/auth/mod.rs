@@ -7,9 +7,10 @@ use crate::err_server;
 use crate::models::ServerError;
 
 mod controller;
-mod service;
-mod credentials;
-mod email;
+
+pub mod service;
+pub mod email;
+pub mod credentials;
 pub mod session;
 pub mod middleware;
 

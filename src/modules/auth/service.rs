@@ -51,7 +51,29 @@ pub async fn get_user_by_email(email: &str) -> Result<Option<User>, ServerError>
             None => { Ok(None) }
         }
     }
-    Err(err_server!("Problem querying database for user: cant unwrap ORM"))
+    Err(err_server!("Problem querying database for user: can't unwrap ORM"))
+}
+
+/// Get a single user from the DB, searching by username
+pub async fn get_user_by_id(id: &str) -> Result<Option<User>, ServerError> {
+
+    let db = &*DB;
+    let to_find =  id.to_string();
+    let user = entity::prelude::User::find()
+        .filter(user::Column::UserId.eq(&*to_find))
+        .one(db)
+        .await
+        .map_err(|e| err_server!("Problem querying database for user {}: {}", id, e));
+
+    if let Ok(user) = user {
+        return match user {
+            Some(user) => {
+                Ok(Option::from(user))
+            }
+            None => { Ok(None) }
+        }
+    }
+    Err(err_server!("Problem querying database for user: can't unwrap ORM"))
 }
 
 pub async fn create_user_and_try_save(

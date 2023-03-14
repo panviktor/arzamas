@@ -1,4 +1,4 @@
-use actix_web::{HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, web};
 use crate::models::ServiceError;
 use crate::modules::auth::middleware::LoginUser;
 use crate::modules::auth::session::{
@@ -7,6 +7,8 @@ use crate::modules::auth::session::{
     remove_active_session_token,
     remove_all_sessions_token
 };
+
+use crate::modules::user::service::{ChangePasswordParams, try_change_email, try_change_password};
 
 pub async fn logout(
     req: HttpRequest,
@@ -35,4 +37,22 @@ pub async fn all_sessions(
 ) -> Result<HttpResponse, ServiceError> {
     let sessions = active_sessions(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(sessions))
+}
+
+pub async fn change_password(
+    req: HttpRequest,
+    user: LoginUser,
+    params: web::Json<ChangePasswordParams>
+) -> Result<HttpResponse, ServiceError> {
+    try_change_password(&req, &user.id, params.0).await?;
+    Ok(HttpResponse::Ok().json("Password Changed Successfully."))
+}
+
+pub async fn change_email(
+    req: HttpRequest,
+    user: LoginUser,
+    params: web::Json<ChangePasswordParams>
+) -> Result<HttpResponse, ServiceError> {
+    try_change_email(&req, &user.id, params.0).await?;
+    Ok(HttpResponse::Ok().json("change-email"))
 }
