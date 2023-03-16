@@ -111,7 +111,7 @@ pub async fn create_user(
     let saved_user = saved_user.expect("Error unwrap saved user");
 
     // Send a validation email
-    validate_email(&saved_user.user_id, &saved_user.email)
+    validate_email(&saved_user.user_id, &saved_user.email, false)
         .await
         .map_err(|s| s.general(&req))?;
 

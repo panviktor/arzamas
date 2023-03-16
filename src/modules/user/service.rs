@@ -1,4 +1,5 @@
 use actix_web::HttpRequest;
+use chrono::Utc;
 use sea_orm::ActiveModelTrait;
 use sea_orm::ActiveValue::Set;
 use serde_derive::{Deserialize, Serialize};
@@ -9,24 +10,88 @@ use crate::models::ServiceError;
 use crate::modules::auth::credentials::{
     credential_validator,
     generate_password_hash,
+    validate_email_rules,
     validate_password_rules
 };
-use crate::modules::auth::service::get_user_by_id;
+use crate::modules::auth::email::validate_email;
+use crate::modules::auth::service::{
+    get_user_by_email,
+    get_user_by_id
+};
 
 /// Form parameters for changing a user's email.
 #[derive(Serialize, Deserialize)]
 pub struct ChangeEmailParams {
     current_password: String,
     new_email: String,
-    csrf: String,
+    new_email_confirm: String,
 }
 
 pub async fn try_change_email(
     req: &HttpRequest,
-    user: &str,
-    params: ChangePasswordParams
+    user_id: &str,
+    params: ChangeEmailParams
 ) -> Result<(), ServiceError> {
+    if &params.new_email != &params.new_email_confirm {
+        return Err(ServiceError::bad_request(
+            &req,
+            format!("Re-enter new email and confirm email.",),
+            true,
+        ));
+    }
 
+    // Check the email is valid
+    if let Err(e) = validate_email_rules(
+        &params.new_email
+    ) {
+        return Err(ServiceError::bad_request(
+            &req,
+            format!("New email: {}", e),
+            true,
+        ));
+    }
+
+    if let Some(user) = get_user_by_id(user_id)
+        .await
+        .map_err(|s| s.general(&req))? {
+
+        if !credential_validator(&user, &params.current_password)
+            .map_err(|e| e.general(&req))? {
+            return Err(ServiceError::bad_request(
+                &req,
+                "Invalid current password",
+                true,
+            ));
+        }
+
+        if let Some(email_user) = get_user_by_email(&params.new_email)
+            .await
+            .map_err(|s| s.general(&req))? {
+            println!("user with email find");
+            if email_user.id != user.id  {
+                println!("this email from different user");
+            } else {
+                println!("Old email address and new email address are equal.");
+                // Send to old email alert
+            }
+        } else {
+            // Send a validation email
+            validate_email(&user.user_id, &params.new_email, true)
+                .await
+                .map_err(|s| s.general(&req))?;
+
+            let db = &*DB;
+            let mut active: user::ActiveModel = user.into();
+            active.email = Set(params.new_email.to_owned());
+            active.updated_at = Set(Utc::now().naive_utc());
+            active.email_validated = Set(false);
+            active.update(db).await?;
+
+            // Add optional invalidate all user session
+            // based on user preferences
+            // Send to new email confirmation to validation
+        }
+    }
     Ok(())
 }
 
@@ -72,10 +137,22 @@ pub async fn try_change_password(
             .map_err(|s| s.general(&req))?;
         let mut active: user::ActiveModel = user.into();
         active.pass_hash = Set(hash.to_owned());
+        active.updated_at = Set(Utc::now().naive_utc());
         active.update(db).await?;
 
-        /// Add optional invalidate all user session
-        /// based on user preferences
+        // Add optional invalidate all user session
+        // based on user preferences
+        // Send to email alert
     }
+    Ok(())
+}
+
+pub async fn try_resend_verify_email(
+    req: &HttpRequest,
+    user_id: &str,
+) -> Result<(), ServiceError> {
+
+    // if user.email != valid => send new validation email
+
     Ok(())
 }

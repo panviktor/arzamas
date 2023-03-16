@@ -8,7 +8,13 @@ use crate::modules::auth::session::{
     remove_all_sessions_token
 };
 
-use crate::modules::user::service::{ChangePasswordParams, try_change_email, try_change_password};
+use crate::modules::user::service::{
+    ChangeEmailParams,
+    ChangePasswordParams,
+    try_change_email,
+    try_change_password,
+    try_resend_verify_email
+};
 
 pub async fn logout(
     req: HttpRequest,
@@ -51,8 +57,16 @@ pub async fn change_password(
 pub async fn change_email(
     req: HttpRequest,
     user: LoginUser,
-    params: web::Json<ChangePasswordParams>
+    params: web::Json<ChangeEmailParams>
 ) -> Result<HttpResponse, ServiceError> {
     try_change_email(&req, &user.id, params.0).await?;
-    Ok(HttpResponse::Ok().json("change-email"))
+    Ok(HttpResponse::Ok().json("Email Changed Successfully."))
+}
+
+pub async fn resend_verify_email(
+    req: HttpRequest,
+    user: LoginUser,
+) -> Result<HttpResponse, ServiceError> {
+    try_resend_verify_email(&req, &user.id).await?;
+    Ok(HttpResponse::Ok().json("Email Verify Resend Successfully"))
 }

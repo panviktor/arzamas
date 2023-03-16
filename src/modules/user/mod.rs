@@ -41,5 +41,10 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::post().to(controller::change_email))
             )
 
+            .service(
+                web::resource("/resend-verify-email")
+                    .route(web::post().to(controller::resend_verify_email))
+            )
+
     );
 }

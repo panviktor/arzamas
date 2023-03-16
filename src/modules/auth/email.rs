@@ -119,12 +119,17 @@ lazy_static! {
 // }
 
 /// Generate an email token and then send a verification email.
-pub async fn validate_email(user_id: &str, email: &str) -> Result<(), ServerError> {
+pub async fn validate_email(
+    user_id: &str,
+    email: &str,
+    user_exists: bool
+) -> Result<(), ServerError> {
     let mut insert_error: Option<ServerError> = None;
     let mut email_token = "".to_string();
+
     for i in 0..10 {
         email_token = super::generate_email_verification_code()?;
-        match add_email_token(user_id, email, &email_token, Utc::now() + Duration::days(1)).await {
+        match add_email_token(user_id, email, &email_token, Utc::now() + Duration::days(1), user_exists).await {
             Ok(_) => {
                 insert_error = None;
                 break;

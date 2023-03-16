@@ -12,20 +12,38 @@ pub async fn add_email_token(
     email: &str,
     token: &str,
     expiry: DateTime<Utc>,
+    user_exists: bool
 ) -> Result<(), ServerError> {
     let db = &*DB;
     // Uniqueness is taken care of by an index in the DB
-    let confirmation = user_confirmation::ActiveModel {
-        user_id: Set(user_id.to_string()),
-        email: Set(email.to_string()),
-        otp_hash: Set(token.to_string()),
-        expiry: Set( expiry.naive_utc() ),
-        ..Default::default()
-    };
+    if !user_exists {
+        let confirmation = user_confirmation::ActiveModel {
+            user_id: Set(user_id.to_string()),
+            email: Set(email.to_string()),
+            otp_hash: Set(token.to_string()),
+            expiry: Set( expiry.naive_utc() ),
+            ..Default::default()
+        };
 
-    let _ = confirmation.insert(db)
-        .await
-        .map_err(|e| err_server!("Problem adding email token {}:{}", user_id, e))?;
+        let _ = confirmation.insert(db)
+            .await
+            .map_err(|e| err_server!("Problem adding email token {}:{}", user_id, e))?;
+    } else {
+        if let Some(user) = user_confirmation::Entity::find()
+            .filter(user_confirmation::Column::UserId.contains(user_id))
+            .one(db)
+            .await
+            .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))? {
+
+            let mut active: user_confirmation::ActiveModel = user.into();
+            active.email = Set(email.to_string());
+            active.otp_hash = Set(token.to_string());
+            active.expiry = Set( expiry.naive_utc());
+            active.update(db)
+                .await
+                .map_err(|e| err_server!("Problem updating active_user {}:{}", user_id, e))?;
+        }
+    }
     Ok(())
 }
 
