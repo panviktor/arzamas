@@ -11,10 +11,19 @@ use crate::modules::auth::session::{
 use crate::modules::user::service::{
     ChangeEmailParams,
     ChangePasswordParams,
+    try_about_me,
     try_change_email,
     try_change_password,
     try_resend_verify_email
 };
+
+pub async fn about_me(
+    req: HttpRequest,
+    user: LoginUser,
+) -> Result<HttpResponse, ServiceError> {
+    let info = try_about_me(&req, &user.id).await?;
+    Ok(HttpResponse::Ok().json(info))
+}
 
 pub async fn logout(
     req: HttpRequest,

@@ -11,13 +11,16 @@ use crate::modules::auth::credentials::{
     validate_email_rules,
     validate_password_rules,
     validate_username_rules};
-use crate::modules::auth::service::{
-    create_user_and_try_save,
-    get_user_by_email,
-    get_user_by_username
+use crate::modules::auth::service::{create_user_and_try_save, ForgotPasswordParams, get_user_by_email, get_user_by_username, ResetPasswordParams, try_reset_password, try_send_restore_email};
+use crate::modules::auth::email::{
+    validate_email,
+    verify_user_email
 };
-use crate::modules::auth::email::{validate_email, verify_user_email};
-use crate::modules::auth::session::{generate_session_token, get_ip_addr, get_user_agent};
+use crate::modules::auth::session::{
+    generate_session_token,
+    get_ip_addr,
+    get_user_agent}
+;
 
 pub async fn create_user(
     req: HttpRequest,
@@ -211,6 +214,22 @@ pub async fn login(
             ))
         }
     }
+}
+
+pub async fn forgot_password(
+    req: HttpRequest,
+    params: web::Json<ForgotPasswordParams>
+) -> Result<HttpResponse, ServiceError> {
+    try_send_restore_email(&req, params.0).await?;
+    Ok(HttpResponse::Ok().json("A password reset request has been sent."))
+}
+
+pub async fn password_reset(
+    req: HttpRequest,
+    params: web::Json<ResetPasswordParams>
+) -> Result<HttpResponse, ServiceError> {
+    try_reset_password(&req, params.0).await?;
+    Ok(HttpResponse::Ok().json("Password successfully reset."))
 }
 
 /// Struct for holding the form parameters with the new user form

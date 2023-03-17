@@ -1,14 +1,27 @@
 use actix_web::http::StatusCode;
 use actix_web::HttpRequest;
 use chrono::Utc;
-use sea_orm::{ActiveModelTrait, EntityTrait, QueryFilter, ColumnTrait, NotSet, Set };
+use sea_orm::{
+    ActiveModelTrait,
+    EntityTrait,
+    QueryFilter,
+    ColumnTrait,
+    NotSet,
+    Set
+};
+use serde_derive::{Deserialize, Serialize};
 use entity::user::Model as User;
 use entity::user;
 use crate::{err_server, };
 use crate::core::db::DB;
 use crate::models::{ServerError, ServiceError};
 use crate::modules::auth::controller::NewUserParams;
-use crate::modules::auth::credentials::generate_password_hash;
+use crate::modules::auth::credentials::{
+    generate_password_hash,
+    validate_email_rules,
+    validate_username_rules
+};
+use crate::modules::auth::email::send_password_reset_email;
 
 /// Get a single user from the DB, searching by username
 pub async fn get_user_by_username(username: &str) -> Result<Option<User>, ServerError> {
@@ -110,4 +123,57 @@ pub async fn create_user_and_try_save(
             })
         }
     }
+}
+
+pub async fn try_send_restore_email(
+    req: &HttpRequest,
+    params: ForgotPasswordParams
+) -> Result<(), ServiceError> {
+    if let Err(e) = validate_username_rules(&params.username) {
+        return Err(e.bad_request(&req));
+    }
+    // Check the password is valid
+    if let Err(e) = validate_email_rules(&params.email) {
+        return Err(e.bad_request(&req));
+    }
+
+    match get_user_by_username(&params.username)
+        .await
+        .map_err(|s| s.general(&req))?
+    {
+        Some(user) => {
+            if user.email == params.email {
+                send_password_reset_email(&user.user_id, &user.email)
+                    .await
+                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
+            }
+        }
+        None => {}
+    };
+
+    Ok(())
+}
+
+pub async fn try_reset_password(
+    req: &HttpRequest,
+    params: ResetPasswordParams
+) -> Result<(), ServiceError> {
+
+    Ok(())
+}
+
+/// Form params for the forgot password form
+#[derive(Serialize, Deserialize)]
+pub struct ForgotPasswordParams {
+    username: String,
+    email: String,
+}
+
+/// Parameters for the reset password form
+#[derive(Serialize, Deserialize)]
+pub struct ResetPasswordParams {
+    user_id: String,
+    token: String,
+    password: String,
+    password_confirm: String,
 }

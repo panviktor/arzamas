@@ -30,6 +30,16 @@ pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
                 web::resource("/login")
                     .route(web::post().to(controller::login))
             )
+
+            .service(
+                web::resource("/forgot-password")
+                    .route(web::post().to(controller::forgot_password))
+            )
+
+            .service(
+                web::resource("/password-reset")
+                    .route(web::post().to(controller::password_reset))
+            )
     );
 }
 

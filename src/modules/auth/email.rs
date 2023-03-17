@@ -2,7 +2,7 @@ use chrono::{Duration, Utc};
 use lazy_static::lazy_static;
 use crate::core::config::{get_config,};
 use crate::models::ServerError;
-use crate::core::email::{add_email_token, find_email_verify_token, verify_email_by};
+use crate::core::email::{add_email_token, add_password_reset_token, find_email_verify_token, verify_email_by};
 use crate::err_server;
 
 use lettre::{
@@ -29,13 +29,13 @@ lazy_static! {
 }
 
 /// Send a verification email to the supplied email.
- pub async fn send_verification_email(to_email: &str, token: &str) -> Result<(), ServerError> {
+pub async fn send_verification_email(to_email: &str, token: &str) -> Result<(), ServerError> {
 
     let config = get_config().expect("Failed to read configuration.");
     let from = config.email_settings.email_from;
 
     let text = format!(
-            "This email was used to register for the Arzamas App.\n\
+        "This email was used to register for the Arzamas App.\n\
              To verify your email copy your token to app! \n\
              Token: {}\n\
              This token will expire in 24 hours.",  token
@@ -44,7 +44,7 @@ lazy_static! {
     let email = LettreMessage::builder()
         .from(format!("Sender <{}>", from).parse().unwrap())
         .to(format!("Receiver <{}>", to_email)
-        .parse().unwrap())
+            .parse().unwrap())
         .subject("Authentication: Email Verification.")
         .singlepart(
             SinglePart::builder()
@@ -66,57 +66,70 @@ lazy_static! {
     }
 }
 
-// Send a password reset email.
-// pub async fn send_password_reset_email(user_id: &str, email: &str) -> Result<(), ServerError> {
-    // let mut password_reset_token = "".to_string();
-    // let mut error: Option<ServerError> = None;
-    // for i in 0..10 {
-    //     password_reset_token = super::generate_token()?;
-    //     match add_password_reset_token(
-    //         user_id,
-    //         &password_reset_token,
-    //         Utc::now() + Duration::days(1),
-    //     )
-    //         .await
-    //     {
-    //         Ok(_) => {
-    //             error = None;
-    //             break;
-    //         }
-    //         Err(e) => {
-    //             log::warn!(
-    //                 "Problem creating password reset token for user {} (attempt {}/10): {}",
-    //                 user_id,
-    //                 i + 1,
-    //                 e
-    //             );
-    //             error = Some(e);
-    //         }
-    //     }
-    // }
-    // if let Some(e) = error {
-    //     return Err(err_server!("Error generating password reset token: {}", e));
-    // }
-    // let email = EmailBuilder::new()
-    //     .to(email)
-    //     .from(config::EMAIL_FROM.as_str())
-    //     .subject("Rust Authentication Example: Password Reset")
-    //     .text(format!("The account associated with this email has had a password reset request. Click this link to reset the password: {}password-reset?token={}\nThis link will expire in 24 hours.", config::DOMAIN.as_str(), password_reset_token))
-    //     .build()
-    //     .unwrap();
-    //
-    // let result = MAILER
-    //     .lock()
-    //     .map_err(|e| err_server!("Error unlocking mailer: {}", e))?
-    //     .send(email.into());
-    //
-    // if result.is_ok() {
-    //     log::debug!("Email sent");
-    // } else {
-    //     log::warn!("Could not send email: {:?}", result);
-    // }
-//     Ok(())
-// }
+pub async fn send_password_reset_email(user_id: &str, to_email: &str) -> Result<(), ServerError> {
+    let mut password_reset_token = "".to_string();
+    let mut error: Option<ServerError> = None;
+
+    let config = get_config().expect("Failed to read configuration.");
+    let from = config.email_settings.email_from;
+
+    for i in 0..10 {
+        password_reset_token = super::generate_token()?;
+        match add_password_reset_token(
+            user_id,
+            &password_reset_token,
+            Utc::now() + Duration::days(1),
+        ).await {
+            Ok(_) => {
+                error = None;
+                break;
+            }
+            Err(e) => {
+                log::warn!(
+                    "Problem creating password reset token for user {} (attempt {}/10): {}",
+                    user_id,
+                    i + 1,
+                    e
+                );
+                error = Some(e);
+            }
+        }
+    }
+
+    if let Some(e) = error {
+        return Err(err_server!("Error generating password reset token: {}", e));
+    }
+
+    let text = format!(
+        "The account associated with this email has had a password reset request\n\
+             To reset your password copy your token to app! \n\
+             Token: {}\n\
+             This token will expire in 24 hours.",  password_reset_token
+    );
+
+    let email = LettreMessage::builder()
+        .from(format!("Sender <{}>", from).parse().unwrap())
+        .to(format!("Receiver <{}>", to_email).parse().unwrap())
+        .subject("Arzamas authentication: Reset password.")
+        .singlepart(
+            SinglePart::builder()
+                .header(header::ContentType::TEXT_PLAIN)
+                .body(text),
+        )
+        .unwrap();
+
+    // Open a remote connection to gmail
+    let mailer = &MAILER;
+
+    // Send the email
+    match mailer.send(email).await {
+        Ok(_) => {
+            tracing::debug!("Email sent successfully!");
+            Ok(())
+        }
+        Err(e) => Err(err_server!("Error unlocking mailer: {}", e))
+    }
+}
 
 /// Generate an email token and then send a verification email.
 pub async fn validate_email(

@@ -9,6 +9,11 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
             .guard(guard::Header("content-type", "application/json"))
             .wrap(middleware::AuthCheckService)
 
+            .service(
+                web::resource("/about-me")
+                    .route(web::get().to(controller::about_me))
+            )
+
             // Sessions block
             .service(
                 web::resource("/logout")

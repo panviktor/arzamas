@@ -27,6 +27,36 @@ pub struct ChangeEmailParams {
     new_email_confirm: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct AboutMeInformation {
+    name: String,
+    email: String,
+    email_validated: bool,
+}
+
+pub async fn try_about_me(
+    req: &HttpRequest,
+    user_id: &str,
+)  -> Result<AboutMeInformation, ServiceError> {
+
+    if let Some(user) = get_user_by_id(user_id)
+        .await
+        .map_err(|s| s.general(&req))? {
+
+        return Ok(AboutMeInformation {
+            name: user.username,
+            email: user.email,
+            email_validated: user.email_validated
+        })
+    }
+
+    return Err(ServiceError::bad_request(
+        &req,
+        format!("User not found."),
+        true,
+    ));
+}
+
 pub async fn try_change_email(
     req: &HttpRequest,
     user_id: &str,
@@ -152,7 +182,26 @@ pub async fn try_resend_verify_email(
     user_id: &str,
 ) -> Result<(), ServiceError> {
 
-    // if user.email != valid => send new validation email
+    if let Some(user) = get_user_by_id(user_id)
+        .await
+        .map_err(|s| s.general(&req))? {
+        return if user.email_validated {
+            Err(ServiceError::bad_request(
+                &req,
+                format!("Email already activated."),
+                true,
+            ))
+        } else {
+            validate_email(&user.user_id, &user.email, true)
+                .await
+                .map_err(|s| s.general(&req))?;
+            Ok(())
+        }
+    }
 
-    Ok(())
+    return Err(ServiceError::bad_request(
+        &req,
+        format!("User not found."),
+        true,
+    ));
 }
