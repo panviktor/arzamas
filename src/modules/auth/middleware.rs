@@ -1,10 +1,19 @@
 /// Module that contains all the auth middleware.
-use crate::modules::auth::session::{get_session_token_service_request, validate_session};
+use crate::modules::auth::session::{
+    get_session_token_service_request,
+    validate_session
+};
 
 use actix_http::body::BoxBody;
 use actix_service::{Service, Transform};
-use actix_web::dev::{ServiceRequest, ServiceResponse};
-use actix_web::{dev, Error, FromRequest, HttpRequest, HttpResponse,};
+use actix_web::{
+    dev,
+    Error,
+    FromRequest,
+    HttpRequest,
+    HttpResponse,
+    dev::{ServiceRequest, ServiceResponse}
+};
 use futures::future::{err, ok, Ready};
 use futures::Future;
 use std::cell::RefCell;

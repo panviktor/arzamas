@@ -6,7 +6,6 @@ pub fn init_general_handlers_routes(cfg: &mut web::ServiceConfig) {
     cfg
         .service(
             web::resource("/ping")
-                .guard(actix_web::guard::Get())
                 .route(web::get().to(controller::ping))
         )
     ;

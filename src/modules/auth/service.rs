@@ -150,7 +150,6 @@ pub async fn try_send_restore_email(
         }
         None => {}
     };
-
     Ok(())
 }
 

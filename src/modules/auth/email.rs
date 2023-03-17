@@ -1,14 +1,22 @@
 use chrono::{Duration, Utc};
 use lazy_static::lazy_static;
-use crate::core::config::{get_config,};
+use crate::core::config::{get_config};
 use crate::models::ServerError;
-use crate::core::email::{add_email_token, add_password_reset_token, find_email_verify_token, verify_email_by};
+use crate::core::email::{
+    add_email_token,
+    add_password_reset_token,
+    find_email_verify_token,
+    verify_email_by
+};
 use crate::err_server;
 
 use lettre::{
     message::{header, SinglePart},
     transport::smtp::authentication::Credentials,
-    AsyncSmtpTransport, AsyncTransport, Message as LettreMessage, Tokio1Executor,
+    AsyncSmtpTransport,
+    AsyncTransport,
+    Message as LettreMessage,
+    Tokio1Executor,
 };
 use secrecy::ExposeSecret;
 
@@ -53,10 +61,10 @@ pub async fn send_verification_email(to_email: &str, token: &str) -> Result<(), 
         )
         .unwrap();
 
-// Open a remote connection to gmail
+    // Open a remote connection to gmail
     let mailer = &MAILER;
 
-// Send the email
+    // Send the email
     match mailer.send(email).await {
         Ok(_) => {
             tracing::debug!("Email sent successfully!");

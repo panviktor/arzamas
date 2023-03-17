@@ -19,6 +19,14 @@ use crate::modules::auth::service::{
     get_user_by_id
 };
 
+/// Struct for holding the form parameters with the new user form
+#[derive(Serialize, Deserialize)]
+pub struct ChangePasswordParams {
+    current_password: String,
+    new_password: String,
+    new_password_confirm: String,
+}
+
 /// Form parameters for changing a user's email.
 #[derive(Serialize, Deserialize)]
 pub struct ChangeEmailParams {
@@ -123,14 +131,6 @@ pub async fn try_change_email(
         }
     }
     Ok(())
-}
-
-/// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize)]
-pub struct ChangePasswordParams {
-    current_password: String,
-    new_password: String,
-    new_password_confirm: String,
 }
 
 pub async fn try_change_password(

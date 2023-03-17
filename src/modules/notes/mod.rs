@@ -1,4 +1,6 @@
 pub mod controller;
+mod service;
+
 use actix_web::{guard, web};
 use crate::core::middleware::rate_limiter;
 use crate::modules::auth;

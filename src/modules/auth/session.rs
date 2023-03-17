@@ -183,7 +183,7 @@ async fn valid_sessions(
     Ok(valid_tokens)
 }
 
-pub async fn active_sessions(
+pub async fn try_active_sessions(
     req: &HttpRequest,
     user: &str
 ) -> Result<Vec<UserToken>, ServiceError> {
@@ -196,7 +196,7 @@ pub async fn active_sessions(
         .map_err(|e| e.general(&(req)))
 }
 
-pub async fn current_active_session(
+pub async fn try_current_active_session(
     req: &HttpRequest,
 ) -> Result<UserToken, ServiceError> {
     if let Some(token) = get_session_token_http_request(req) {
@@ -225,13 +225,13 @@ pub async fn current_active_session(
     )
 }
 
-pub async fn remove_all_sessions_token(user: &str) -> Result<bool, ServiceError> {
+pub async fn try_remove_all_sessions_token(user: &str) -> Result<bool, ServiceError> {
     let mut con = REDIS_CLIENT.get_async_connection().await?;
     con.del(user.to_string()).await?;
     Ok(true)
 }
 
-pub async fn remove_active_session_token(
+pub async fn try_remove_active_session_token(
     req: &HttpRequest,
 ) -> Result<bool, ServiceError> {
     if let Some(token) = get_session_token_http_request(req) {

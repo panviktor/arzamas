@@ -78,7 +78,7 @@ pub async fn find_email_verify_token(
             };
             model
                 .delete(db).await
-                .map_err(|e| err_server!("Problem delete token with email: {}:{}", email, e))?;;
+                .map_err(|e| err_server!("Problem delete token with email: {}:{}", email, e))?;
             Ok(token)
         }
     }

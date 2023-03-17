@@ -2,10 +2,10 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use crate::models::ServiceError;
 use crate::modules::auth::middleware::LoginUser;
 use crate::modules::auth::session::{
-    active_sessions,
-    current_active_session,
-    remove_active_session_token,
-    remove_all_sessions_token
+    try_active_sessions,
+    try_current_active_session,
+    try_remove_active_session_token,
+    try_remove_all_sessions_token
 };
 
 use crate::modules::user::service::{
@@ -28,21 +28,21 @@ pub async fn about_me(
 pub async fn logout(
     req: HttpRequest,
 ) -> Result<HttpResponse, ServiceError> {
-    remove_active_session_token(&req).await?;
-    Ok(HttpResponse::Ok().json("logout from current session"))
+    try_remove_active_session_token(&req).await?;
+    Ok(HttpResponse::Ok().json("Logout from current session"))
 }
 
 pub async fn logout_all(
     user: LoginUser,
 ) -> Result<HttpResponse, ServiceError> {
-    remove_all_sessions_token(&user.id).await?;
-    Ok(HttpResponse::Ok().json("logout from all sessions"))
+    try_remove_all_sessions_token(&user.id).await?;
+    Ok(HttpResponse::Ok().json("Logout from all sessions"))
 }
 
 pub async fn current_session(
     req: HttpRequest,
 ) -> Result<HttpResponse, ServiceError> {
-    let session = current_active_session(&req).await?;
+    let session = try_current_active_session(&req).await?;
     Ok(HttpResponse::Ok().json(session))
 }
 
@@ -50,7 +50,7 @@ pub async fn all_sessions(
     req: HttpRequest,
     user: LoginUser,
 ) -> Result<HttpResponse, ServiceError> {
-    let sessions = active_sessions(&req, &user.id).await?;
+    let sessions = try_active_sessions(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(sessions))
 }
 
