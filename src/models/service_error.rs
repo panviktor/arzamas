@@ -110,8 +110,9 @@ impl ResponseError for ServiceError {
         HttpResponse::build(status_code).json(self.convert_to_serialized())
     }
 }
-impl From<sea_orm::DbErr> for ServiceError {
-    fn from(value: sea_orm::DbErr) -> Self {
+
+impl From<DbErr> for ServiceError {
+    fn from(value: DbErr) -> Self {
         let (status_code, message) = match value {
             DbErr::ConnectionAcquire => (
                 StatusCode::SERVICE_UNAVAILABLE,

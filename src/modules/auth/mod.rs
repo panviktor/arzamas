@@ -13,6 +13,7 @@ pub mod email;
 pub mod credentials;
 pub mod session;
 pub mod middleware;
+pub mod models;
 
 pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(

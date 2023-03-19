@@ -1,5 +1,4 @@
 use actix_web::{web, HttpResponse, HttpRequest};
-use serde::{Deserialize, Serialize};
 use tracing::info;
 use entity::user::{Model as User};
 
@@ -11,10 +10,24 @@ use crate::modules::auth::credentials::{
     validate_email_rules,
     validate_password_rules,
     validate_username_rules};
-use crate::modules::auth::service::{create_user_and_try_save, ForgotPasswordParams, get_user_by_email, get_user_by_username, ResetPasswordParams, try_reset_password, try_send_restore_email};
+use crate::modules::auth::service::{
+    create_user_and_try_save,
+    get_user_by_email,
+    get_user_by_username,
+    try_reset_password,
+    try_send_restore_email
+};
 use crate::modules::auth::email::{
     validate_email,
     verify_user_email
+};
+use crate::modules::auth::models::{
+    ForgotPasswordParams,
+    LoginParams,
+    LoginResponse,
+    NewUserParams,
+    ResetPasswordParams,
+    VerifyEmailParams
 };
 use crate::modules::auth::session::{
     generate_session_token,
@@ -26,7 +39,6 @@ pub async fn create_user(
     req: HttpRequest,
     params: web::Json<NewUserParams>
 ) -> Result<HttpResponse, ServiceError> {
-
     if let Err(e) = validate_password_rules(&params.password, &params.password_confirm) {
         return Err(ServiceError::bad_request(
             &req,
@@ -139,10 +151,8 @@ pub async fn verify_email(
     req: HttpRequest,
     params: web::Json<VerifyEmailParams>
 ) -> Result<HttpResponse, ServiceError> {
-
     verify_user_email(&params.email, &params.email_token).await
         .map_err(|s| s.general(&req))?;
-
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -230,50 +240,4 @@ pub async fn password_reset(
 ) -> Result<HttpResponse, ServiceError> {
     try_reset_password(&req, params.0).await?;
     Ok(HttpResponse::Ok().json("Password successfully reset."))
-}
-
-/// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize)]
-pub struct NewUserParams {
-    pub(crate) username: String,
-    pub(crate) email: String,
-    pub(crate) password: String,
-    pub(crate) password_confirm: String,
-}
-
-/// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize)]
-pub struct VerifyEmailParams {
-    pub(crate) email: String,
-    pub(crate) email_token: String,
-}
-
-/// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize)]
-pub struct LoginParams {
-    pub(crate) identifier: String,
-    pub(crate) password: String,
-    pub(crate) persist: Option<bool>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub enum LoginResponse {
-    OTPResponse { otp: String },
-    TokenResponse { token: String, token_type: String}
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct TokenResponse {
-    pub token: String,
-    pub token_type: String
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct OTPResponse {
-    pub otp: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct UserInfo {
-    pub user_id: String,
 }

@@ -1,7 +1,6 @@
 use entity::{
     user,
     user_confirmation,
-    user_restore_password
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
@@ -110,39 +109,5 @@ pub async fn verify_email_by(
         .update(db)
         .await
         .map_err(|e| err_server!("Problem updating user {}:{}", user_id, e))?;
-    Ok(())
-}
-
-pub async fn add_password_reset_token(
-    user_id: &str,
-    token: &str,
-    expiry: DateTime<Utc>
-) -> Result<(), ServerError> {
-
-    let db = &*DB;
-    if let Some(user) = user_restore_password::Entity::find()
-        .filter(user_restore_password::Column::UserId.contains(user_id))
-        .one(db)
-        .await
-        .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))? {
-
-        let mut active: user_restore_password::ActiveModel = user.into();
-        active.otp_hash = Set(token.to_string());
-        active.expiry = Set(expiry.naive_utc());
-        active.update(db)
-            .await
-            .map_err(|e| err_server!("Problem updating restore token {}:{}", user_id, e))?;
-    } else {
-       let new_restore = user_restore_password::ActiveModel {
-            user_id: Set(user_id.to_string()),
-            otp_hash: Set(token.to_string()),
-            expiry: Set(expiry.naive_utc()),
-            ..Default::default()
-        };
-        new_restore.insert(db)
-            .await
-            .map_err(|e| err_server!("Problem adding restore token {}:{}", user_id, e))?;
-    }
-
     Ok(())
 }

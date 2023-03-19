@@ -4,7 +4,6 @@ use crate::core::config::{get_config};
 use crate::models::ServerError;
 use crate::core::email::{
     add_email_token,
-    add_password_reset_token,
     find_email_verify_token,
     verify_email_by
 };
@@ -19,6 +18,7 @@ use lettre::{
     Tokio1Executor,
 };
 use secrecy::ExposeSecret;
+use crate::modules::auth::service::add_password_reset_token;
 
 lazy_static! {
     static ref MAILER: AsyncSmtpTransport<Tokio1Executor> = {
@@ -112,7 +112,8 @@ pub async fn send_password_reset_email(user_id: &str, to_email: &str) -> Result<
         "The account associated with this email has had a password reset request\n\
              To reset your password copy your token to app! \n\
              Token: {}\n\
-             This token will expire in 24 hours.",  password_reset_token
+             User_id: {}\n\
+             This token will expire in 24 hours.",  password_reset_token,  user_id
     );
 
     let email = LettreMessage::builder()
@@ -150,7 +151,13 @@ pub async fn validate_email(
 
     for i in 0..10 {
         email_token = super::generate_email_verification_code()?;
-        match add_email_token(user_id, email, &email_token, Utc::now() + Duration::days(1), user_exists).await {
+        match add_email_token(
+            user_id,
+            email,
+            &email_token,
+            Utc::now() + Duration::days(1),
+            user_exists
+        ).await {
             Ok(_) => {
                 insert_error = None;
                 break;

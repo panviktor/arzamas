@@ -46,7 +46,6 @@ pub async fn try_about_me(
     req: &HttpRequest,
     user_id: &str,
 )  -> Result<AboutMeInformation, ServiceError> {
-
     if let Some(user) = get_user_by_id(user_id)
         .await
         .map_err(|s| s.general(&req))? {
@@ -181,7 +180,6 @@ pub async fn try_resend_verify_email(
     req: &HttpRequest,
     user_id: &str,
 ) -> Result<(), ServiceError> {
-
     if let Some(user) = get_user_by_id(user_id)
         .await
         .map_err(|s| s.general(&req))? {
