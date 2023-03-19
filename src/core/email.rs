@@ -1,113 +1,26 @@
-use entity::{
-    user,
-    user_confirmation,
+use lazy_static::lazy_static;
+
+use lettre::{
+    transport::smtp::authentication::Credentials,
+    AsyncSmtpTransport,
+    Tokio1Executor,
 };
-use chrono::{DateTime, NaiveDateTime, Utc};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
-use sea_orm::ActiveValue::Set;
-use crate::core::db::DB;
-use crate::err_server;
-use crate::models::{ServerError};
 
-/// Add an email token to the DB
-pub async fn add_email_token(
-    user_id: &str,
-    email: &str,
-    token: &str,
-    expiry: DateTime<Utc>,
-    user_exists: bool
-) -> Result<(), ServerError> {
-    let db = &*DB;
-    // Uniqueness is taken care of by an index in the DB
-    if !user_exists {
-        let confirmation = user_confirmation::ActiveModel {
-            user_id: Set(user_id.to_string()),
-            email: Set(email.to_string()),
-            otp_hash: Set(token.to_string()),
-            expiry: Set( expiry.naive_utc() ),
-            ..Default::default()
-        };
+use secrecy::ExposeSecret;
+use crate::core::config::{get_config};
 
-        confirmation.insert(db)
-            .await
-            .map_err(|e| err_server!("Problem adding email token {}:{}", user_id, e))?;
-    } else {
-        if let Some(user) = user_confirmation::Entity::find()
-            .filter(user_confirmation::Column::UserId.contains(user_id))
-            .one(db)
-            .await
-            .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))? {
-
-            let mut active: user_confirmation::ActiveModel = user.into();
-            active.email = Set(email.to_string());
-            active.otp_hash = Set(token.to_string());
-            active.expiry = Set( expiry.naive_utc());
-            active.update(db)
-                .await
-                .map_err(|e| err_server!("Problem updating active_user {}:{}", user_id, e))?;
-        }
-    }
-    Ok(())
-}
-
-pub struct VerifyToken {
-   pub expiry: NaiveDateTime,
-   pub user_id: String,
-   pub otp_hash: String
-}
-
-pub async fn find_email_verify_token(
-    email: &str,
-) -> Result<VerifyToken, ServerError> {
-    let db = &*DB;
-    let confirmation = user_confirmation::Entity::find()
-        .filter(user_confirmation::Column::Email.contains(email))
-        .one(db)
-        .await
-        .map_err(|e| err_server!("Problem finding email and token {}:{}", email, e))?;
-    match confirmation {
-        None => {
-            Err(err_server!("Problem finding email and token {}", email))
-        }
-        Some(model) => {
-            let token = VerifyToken {
-                expiry: model.expiry.clone(),
-                user_id: model.user_id.clone(),
-                otp_hash: model.otp_hash.clone(),
-            };
-            model
-                .delete(db).await
-                .map_err(|e| err_server!("Problem delete token with email: {}:{}", email, e))?;
-            Ok(token)
-        }
-    }
-}
-
-pub async fn verify_email_by(
-    user_id: &str,
-) -> Result<(), ServerError> {
-    let db = &*DB;
-    let user = user::Entity::find()
-        .filter(user::Column::UserId.contains(user_id))
-        .one(db)
-        .await
-        .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))?;
-
-    if user.is_none() {
-        return Err(err_server!("Problem finding user id {}", user_id))
-    }
-
-    let user = user.unwrap();
-    if user.email_validated {
-        return Ok(())
-    }
-
-    let mut item_active_model: user::ActiveModel = user.into();
-    item_active_model.email_validated = Set(true);
-
-    item_active_model
-        .update(db)
-        .await
-        .map_err(|e| err_server!("Problem updating user {}:{}", user_id, e))?;
-    Ok(())
+lazy_static! {
+   pub static ref MAILER: AsyncSmtpTransport<Tokio1Executor> = {
+        async_std::task::block_on(async {
+            let config = get_config().expect("Failed to read configuration.");
+            let server = config.email_settings.email_server;
+            let user = config.email_settings.email_user;
+            let pass = config.email_settings.email_pass.expose_secret();
+            let creds = Credentials::new(user.to_string(), pass.to_string());
+             AsyncSmtpTransport::<Tokio1Executor>::relay(&server)
+                .unwrap()
+                .credentials(creds)
+                .build()
+        })
+    };
 }

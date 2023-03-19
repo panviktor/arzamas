@@ -1,44 +1,25 @@
 use chrono::{Duration, Utc};
-use lazy_static::lazy_static;
+
 use crate::core::config::{get_config};
 use crate::models::ServerError;
-use crate::core::email::{
-    add_email_token,
-    find_email_verify_token,
-    verify_email_by
-};
 use crate::err_server;
+use crate::core::email::MAILER;
 
 use lettre::{
     message::{header, SinglePart},
-    transport::smtp::authentication::Credentials,
-    AsyncSmtpTransport,
     AsyncTransport,
     Message as LettreMessage,
-    Tokio1Executor,
 };
-use secrecy::ExposeSecret;
-use crate::modules::auth::service::add_password_reset_token;
 
-lazy_static! {
-    static ref MAILER: AsyncSmtpTransport<Tokio1Executor> = {
-        async_std::task::block_on(async {
-            let config = get_config().expect("Failed to read configuration.");
-            let server = config.email_settings.email_server;
-            let user = config.email_settings.email_user;
-            let pass = config.email_settings.email_pass.expose_secret();
-            let creds = Credentials::new(user.to_string(), pass.to_string());
-             AsyncSmtpTransport::<Tokio1Executor>::relay(&server)
-                .unwrap()
-                .credentials(creds)
-                .build()
-        })
-    };
-}
+use crate::modules::auth::service::{
+    add_email_token,
+    add_password_reset_token,
+    find_email_verify_token,
+    verify_email_by
+};
 
 /// Send a verification email to the supplied email.
 pub async fn send_verification_email(to_email: &str, token: &str) -> Result<(), ServerError> {
-
     let config = get_config().expect("Failed to read configuration.");
     let from = config.email_settings.email_from;
 
