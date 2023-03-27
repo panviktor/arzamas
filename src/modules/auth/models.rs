@@ -1,3 +1,4 @@
+use chrono::NaiveDateTime;
 use serde_derive::{Deserialize, Serialize};
 
 /// Struct for holding the form parameters with the new user form
@@ -26,19 +27,14 @@ pub struct LoginParams {
 
 #[derive(Serialize, Deserialize)]
 pub enum LoginResponse {
-    OTPResponse { otp: String },
+    OTPResponse { message: String },
     TokenResponse { token: String, token_type: String}
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct TokenResponse {
-    pub token: String,
-    pub token_type: String
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct OTPResponse {
-    pub otp: String,
+pub struct OTPCode {
+    pub code: String,
+    pub user_id: String
 }
 
 #[derive(Serialize, Deserialize)]
@@ -60,4 +56,28 @@ pub struct ResetPasswordParams {
     pub(crate) token: String,
     pub(crate) password: String,
     pub(crate) password_confirm: String,
+}
+
+pub struct VerifyToken {
+    pub expiry: NaiveDateTime,
+    pub user_id: String,
+    pub otp_hash: String
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct UserToken {
+    // issued at
+    pub iat: i64,
+    // expiration
+    pub exp: i64,
+    // data
+    pub user_id: String,
+    // session
+    pub session_id: String,
+    // random session name
+    pub session_name: String,
+    // login ip
+    pub login_ip: String,
+    // User-Agent
+    pub user_agent: String,
 }

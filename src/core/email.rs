@@ -1,11 +1,9 @@
 use lazy_static::lazy_static;
-
 use lettre::{
     transport::smtp::authentication::Credentials,
     AsyncSmtpTransport,
     Tokio1Executor,
 };
-
 use secrecy::ExposeSecret;
 use crate::core::config::{get_config};
 

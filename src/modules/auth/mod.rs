@@ -1,7 +1,8 @@
 /// Module that contains all the functions related to authentication.
 use actix_web::{ web, guard};
 use hex::encode;
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256, Sha512};
+use crate::core::middleware::rate_limiter;
 
 use crate::err_server;
 use crate::models::ServerError;
@@ -14,32 +15,41 @@ pub mod credentials;
 pub mod session;
 pub mod middleware;
 pub mod models;
+pub mod totp;
 
 pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/auth")
             .guard(guard::Header("content-type", "application/json"))
+            .wrap(rate_limiter::RateLimitServices { requests_count: 200 })
             .service(
                 web::resource("/create")
-                        .route(web::post().to(controller::create_user))
+                    .wrap(rate_limiter::RateLimitServices { requests_count: 100 })
+                    .route(web::post().to(controller::create_user))
             )
             .service(
                 web::resource("/verify_email")
+                    .wrap(rate_limiter::RateLimitServices { requests_count: 100 })
                     .route(web::post().to(controller::verify_email))
             )
             .service(
                 web::resource("/login")
                     .route(web::post().to(controller::login))
             )
-
             .service(
                 web::resource("/forgot-password")
+                    .wrap(rate_limiter::RateLimitServices { requests_count: 25 })
                     .route(web::post().to(controller::forgot_password))
             )
-
             .service(
                 web::resource("/password-reset")
+                    .wrap(rate_limiter::RateLimitServices { requests_count: 25 })
                     .route(web::post().to(controller::password_reset))
+            )
+            .service(
+                web::resource("/login-2fa")
+                    .wrap(rate_limiter::RateLimitServices { requests_count: 50 })
+                    .route(web::post().to(controller::login_2fa))
             )
     );
 }

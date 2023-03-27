@@ -44,7 +44,6 @@ pub async fn try_create_note (
     user_id: &str,
     params: DTONote
 ) -> Result<(), ServiceError> {
-
     let db = &*DB;
     let text =  params.text.to_string();
     let id = generate_unique_id();
@@ -186,7 +185,6 @@ pub async fn try_update_note(
     user_id: &str,
     params: CreateNote
 ) ->  Result<(), ServiceError> {
-
     let db = &*DB;
     let new_text = params.text.to_string();
 

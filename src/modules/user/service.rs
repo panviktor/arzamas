@@ -6,7 +6,8 @@ use serde_derive::{Deserialize, Serialize};
 use entity::user;
 
 use crate::core::db::DB;
-use crate::models::ServiceError;
+use crate::err_server;
+use crate::models::{ServerError, ServiceError};
 use crate::modules::auth::credentials::{
     credential_validator,
     generate_password_hash,
@@ -202,4 +203,58 @@ pub async fn try_resend_verify_email(
         format!("User not found."),
         true,
     ));
+}
+
+// 2FA
+pub async fn try_2fa_add(
+    req: &HttpRequest,
+    user_id: &str,
+) -> Result<(), ServiceError> {
+
+    let codes = generate_totp_backup_codes().unwrap();
+    println!("{codes:?}");
+
+    return Err(ServiceError::bad_request(
+        &req,
+        format!("User not found."),
+        true,
+    ));
+}
+
+pub async fn try_2fa_reset(
+    req: &HttpRequest,
+    user_id: &str,
+) -> Result<(), ServiceError> {
+
+
+    return Err(ServiceError::bad_request(
+        &req,
+        format!("User not found."),
+        true,
+    ));
+}
+
+pub async fn try_2fa_remove(
+    req: &HttpRequest,
+    user_id: &str,
+) -> Result<(), ServiceError> {
+
+
+    return Err(ServiceError::bad_request(
+        &req,
+        format!("User not found."),
+        true,
+    ));
+}
+
+/// Generate 10 TOTP backup codes.
+pub fn generate_totp_backup_codes() -> Result<Vec<String>, ServerError> {
+    let mut backup_codes: Vec<String> = vec![];
+    for _ in 0..10 {
+        let mut token = [0u8; 16];
+        getrandom::getrandom(&mut token)
+            .map_err(|e| err_server!("Error generating token: {}", e))?;
+        backup_codes.push(hex::encode(token.to_vec()));
+    }
+    Ok(backup_codes)
 }

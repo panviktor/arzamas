@@ -4,7 +4,6 @@ use chrono::{ Duration, TimeZone, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, TokenData, Validation};
 use redis::AsyncCommands;
 use secrecy::ExposeSecret;
-use serde::{Deserialize, Serialize};
 use std::option::Option;
 use actix_http::header::HeaderValue;
 use actix_web::HttpRequest;
@@ -16,25 +15,8 @@ use crate::core::constants::emojis::EMOJIS;
 
 use crate::core::redis::REDIS_CLIENT;
 use crate::err_server;
-use crate::models::{ServerError, ServiceError};
-
-#[derive(Serialize, Deserialize)]
-pub struct UserToken {
-    // issued at
-    pub iat: i64,
-    // expiration
-    pub exp: i64,
-    // data
-    pub user_id: String,
-    // session
-    pub session_id: String,
-    // random session name
-    pub session_name: String,
-    // login ip
-    pub login_ip: String,
-    // User-Agent
-    pub user_agent: String,
-}
+use crate::models::{ServerError, ServiceError };
+use crate::modules::auth::models::UserToken;
 
 fn generate_random_name() -> String {
     use rand::seq::SliceRandom;
@@ -54,7 +36,6 @@ pub fn generate_token(
     user_agent: &str,
     exp: i64,
 ) -> Result<String, ServerError> {
-
     let now = Utc::now().timestamp_nanos();
 
     let payload = UserToken {
@@ -85,7 +66,7 @@ pub async fn generate_session_token(
 ) -> Result<String, ServerError> {
     let expiry = match persistent {
         false => Utc::now() + Duration::days(1),
-        true => Utc::now() + Duration::days(30),
+        true => Utc::now() + Duration::days(7),
     };
 
     let login_session = Uuid::new_v4().to_string();
@@ -94,7 +75,7 @@ pub async fn generate_session_token(
         &login_session,
         login_ip,
         user_agent,
-        expiry.timestamp_nanos()
+        expiry.timestamp_nanos(),
     );
 
     let token_to_redis = token.map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
@@ -154,7 +135,7 @@ pub async fn validate_session(token_from_req: &str) -> Result<Option<String>, Se
                 return Ok(Some(user));
             } else {
                 let token =  decoded_data.claims;
-                let _: () = con.hdel(&token.user_id, token.session_id).await?;
+                con.hdel(&token.user_id, token.session_id).await?;
             }
         }
     }
@@ -176,7 +157,7 @@ async fn valid_sessions(
                 valid_tokens.push(token)
             } else {
                 let token =  decoded_data.claims;
-                let _: () = con.hdel(&token.user_id, token.session_id).await?;
+                con.hdel(&token.user_id, token.session_id).await?;
             }
         }
     }
@@ -261,11 +242,11 @@ pub fn get_ip_addr(req: &HttpRequest) -> Result<String, ServerError> {
     )
 }
 
-pub fn get_user_agent(req: &HttpRequest) -> &str {
+pub fn get_user_agent(req: &HttpRequest) -> String {
     return if let Some(user_agent) = req.headers().get("user-agent") {
-        user_agent.to_str().unwrap_or("Unknown")
+        user_agent.to_str().unwrap_or("Unknown").to_string()
     } else {
-        ""
+        "".to_string()
     }
 }
 
@@ -280,7 +261,7 @@ pub async fn delete_all_expired_user_tokens(user: &str)-> Result<bool, ServiceEr
             let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
             if datetime < now {
                 let token =  decoded_data.claims;
-                let _: () = con.hdel(&token.user_id, token.session_id).await?;
+                con.hdel(&token.user_id, token.session_id).await?;
             }
         }
     }

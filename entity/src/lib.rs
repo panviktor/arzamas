@@ -6,3 +6,4 @@ pub mod note;
 pub mod user;
 pub mod user_confirmation;
 pub mod user_restore_password;
+pub mod user_otp_token;

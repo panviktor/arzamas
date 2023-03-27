@@ -1,4 +1,5 @@
 use actix_web::{guard, web};
+use crate::core::middleware::rate_limiter;
 use crate::modules::auth::middleware;
 mod controller;
 mod service;
@@ -8,7 +9,7 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
         web::scope("/user")
             .guard(guard::Header("content-type", "application/json"))
             .wrap(middleware::AuthCheckService)
-
+            .wrap(rate_limiter::RateLimitServices { requests_count: 500 })
             .service(
                 web::resource("/about-me")
                     .route(web::get().to(controller::about_me))
@@ -51,5 +52,20 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::post().to(controller::resend_verify_email))
             )
 
+            // 2FA
+            .service(
+                web::resource("/2fa-add")
+                    .route(web::post().to(controller::add_2fa))
+            )
+
+            .service(
+                web::resource("/2fa-reset")
+                    .route(web::post().to(controller::reset_2fa))
+            )
+
+            .service(
+                web::resource("/2fa-remove")
+                    .route(web::post().to(controller::remove_2fa))
+            )
     );
 }

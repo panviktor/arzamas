@@ -11,6 +11,9 @@ use crate::modules::auth::session::{
 use crate::modules::user::service::{
     ChangeEmailParams,
     ChangePasswordParams,
+    try_2fa_add,
+    try_2fa_remove,
+    try_2fa_reset,
     try_about_me,
     try_change_email,
     try_change_password,
@@ -78,4 +81,28 @@ pub async fn resend_verify_email(
 ) -> Result<HttpResponse, ServiceError> {
     try_resend_verify_email(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json("Email Verify Resend Successfully"))
+}
+
+pub async fn add_2fa(
+    req: HttpRequest,
+    user: LoginUser
+) -> Result<HttpResponse, ServiceError> {
+    try_2fa_add(&req, &user.id).await?;
+    Ok(HttpResponse::Ok().json("Add 2fa"))
+}
+
+pub async fn reset_2fa(
+    req: HttpRequest,
+    user: LoginUser
+) -> Result<HttpResponse, ServiceError> {
+    try_2fa_reset(&req, &user.id).await?;
+    Ok(HttpResponse::Ok().json("Reset 2fa"))
+}
+
+pub async fn remove_2fa(
+    req: HttpRequest,
+    user: LoginUser
+) -> Result<HttpResponse, ServiceError> {
+    try_2fa_remove(&req, &user.id).await?;
+    Ok(HttpResponse::Ok().json("Remove 2fa"))
 }

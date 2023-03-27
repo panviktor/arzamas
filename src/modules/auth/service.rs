@@ -26,7 +26,8 @@ use crate::modules::auth::models::{
     ForgotPasswordParams,
     NewUserParams,
     ResetPasswordParams,
-    UserInfo
+    UserInfo,
+    VerifyToken
 };
 use crate::modules::auth::email::send_password_reset_email;
 use crate::modules::auth::hash_token;
@@ -305,12 +306,6 @@ pub async fn add_email_token(
         }
     }
     Ok(())
-}
-
-pub struct VerifyToken {
-    pub expiry: NaiveDateTime,
-    pub user_id: String,
-    pub otp_hash: String
 }
 
 pub async fn find_email_verify_token(

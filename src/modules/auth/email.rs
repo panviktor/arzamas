@@ -39,8 +39,7 @@ pub async fn send_verification_email(to_email: &str, token: &str) -> Result<(), 
             SinglePart::builder()
                 .header(header::ContentType::TEXT_PLAIN)
                 .body(text),
-        )
-        .unwrap();
+        ).map_err(|e| err_server!("Problem send email {}", e))?;
 
     // Open a remote connection to gmail
     let mailer = &MAILER;
@@ -105,8 +104,7 @@ pub async fn send_password_reset_email(user_id: &str, to_email: &str) -> Result<
             SinglePart::builder()
                 .header(header::ContentType::TEXT_PLAIN)
                 .body(text),
-        )
-        .unwrap();
+        ).map_err(|e| err_server!("Problem send email {}", e))?;
 
     // Open a remote connection to gmail
     let mailer = &MAILER;
@@ -178,5 +176,41 @@ pub async fn verify_user_email(
             Err(err_server!("Problem: expiry or invalid code from email!"))
         }
         Err(_) => { Err(err_server!("Problem finding email and token {}", email)) }
+    }
+}
+
+pub async fn send_totp_email_code(
+    email: &str,
+    code: &str,
+    user_id: &str,
+) -> Result<(), ServerError> {
+    let config = get_config().expect("Failed to read configuration.");
+    let from = config.email_settings.email_from;
+    let text = format!(
+        "An email has been sent to the account linked with your profile containing a confirmation code for two-factor authentication.\n
+         If you did not initiate the login, it is crucial that you reset your password immediately.\n
+         Your login ID and confirmation code are included in the email.\n\
+            Code: {}\n\
+            User Id: {}\n\
+            This code will expire in 5 minutes.",  code,  user_id
+    );
+
+    let email = LettreMessage::builder()
+        .from(format!("Sender <{}>", from).parse().unwrap())
+        .to(format!("Receiver <{}>", email).parse().unwrap())
+        .subject("Authentication: 2FA Verification.")
+        .singlepart(
+            SinglePart::builder()
+                .header(header::ContentType::TEXT_PLAIN)
+                .body(text),
+        ).map_err(|e| err_server!("Problem send 2FA Verification email {}:{}", user_id, e))?;
+
+    let mailer = &MAILER;
+    match mailer.send(email).await {
+        Ok(_) => {
+            tracing::debug!("Email sent successfully!");
+            Ok(())
+        }
+        Err(e) => Err(err_server!("Problem send 2FA Verification email: {}", e))
     }
 }

@@ -10,7 +10,7 @@ pub fn init_notes_routes(cfg: &mut web::ServiceConfig) {
         web::scope("/notes")
             .guard(guard::Header("content-type", "application/json"))
             .wrap(auth::middleware::AuthCheckService)
-            .wrap(rate_limiter::RateLimitServices { requests_count: 150 })
+            .wrap(rate_limiter::RateLimitServices { requests_count: 500 })
             .service(
                 web::resource("/create")
                     .wrap(rate_limiter::RateLimitServices { requests_count: 15 })
