@@ -35,9 +35,11 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
+
                     .col(ColumnDef::new(User::TotpActive).boolean().not_null())
                     .col(ColumnDef::new(User::TotpToken).string().null())
                     .col(ColumnDef::new(User::TotpBackups).string().null())
+
                     .col(ColumnDef::new(User::CreatedAt).timestamp().not_null())
                     .col(ColumnDef::new(User::UpdatedAt).timestamp().not_null())
                     .to_owned(),
