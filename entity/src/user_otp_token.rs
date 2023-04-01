@@ -11,6 +11,7 @@ pub struct Model {
     pub id: i64,
     #[sea_orm(unique)]
     pub user_id: String,
+    #[serde(skip_deserializing)]
     pub otp_hash: String,
     pub expiry: DateTime,
     pub attempt_count: i32,

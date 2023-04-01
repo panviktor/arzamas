@@ -1,12 +1,11 @@
 use actix_web::http::StatusCode;
 use actix_web::HttpRequest;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait,
     EntityTrait,
     QueryFilter,
     ColumnTrait,
-    NotSet,
     Set,
     ModelTrait
 };
@@ -108,9 +107,6 @@ pub async fn create_user_and_try_save(
         email: Set(params.email.to_string()),
         username: Set(params.username.to_string()),
         pass_hash: Set(hash.to_string()),
-        totp_active: Set(false),
-        totp_token: NotSet,
-        totp_backups: NotSet,
         created_at: Set( Utc::now().naive_utc()),
         updated_at: Set( Utc::now().naive_utc()),
         ..Default::default()

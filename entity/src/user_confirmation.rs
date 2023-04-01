@@ -12,6 +12,7 @@ pub struct Model {
     #[sea_orm(unique)]
     pub user_id: String,
     pub email: String,
+    #[serde(skip_deserializing)]
     pub otp_hash: String,
     pub expiry: DateTime,
 }

@@ -1,7 +1,7 @@
 /// Module that contains all the functions related to authentication.
 use actix_web::{ web, guard};
 use hex::encode;
-use sha2::{Digest, Sha256, Sha512};
+use sha2::{ Digest, Sha256 };
 use crate::core::middleware::rate_limiter;
 
 use crate::err_server;

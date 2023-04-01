@@ -15,9 +15,6 @@ pub struct Model {
     pub username: String,
     pub pass_hash: String,
     pub email_validated: bool,
-    pub totp_active: bool,
-    pub totp_token: Option<String>,
-    pub totp_backups: Option<String>,
     pub created_at: DateTime,
     pub updated_at: DateTime,
 }
@@ -26,11 +23,19 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::note::Entity")]
     Note,
+    #[sea_orm(has_one = "super::user_security_settings::Entity")]
+    UserSecuritySettings,
 }
 
 impl Related<super::note::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Note.def()
+    }
+}
+
+impl Related<super::user_security_settings::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserSecuritySettings.def()
     }
 }
 

@@ -35,7 +35,8 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk_note_assignee")
                             .from(note::Entity, note::Column::UserId)
-                            .to(user::Entity, user::Column::UserId),
+                            .to(user::Entity, user::Column::UserId)
+                            .on_delete(ForeignKeyAction::Cascade)
                     )
                     .col(
                         ColumnDef::new(Note::Text)

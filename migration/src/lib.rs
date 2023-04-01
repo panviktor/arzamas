@@ -5,6 +5,7 @@ mod m20220101_000001_user_confirmation_table;
 mod m20220101_000001_user_notes_table;
 mod m20220101_000001_user_restore_password_table;
 mod m20220101_000001_user_otp_token_table;
+mod m20220101_000001_user_security_setting_table;
 
 pub struct Migrator;
 
@@ -17,6 +18,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20220101_000001_user_notes_table::Migration),
             Box::new(m20220101_000001_user_restore_password_table::Migration),
             Box::new(m20220101_000001_user_otp_token_table::Migration),
+            Box::new(m20220101_000001_user_security_setting_table::Migration),
         ]
     }
 }

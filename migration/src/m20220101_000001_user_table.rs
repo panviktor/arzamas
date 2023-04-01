@@ -36,10 +36,6 @@ impl MigrationTrait for Migration {
                             .default(false),
                     )
 
-                    .col(ColumnDef::new(User::TotpActive).boolean().not_null())
-                    .col(ColumnDef::new(User::TotpToken).string().null())
-                    .col(ColumnDef::new(User::TotpBackups).string().null())
-
                     .col(ColumnDef::new(User::CreatedAt).timestamp().not_null())
                     .col(ColumnDef::new(User::UpdatedAt).timestamp().not_null())
                     .to_owned(),
@@ -65,9 +61,6 @@ pub enum User {
     Username,
     PassHash,
     EmailValidated,
-    TotpActive,
-    TotpToken,
-    TotpBackups,
     CreatedAt,
     UpdatedAt
 }
