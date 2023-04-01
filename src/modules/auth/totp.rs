@@ -19,7 +19,7 @@ use crate::models::ServerError;
 use crate::modules::auth::{hash_token};
 use crate::modules::auth::email::send_totp_email_code;
 
-pub async fn generate_totp_code(
+pub async fn generate_email_code(
     user_id: &str,
     persistent: bool,
     email: &str,

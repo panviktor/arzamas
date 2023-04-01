@@ -1,8 +1,13 @@
 use actix_web::{web, HttpResponse, HttpRequest};
+use sea_orm::ModelTrait;
 use tracing::info;
+use entity::prelude::UserSecuritySettings;
 use entity::user::{Model as User};
+use entity::user_security_settings::{Model as SecuritySettings};
+use entity::sea_orm_active_enums::TwoFactorMethod;
 
 use crate::core::constants::core_constants;
+use crate::core::db::DB;
 use crate::models::{ServiceError};
 use crate::modules::auth::credentials::{
     credential_validator_username_email,
@@ -35,7 +40,7 @@ use crate::modules::auth::session::{
     get_ip_addr,
     get_user_agent
 };
-use crate::modules::auth::totp::{generate_totp_code, verify_email_otp_code};
+use crate::modules::auth::totp::{generate_email_code, verify_email_otp_code};
 
 pub async fn create_user(
     req: HttpRequest,
@@ -182,9 +187,20 @@ pub async fn login(
         .await
         .map_err(|s| s.general(&req))?;
 
+    let db = &*DB;
+    if let Some(user) = result {
+        if let Some(settings) = user.find_related(UserSecuritySettings).one(db).await? {
+           return handle_login_result(
+                &user.user_id,
+                &user.email,
+                settings,
+                &req,
+                &params
+            ).await
+        }
+    }
 
-
-    handle_login_result(result, &req, &params).await
+    Err(ServiceError::unauthorized(&req, "Invalid credentials!", true))
 }
 
 pub async fn login_2fa(
@@ -224,44 +240,46 @@ pub async fn password_reset(
 }
 
 async fn handle_login_result(
-    user_option: Option<User>,
+    user_id: &str,
+    user_email: &str,
+    security_settings: SecuritySettings,
     req: &HttpRequest,
     params: &LoginParams
 ) -> Result<HttpResponse, ServiceError> {
-    if let Some(user) = user_option {
-        let login_ip = get_ip_addr(req)
-            .map_err(|s| ServiceError::general(req, s.message, false))?;
-        let user_agent = get_user_agent(&req);
-        let persistent = params.persist.unwrap_or(false);
+    let login_ip = get_ip_addr(req)
+        .map_err(|s| ServiceError::general(req, s.message, false))?;
+    let user_agent = get_user_agent(&req);
+    let persistent = params.persist.unwrap_or(false);
 
-        let json_response = if user.totp_active {
-            generate_totp_code(
-                &user.user_id,
-                persistent,
-                &user.email,
-                &login_ip,
-                &user_agent
-            ).await.map_err(|s| ServiceError::general(&req, s.message, false))?;
-
-            LoginResponse::OTPResponse { message: "The code has been sent to your email!".to_string() }
-        } else {
-            let token = generate_session_token(
-                &user.user_id,
-                persistent,
-                &login_ip,
-                &user_agent,
-            ).await.map_err(|s| ServiceError::general(&req, s.message, false))?;
-            info!("Successfully generate session token in user: {}", params.identifier);
-
-            LoginResponse::TokenResponse {
-                token,
-                token_type: core_constants::BEARER.to_string(),
+    return if let Some(method) = security_settings.two_factor_method {
+        match method {
+            TwoFactorMethod::AuthenticatorApp => {
+                Ok(HttpResponse::Ok().json("Not implemented yet!"))
             }
-        };
-
-        Ok(HttpResponse::Ok().json(json_response))
+            TwoFactorMethod::Email => {
+                generate_email_code(
+                    user_id,
+                    persistent,
+                    user_email,
+                    &login_ip,
+                    &user_agent
+                ).await.map_err(|s| ServiceError::general(&req, s.message, false))?;
+                let json = LoginResponse::OTPResponse { message: "The code has been sent to your email!".to_string() };
+                Ok(HttpResponse::Ok().json(json))
+            }
+        }
     } else {
-        info!("Invalid credentials: {}", &params.identifier);
-        Err(ServiceError::unauthorized(&req, "Invalid credentials.", true))
+        let token = generate_session_token(
+            user_id,
+            persistent,
+            &login_ip,
+            &user_agent,
+        ).await.map_err(|s| ServiceError::general(&req, s.message, false))?;
+        info!("Successfully generate session token in user: {}", params.identifier);
+        let response = LoginResponse::TokenResponse {
+            token,
+            token_type: core_constants::BEARER.to_string(),
+        };
+        Ok(HttpResponse::Ok().json(response))
     }
 }
