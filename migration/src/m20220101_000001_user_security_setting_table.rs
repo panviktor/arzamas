@@ -1,6 +1,6 @@
-use sea_orm_migration::prelude::*;
+use entity::{user, user_security_settings};
 use sea_orm::{sea_query::extension::postgres::Type, EnumIter};
-use entity::{ user, user_security_settings };
+use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -8,7 +8,6 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-
         manager
             .create_type(
                 Type::create()
@@ -34,14 +33,17 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(UserSecuritySettings::UserId)
                             .string()
                             .not_null()
-                            .unique_key()
+                            .unique_key(),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_security_settings_assignee")
-                            .from(user_security_settings::Entity, user_security_settings::Column::UserId)
+                            .from(
+                                user_security_settings::Entity,
+                                user_security_settings::Column::UserId,
+                            )
                             .to(user::Entity, user::Column::UserId)
-                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(
                         ColumnDef::new(UserSecuritySettings::TwoFactorMethod)
@@ -54,7 +56,7 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(UserSecuritySettings::TotpSecret)
                             .string()
-                            .null()
+                            .null(),
                     )
                     .col(
                         ColumnDef::new(UserSecuritySettings::EmailOnSuccessEnabledAt)
@@ -103,12 +105,12 @@ pub enum UserSecuritySettings {
     TotpSecret,
     EmailOnSuccessEnabledAt,
     EmailOnFailureEnabledAt,
-    CloseSessionsOnChangePassword
+    CloseSessionsOnChangePassword,
 }
 
 #[derive(Iden, EnumIter)]
 enum TwoFactorMethod {
     Table,
     Email,
-    AuthenticatorApp
+    AuthenticatorApp,
 }

@@ -1,4 +1,3 @@
-use actix_web::http::StatusCode;
 use actix_web::HttpRequest;
 use chrono::{DateTime, Utc};
 use sea_orm::{
@@ -10,7 +9,8 @@ use sea_orm::{
     ModelTrait
 };
 use entity::user::Model as User;
-use entity::{user, user_confirmation, user_restore_password};
+use entity::user_security_settings::Model as SecuritySettings;
+use entity::{user, user_confirmation, user_restore_password, user_security_settings};
 
 use crate::{err_input, err_server};
 use crate::core::db::DB;
@@ -73,6 +73,21 @@ pub async fn get_user_by_email(email: &str) -> Result<Option<User>, ServerError>
     Err(err_server!("Problem querying database for user: can't unwrap ORM"))
 }
 
+/// Get a user security settings
+pub async fn get_user_settings_by_id(user_id: &str) -> Result<SecuritySettings, ServerError> {
+    let db = &*DB;
+    let setting_result = entity::prelude::UserSecuritySettings::find()
+        .filter(user_security_settings::Column::UserId.eq(user_id))
+        .one(db)
+        .await;
+
+    match setting_result {
+        Ok(Some(setting)) => Ok(setting),
+        Ok(None) => Err(err_server!("Problem querying database for user settings: can't unwrap ORM")),
+        Err(e) => Err(err_server!("Problem querying database for user {}: {}", user_id, e)),
+    }
+}
+
 /// Get a single user from the DB, searching by username
 pub async fn get_user_by_id(id: &str) -> Result<Option<User>, ServerError> {
     let db = &*DB;
@@ -111,19 +126,13 @@ pub async fn create_user_and_try_save(
         updated_at: Set( Utc::now().naive_utc()),
         ..Default::default()
     };
-
-    let result = user.insert(db).await;
-    match result {
-        Ok(user) => { Ok(user) }
-        Err(err) => {
-            Err(ServiceError {
-                code: StatusCode::INTERNAL_SERVER_ERROR,
-                path: req.path().to_string(),
-                message: err.to_string(),
-                show_message: false,
-            })
-        }
-    }
+    let user = user.insert(db).await?;
+    let settings = user_security_settings::ActiveModel {
+        user_id: Set(user_id.to_string()),
+        ..Default::default()
+    };
+    settings.insert(db).await?;
+    Ok(user)
 }
 
 pub async fn try_send_restore_email(

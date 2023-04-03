@@ -28,13 +28,13 @@ pub struct LoginParams {
 #[derive(Serialize, Deserialize)]
 pub enum LoginResponse {
     OTPResponse { message: String },
-    TokenResponse { token: String, token_type: String}
+    TokenResponse { token: String, token_type: String },
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct OTPCode {
     pub code: String,
-    pub user_id: String
+    pub user_id: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -61,7 +61,7 @@ pub struct ResetPasswordParams {
 pub struct VerifyToken {
     pub expiry: NaiveDateTime,
     pub user_id: String,
-    pub otp_hash: String
+    pub otp_hash: String,
 }
 
 #[derive(Serialize, Deserialize)]

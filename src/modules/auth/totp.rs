@@ -1,23 +1,16 @@
-use chrono::{ Duration, Utc};
-use redis::AsyncCommands;
-use uuid::Uuid;
-use sea_orm::{
-    ActiveModelTrait,
-    EntityTrait,
-    QueryFilter,
-    ColumnTrait,
-    Set,
-    ModelTrait
-};
-use entity::{user_otp_token};
 use crate::core::db::DB;
 use crate::core::redis::REDIS_CLIENT;
+use chrono::{Duration, Utc};
+use entity::user_otp_token;
+use redis::AsyncCommands;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
+use uuid::Uuid;
 
 use crate::err_server;
-use crate::modules::auth::session::{decode_token, generate_token,};
 use crate::models::ServerError;
-use crate::modules::auth::{hash_token};
 use crate::modules::auth::email::send_totp_email_code;
+use crate::modules::auth::hash_token;
+use crate::modules::auth::session::{decode_token, generate_token};
 
 pub async fn generate_email_code(
     user_id: &str,
@@ -43,17 +36,17 @@ pub async fn generate_email_code(
         &login_session,
         login_ip,
         user_agent,
-        expiry.timestamp_nanos()
+        expiry.timestamp_nanos(),
     )
-        .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
+    .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
 
     let db = &*DB;
     if let Some(user) = user_otp_token::Entity::find()
         .filter(user_otp_token::Column::UserId.contains(user_id))
         .one(db)
         .await
-        .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))? {
-
+        .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))?
+    {
         let mut active: user_otp_token::ActiveModel = user.into();
         active.otp_hash = Set(totp_token);
         active.expiry = Set(expiry.naive_utc());
@@ -72,9 +65,9 @@ pub async fn generate_email_code(
             code: Set(hash),
             ..Default::default()
         }
-            .insert(db)
-            .await
-            .map_err(|e| err_server!("Problem user OTP data {}:{}", user_id, e))?;
+        .insert(db)
+        .await
+        .map_err(|e| err_server!("Problem user OTP data {}:{}", user_id, e))?;
     }
     send_totp_email_code(email, &code, user_id).await?;
     Ok(())
@@ -85,19 +78,18 @@ pub async fn verify_email_otp_code(
     user_id: &str,
     login_ip: &str,
 ) -> Result<String, ServerError> {
-
     let db = &*DB;
     if let Some(user) = user_otp_token::Entity::find()
         .filter(user_otp_token::Column::UserId.contains(user_id))
         .one(db)
         .await
-        .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))? {
-
+        .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))?
+    {
         if user.expiry > Utc::now().naive_utc() && user.attempt_count > 4 {
             user.delete(db)
                 .await
                 .map_err(|e| err_server!("Problem delete OTP token for user {}: {}", user_id, e))?;
-            return Err(err_server!("Invalid OTP Code, try again"))
+            return Err(err_server!("Invalid OTP Code, try again"));
         };
 
         let hash = hash_token(code);
@@ -105,11 +97,12 @@ pub async fn verify_email_otp_code(
         if user.code != hash {
             let user_attempt_count = user.attempt_count;
             let mut new_user: user_otp_token::ActiveModel = user.into();
-            new_user.attempt_count = Set( user_attempt_count + 1);
-            new_user.update(db)
+            new_user.attempt_count = Set(user_attempt_count + 1);
+            new_user
+                .update(db)
                 .await
                 .map_err(|e| err_server!("Problem updating OTP token {}:{}", user_id, e))?;
-            return Err(err_server!("Invalid OTP Code, try again"))
+            return Err(err_server!("Invalid OTP Code, try again"));
         }
 
         if let Ok(decoded_data) = decode_token(&user.otp_hash) {
@@ -117,13 +110,19 @@ pub async fn verify_email_otp_code(
             let hash = user.otp_hash.clone();
 
             let mut client = REDIS_CLIENT.get_async_connection().await?;
-            client.hset(token.user_id.to_string(), &token.session_id.to_string(), &hash).await?;
+            client
+                .hset(
+                    token.user_id.to_string(),
+                    &token.session_id.to_string(),
+                    &hash,
+                )
+                .await?;
 
             user.delete(db)
                 .await
                 .map_err(|e| err_server!("Problem delete OTP token for user {}: {}", user_id, e))?;
-             if token.login_ip == login_ip {
-                 return Ok(hash)
+            if token.login_ip == login_ip {
+                return Ok(hash);
             }
         }
     }

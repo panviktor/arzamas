@@ -120,7 +120,7 @@ pub async fn send_password_reset_email(user_id: &str, to_email: &str) -> Result<
 }
 
 /// Generate an email token and then send a verification email.
-pub async fn validate_email(
+pub async fn send_validate_email(
     user_id: &str,
     email: &str,
     user_exists: bool

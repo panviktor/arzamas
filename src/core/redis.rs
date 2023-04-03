@@ -1,12 +1,12 @@
-use lazy_static::lazy_static;
-use redis::{Client, RedisError};
+use crate::core::config::get_config;
 use crate::models::{ErrorCode, ServerError, ServiceError};
 use actix_web::http::StatusCode;
-use crate::core::config::get_config;
+use lazy_static::lazy_static;
+use redis::{Client, RedisError};
 use secrecy::ExposeSecret;
 
 lazy_static! {
-     pub static ref REDIS_CLIENT: Client = {
+    pub static ref REDIS_CLIENT: Client = {
         let config = get_config().expect("Failed to read configuration.");
 
         let redis_host_name = config.redis_settings.host;
@@ -18,11 +18,11 @@ lazy_static! {
             redis: redis::RedisConnectionInfo {
                 db: 0,
                 username: None,
-                password: Some(redis_password.to_string()) }
+                password: Some(redis_password.to_string()),
+            },
         };
 
-        Client::open(con_info)
-            .expect("Invalid connection URL")
+        Client::open(con_info).expect("Invalid connection URL")
     };
 }
 

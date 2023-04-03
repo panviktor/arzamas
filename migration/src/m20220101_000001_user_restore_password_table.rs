@@ -23,10 +23,18 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(UserRestorePassword::UserId)
                             .string()
                             .not_null()
-                            .unique_key()
+                            .unique_key(),
                     )
-                    .col(ColumnDef::new(UserRestorePassword::OTPHash).string().not_null())
-                    .col(ColumnDef::new(UserRestorePassword::Expiry).timestamp().not_null())
+                    .col(
+                        ColumnDef::new(UserRestorePassword::OTPHash)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserRestorePassword::Expiry)
+                            .timestamp()
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await

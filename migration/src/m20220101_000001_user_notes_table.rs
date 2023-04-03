@@ -1,5 +1,5 @@
+use entity::{note, user};
 use sea_orm_migration::prelude::*;
-use entity::{ note, user };
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -24,25 +24,17 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Note::NoteId)
                             .string()
                             .not_null()
-                            .unique_key()
+                            .unique_key(),
                     )
-                    .col(
-                        ColumnDef::new(Note::UserId)
-                            .string()
-                            .not_null()
-                    )
+                    .col(ColumnDef::new(Note::UserId).string().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_note_assignee")
                             .from(note::Entity, note::Column::UserId)
                             .to(user::Entity, user::Column::UserId)
-                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .col(
-                        ColumnDef::new(Note::Text)
-                            .string()
-                            .not_null()
-                    )
+                    .col(ColumnDef::new(Note::Text).string().not_null())
                     .col(ColumnDef::new(Note::CreatedAt).timestamp().not_null())
                     .col(ColumnDef::new(Note::UpdatedAt).timestamp().not_null())
                     .to_owned(),
@@ -67,5 +59,5 @@ pub enum Note {
     UserId,
     Text,
     CreatedAt,
-    UpdatedAt
+    UpdatedAt,
 }

@@ -1,14 +1,14 @@
-use std::cell::RefCell;
-use std::future::Future;
-use std::pin::Pin;
-use std::rc::Rc;
-use std::task::{Context, Poll};
 use actix_http::body::BoxBody;
 use actix_service::{Service, Transform};
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::{Error, HttpResponse};
 use chrono::{Timelike, Utc};
 use futures::future::{ok, Ready};
+use std::cell::RefCell;
+use std::future::Future;
+use std::pin::Pin;
+use std::rc::Rc;
+use std::task::{Context, Poll};
 
 use crate::core::constants::core_constants::RATE_LIMIT_KEY_PREFIX;
 use crate::core::redis::REDIS_CLIENT;
@@ -20,9 +20,9 @@ pub struct RateLimitServices {
 }
 
 impl<S> Transform<S, ServiceRequest> for RateLimitServices
-    where
-        S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
-        S::Future: 'static,
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
+    S::Future: 'static,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -40,13 +40,13 @@ impl<S> Transform<S, ServiceRequest> for RateLimitServices
 
 pub struct RateLimitMiddleware<S> {
     service: Rc<RefCell<S>>,
-    requests_count: u64
+    requests_count: u64,
 }
 
 impl<S> Service<ServiceRequest> for RateLimitMiddleware<S>
-    where
-        S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
-        S::Future: 'static,
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
+    S::Future: 'static,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -62,32 +62,37 @@ impl<S> Service<ServiceRequest> for RateLimitMiddleware<S>
 
         Box::pin(async move {
             match get_ip_addr(&req) {
-                Ok(address) => {
-                    match validate_session(address, requests_count).await{
-                        Ok(value) => {
-                            if value {
-                                let ok = srv.call(req).await?;
-                               return Ok(ok)
-                            }
-                        },
-                        Err(error) => { println!("{}", error) },
+                Ok(address) => match validate_session(address, requests_count).await {
+                    Ok(value) => {
+                        if value {
+                            let ok = srv.call(req).await?;
+                            return Ok(ok);
+                        }
                     }
+                    Err(error) => {
+                        println!("{}", error)
+                    }
+                },
+                Err(error) => {
+                    println!("{}", error)
                 }
-                Err(error) => { println!("{}", error) },
             }
 
-            Ok(req.into_response(
-                HttpResponse::TooManyRequests()
-                    .finish()
-            ))
+            Ok(req.into_response(HttpResponse::TooManyRequests().finish()))
         })
     }
 }
 
-pub async fn validate_session(ip_address: String, requests_count: u64) -> Result<bool, ServerError> {
+pub async fn validate_session(
+    ip_address: String,
+    requests_count: u64,
+) -> Result<bool, ServerError> {
     let mut redis_connection = REDIS_CLIENT.get_async_connection().await?;
     let current_minute = Utc::now().minute();
-    let rate_limit_key = format!("{}:{}:{}", RATE_LIMIT_KEY_PREFIX, ip_address, current_minute);
+    let rate_limit_key = format!(
+        "{}:{}:{}",
+        RATE_LIMIT_KEY_PREFIX, ip_address, current_minute
+    );
 
     let (count, _): (u64, u64) = redis::pipe()
         .atomic()
@@ -97,10 +102,10 @@ pub async fn validate_session(ip_address: String, requests_count: u64) -> Result
         .await?;
 
     if requests_count > count {
-        return Ok(true)
+        return Ok(true);
     }
 
-    return Ok(false)
+    return Ok(false);
 }
 
 fn get_ip_addr(req: &ServiceRequest) -> Result<String, ServerError> {

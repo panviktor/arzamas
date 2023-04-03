@@ -1,12 +1,12 @@
-use std::collections::HashMap;
+use actix_http::header::HeaderValue;
 use actix_web::dev::ServiceRequest;
-use chrono::{ Duration, TimeZone, Utc};
+use actix_web::HttpRequest;
+use chrono::{Duration, TimeZone, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, TokenData, Validation};
 use redis::AsyncCommands;
 use secrecy::ExposeSecret;
+use std::collections::HashMap;
 use std::option::Option;
-use actix_http::header::HeaderValue;
-use actix_web::HttpRequest;
 use uuid::Uuid;
 
 use crate::core::config::APP_SETTINGS;
@@ -15,7 +15,7 @@ use crate::core::constants::emojis::EMOJIS;
 
 use crate::core::redis::REDIS_CLIENT;
 use crate::err_server;
-use crate::models::{ServerError, ServiceError };
+use crate::models::{ServerError, ServiceError};
 use crate::modules::auth::models::UserToken;
 
 fn generate_random_name() -> String {
@@ -52,7 +52,8 @@ pub fn generate_token(
         &Header::default(),
         &payload,
         &EncodingKey::from_secret(APP_SETTINGS.jwt_secret.expose_secret().as_ref()),
-    ).map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
+    )
+    .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
 
     Ok(result)
 }
@@ -62,7 +63,7 @@ pub async fn generate_session_token(
     user: &str,
     persistent: bool,
     login_ip: &str,
-    user_agent: &str
+    user_agent: &str,
 ) -> Result<String, ServerError> {
     let expiry = match persistent {
         false => Utc::now() + Duration::days(1),
@@ -78,9 +79,12 @@ pub async fn generate_session_token(
         expiry.timestamp_nanos(),
     );
 
-    let token_to_redis = token.map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
+    let token_to_redis =
+        token.map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
     let mut client = REDIS_CLIENT.get_async_connection().await?;
-    client.hset(user.to_string(), &login_session, &token_to_redis).await?;
+    client
+        .hset(user.to_string(), &login_session, &token_to_redis)
+        .await?;
     Ok(token_to_redis)
 }
 
@@ -88,7 +92,7 @@ pub fn decode_token(token: &str) -> jsonwebtoken::errors::Result<TokenData<UserT
     jsonwebtoken::decode::<UserToken>(
         &token,
         &DecodingKey::from_secret(APP_SETTINGS.jwt_secret.expose_secret().as_ref()),
-        &Validation::default()
+        &Validation::default(),
     )
 }
 
@@ -114,7 +118,7 @@ fn extract_token(authed_header: &HeaderValue) -> Option<String> {
     if let Ok(authed_header_str) = authed_header.to_str() {
         if authed_header_str.starts_with(core_constants::BEARER) {
             let token = authed_header_str[6..authed_header_str.len()].trim();
-            return Some(token.to_string())
+            return Some(token.to_string());
         }
     }
     None
@@ -134,7 +138,7 @@ pub async fn validate_session(token_from_req: &str) -> Result<Option<String>, Se
             if datetime > now {
                 return Ok(Some(user));
             } else {
-                let token =  decoded_data.claims;
+                let token = decoded_data.claims;
                 con.hdel(&token.user_id, token.session_id).await?;
             }
         }
@@ -142,9 +146,7 @@ pub async fn validate_session(token_from_req: &str) -> Result<Option<String>, Se
     Ok(None)
 }
 
-async fn valid_sessions(
-    tokens: Vec<String>
-) -> Result<Vec<UserToken>, ServerError> {
+async fn valid_sessions(tokens: Vec<String>) -> Result<Vec<UserToken>, ServerError> {
     let now = Utc::now();
     let mut valid_tokens: Vec<UserToken> = vec![];
     let mut con = REDIS_CLIENT.get_async_connection().await?;
@@ -153,10 +155,10 @@ async fn valid_sessions(
         if let Ok(decoded_data) = decode_token(token) {
             let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
             if datetime > now {
-                let token =  decoded_data.claims;
+                let token = decoded_data.claims;
                 valid_tokens.push(token)
             } else {
-                let token =  decoded_data.claims;
+                let token = decoded_data.claims;
                 con.hdel(&token.user_id, token.session_id).await?;
             }
         }
@@ -166,20 +168,16 @@ async fn valid_sessions(
 
 pub async fn try_active_sessions(
     req: &HttpRequest,
-    user: &str
+    user: &str,
 ) -> Result<Vec<UserToken>, ServiceError> {
     let mut client = REDIS_CLIENT.get_async_connection().await?;
     let tokens: HashMap<String, String> = client.hgetall(user.to_string()).await?;
     let tokens = tokens.values().cloned().collect();
 
-    valid_sessions(tokens)
-        .await
-        .map_err(|e| e.general(&(req)))
+    valid_sessions(tokens).await.map_err(|e| e.general(&(req)))
 }
 
-pub async fn try_current_active_session(
-    req: &HttpRequest,
-) -> Result<UserToken, ServiceError> {
+pub async fn try_current_active_session(req: &HttpRequest) -> Result<UserToken, ServiceError> {
     if let Some(token) = get_session_token_http_request(req) {
         if let Ok(decoded_data) = decode_token(&token) {
             let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
@@ -197,13 +195,11 @@ pub async fn try_current_active_session(
             }
         }
     }
-    Err(
-        ServiceError::not_found(
-            &req,
-            "Error get session token http request".to_string(),
-            false
-        )
-    )
+    Err(ServiceError::not_found(
+        &req,
+        "Error get session token http request".to_string(),
+        false,
+    ))
 }
 
 pub async fn try_remove_all_sessions_token(user: &str) -> Result<bool, ServiceError> {
@@ -212,25 +208,21 @@ pub async fn try_remove_all_sessions_token(user: &str) -> Result<bool, ServiceEr
     Ok(true)
 }
 
-pub async fn try_remove_active_session_token(
-    req: &HttpRequest,
-) -> Result<bool, ServiceError> {
+pub async fn try_remove_active_session_token(req: &HttpRequest) -> Result<bool, ServiceError> {
     if let Some(token) = get_session_token_http_request(req) {
         if let Ok(decoded_data) = decode_token(&token) {
             let mut con = REDIS_CLIENT.get_async_connection().await?;
             let user = decoded_data.claims.user_id.to_string();
             let session_id = decoded_data.claims.session_id.to_string();
             con.hdel(user, session_id).await?;
-            return Ok(true)
+            return Ok(true);
         }
     }
-    Err(
-        ServiceError::not_found(
-            &req,
-            "Error logout from current session".to_string(),
-            true
-        )
-    )
+    Err(ServiceError::not_found(
+        &req,
+        "Error logout from current session".to_string(),
+        true,
+    ))
 }
 
 pub fn get_ip_addr(req: &HttpRequest) -> Result<String, ServerError> {
@@ -238,8 +230,7 @@ pub fn get_ip_addr(req: &HttpRequest) -> Result<String, ServerError> {
         .peer_addr()
         .ok_or(err_server!("Get ip address error"))?
         .ip()
-        .to_string()
-    )
+        .to_string())
 }
 
 pub fn get_user_agent(req: &HttpRequest) -> String {
@@ -247,11 +238,11 @@ pub fn get_user_agent(req: &HttpRequest) -> String {
         user_agent.to_str().unwrap_or("Unknown").to_string()
     } else {
         "".to_string()
-    }
+    };
 }
 
 //System func for administration bd
-pub async fn delete_all_expired_user_tokens(user: &str)-> Result<bool, ServiceError> {
+pub async fn delete_all_expired_user_tokens(user: &str) -> Result<bool, ServiceError> {
     let now = Utc::now();
     let mut con = REDIS_CLIENT.get_async_connection().await?;
     let tokens: HashMap<String, String> = con.hgetall(user.to_string()).await?;
@@ -260,7 +251,7 @@ pub async fn delete_all_expired_user_tokens(user: &str)-> Result<bool, ServiceEr
         if let Ok(decoded_data) = decode_token(token) {
             let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
             if datetime < now {
-                let token =  decoded_data.claims;
+                let token = decoded_data.claims;
                 con.hdel(&token.user_id, token.session_id).await?;
             }
         }

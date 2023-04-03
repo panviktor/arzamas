@@ -1,10 +1,10 @@
 /// Module for the ServiceError struct.
-use actix_web::http::{StatusCode};
+use actix_web::http::StatusCode;
 use actix_web::{HttpRequest, HttpResponse, ResponseError};
-use std::fmt;
 use log::error;
 use sea_orm::DbErr;
 use serde::Serialize;
+use std::fmt;
 
 /// A generic error for the web server.
 #[derive(Debug)]
@@ -12,7 +12,7 @@ pub struct ServiceError {
     pub code: StatusCode,
     pub path: String,
     pub message: String,
-    pub show_message: bool
+    pub show_message: bool,
 }
 
 impl ServiceError {
@@ -21,18 +21,17 @@ impl ServiceError {
             code: self.code.to_string(),
             path: self.path.to_string(),
             message: self.message.to_string(),
-            show_message: self.show_message
+            show_message: self.show_message,
         }
     }
 }
 
-#[derive(Debug)]
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct ServiceErrorSerialized {
     pub code: String,
     pub path: String,
     pub message: String,
-    pub show_message: bool
+    pub show_message: bool,
 }
 
 impl ServiceError {
@@ -85,7 +84,6 @@ impl ServiceError {
             show_message: show,
         }
     }
-
 }
 
 #[macro_export]
@@ -146,10 +144,9 @@ impl From<DbErr> for ServiceError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to get primary key for update".to_string(),
             ),
-            DbErr::RecordNotFound(model_name) => (
-                StatusCode::NOT_FOUND,
-                format!("{} not found", model_name),
-            ),
+            DbErr::RecordNotFound(model_name) => {
+                (StatusCode::NOT_FOUND, format!("{} not found", model_name))
+            }
             DbErr::AttrNotSet(attr_name) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Attribute '{}' not set", attr_name),

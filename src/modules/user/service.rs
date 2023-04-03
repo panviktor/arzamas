@@ -1,24 +1,18 @@
 use actix_web::HttpRequest;
 use chrono::Utc;
+use entity::user;
 use sea_orm::ActiveModelTrait;
 use sea_orm::ActiveValue::Set;
 use serde_derive::{Deserialize, Serialize};
-use entity::user;
 
 use crate::core::db::DB;
 use crate::err_server;
 use crate::models::{ServerError, ServiceError};
 use crate::modules::auth::credentials::{
-    credential_validator,
-    generate_password_hash,
-    validate_email_rules,
-    validate_password_rules
+    credential_validator, generate_password_hash, validate_email_rules, validate_password_rules,
 };
-use crate::modules::auth::email::validate_email;
-use crate::modules::auth::service::{
-    get_user_by_email,
-    get_user_by_id
-};
+use crate::modules::auth::email::send_validate_email;
+use crate::modules::auth::service::{get_user_by_email, get_user_by_id};
 
 /// Struct for holding the form parameters with the new user form
 #[derive(Serialize, Deserialize)]
@@ -46,16 +40,13 @@ pub struct AboutMeInformation {
 pub async fn try_about_me(
     req: &HttpRequest,
     user_id: &str,
-)  -> Result<AboutMeInformation, ServiceError> {
-    if let Some(user) = get_user_by_id(user_id)
-        .await
-        .map_err(|s| s.general(&req))? {
-
+) -> Result<AboutMeInformation, ServiceError> {
+    if let Some(user) = get_user_by_id(user_id).await.map_err(|s| s.general(&req))? {
         return Ok(AboutMeInformation {
             name: user.username,
             email: user.email,
-            email_validated: user.email_validated
-        })
+            email_validated: user.email_validated,
+        });
     }
 
     return Err(ServiceError::bad_request(
@@ -68,7 +59,7 @@ pub async fn try_about_me(
 pub async fn try_change_email(
     req: &HttpRequest,
     user_id: &str,
-    params: ChangeEmailParams
+    params: ChangeEmailParams,
 ) -> Result<(), ServiceError> {
     if &params.new_email != &params.new_email_confirm {
         return Err(ServiceError::bad_request(
@@ -79,9 +70,7 @@ pub async fn try_change_email(
     }
 
     // Check the email is valid
-    if let Err(e) = validate_email_rules(
-        &params.new_email
-    ) {
+    if let Err(e) = validate_email_rules(&params.new_email) {
         return Err(ServiceError::bad_request(
             &req,
             format!("New email: {}", e),
@@ -89,12 +78,8 @@ pub async fn try_change_email(
         ));
     }
 
-    if let Some(user) = get_user_by_id(user_id)
-        .await
-        .map_err(|s| s.general(&req))? {
-
-        if !credential_validator(&user, &params.current_password)
-            .map_err(|e| e.general(&req))? {
+    if let Some(user) = get_user_by_id(user_id).await.map_err(|s| s.general(&req))? {
+        if !credential_validator(&user, &params.current_password).map_err(|e| e.general(&req))? {
             return Err(ServiceError::bad_request(
                 &req,
                 "Invalid current password",
@@ -104,9 +89,10 @@ pub async fn try_change_email(
 
         if let Some(email_user) = get_user_by_email(&params.new_email)
             .await
-            .map_err(|s| s.general(&req))? {
+            .map_err(|s| s.general(&req))?
+        {
             println!("user with email find");
-            if email_user.id != user.id  {
+            if email_user.id != user.id {
                 println!("this email from different user");
             } else {
                 println!("Old email address and new email address are equal.");
@@ -114,7 +100,7 @@ pub async fn try_change_email(
             }
         } else {
             // Send a validation email
-            validate_email(&user.user_id, &params.new_email, true)
+            send_validate_email(&user.user_id, &params.new_email, true)
                 .await
                 .map_err(|s| s.general(&req))?;
 
@@ -136,25 +122,14 @@ pub async fn try_change_email(
 pub async fn try_change_password(
     req: &HttpRequest,
     user_id: &str,
-    params: ChangePasswordParams
+    params: ChangePasswordParams,
 ) -> Result<(), ServiceError> {
     // Check the password is valid
-    if let Err(e) = validate_password_rules(
-        &params.new_password,
-        &params.new_password_confirm
-    ) {
-        return Err(ServiceError::bad_request(
-            &req,
-            format!("{}", e),
-            true
-        ));
+    if let Err(e) = validate_password_rules(&params.new_password, &params.new_password_confirm) {
+        return Err(ServiceError::bad_request(&req, format!("{}", e), true));
     }
-    if let Some(user) = get_user_by_id(user_id)
-        .await
-        .map_err(|s| s.general(&req))? {
-
-        if !credential_validator(&user, &params.current_password)
-            .map_err(|e| e.general(&req))? {
+    if let Some(user) = get_user_by_id(user_id).await.map_err(|s| s.general(&req))? {
+        if !credential_validator(&user, &params.current_password).map_err(|e| e.general(&req))? {
             return Err(ServiceError::bad_request(
                 &req,
                 "Invalid current password",
@@ -163,8 +138,7 @@ pub async fn try_change_password(
         }
 
         let db = &*DB;
-        let hash = generate_password_hash(&params.new_password)
-            .map_err(|s| s.general(&req))?;
+        let hash = generate_password_hash(&params.new_password).map_err(|s| s.general(&req))?;
         let mut active: user::ActiveModel = user.into();
         active.pass_hash = Set(hash.to_owned());
         active.updated_at = Set(Utc::now().naive_utc());
@@ -177,13 +151,8 @@ pub async fn try_change_password(
     Ok(())
 }
 
-pub async fn try_resend_verify_email(
-    req: &HttpRequest,
-    user_id: &str,
-) -> Result<(), ServiceError> {
-    if let Some(user) = get_user_by_id(user_id)
-        .await
-        .map_err(|s| s.general(&req))? {
+pub async fn try_resend_verify_email(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
+    if let Some(user) = get_user_by_id(user_id).await.map_err(|s| s.general(&req))? {
         return if user.email_validated {
             Err(ServiceError::bad_request(
                 &req,
@@ -191,11 +160,11 @@ pub async fn try_resend_verify_email(
                 true,
             ))
         } else {
-            validate_email(&user.user_id, &user.email, true)
+            send_validate_email(&user.user_id, &user.email, true)
                 .await
                 .map_err(|s| s.general(&req))?;
             Ok(())
-        }
+        };
     }
 
     return Err(ServiceError::bad_request(
@@ -206,11 +175,7 @@ pub async fn try_resend_verify_email(
 }
 
 // 2FA
-pub async fn try_2fa_add(
-    req: &HttpRequest,
-    user_id: &str,
-) -> Result<(), ServiceError> {
-
+pub async fn try_2fa_add(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
     let codes = generate_totp_backup_codes().unwrap();
     println!("{codes:?}");
 
@@ -221,12 +186,7 @@ pub async fn try_2fa_add(
     ));
 }
 
-pub async fn try_2fa_reset(
-    req: &HttpRequest,
-    user_id: &str,
-) -> Result<(), ServiceError> {
-
-
+pub async fn try_2fa_reset(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
     return Err(ServiceError::bad_request(
         &req,
         format!("User not found."),
@@ -234,12 +194,7 @@ pub async fn try_2fa_reset(
     ));
 }
 
-pub async fn try_2fa_remove(
-    req: &HttpRequest,
-    user_id: &str,
-) -> Result<(), ServiceError> {
-
-
+pub async fn try_2fa_remove(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
     return Err(ServiceError::bad_request(
         &req,
         format!("User not found."),

@@ -23,11 +23,19 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(UserConfirmation::UserId)
                             .string()
                             .not_null()
-                            .unique_key()
+                            .unique_key(),
                     )
                     .col(ColumnDef::new(UserConfirmation::Email).string().not_null())
-                    .col(ColumnDef::new(UserConfirmation::OTPHash).string().not_null())
-                    .col(ColumnDef::new(UserConfirmation::Expiry).timestamp().not_null())
+                    .col(
+                        ColumnDef::new(UserConfirmation::OTPHash)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::Expiry)
+                            .timestamp()
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await

@@ -1,14 +1,13 @@
-use actix_web::{ web, App, HttpServer};
+use crate::core::db::DB;
+use crate::modules::{auth, general_handlers, notes, user};
 use actix_files::Files;
 use actix_web::dev::Server;
-use std::net::TcpListener;
 use actix_web::middleware::NormalizePath;
+use actix_web::{web, App, HttpServer};
+use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
-use crate::modules::{auth, notes, general_handlers, user};
-use crate::core::db::DB;
 
 pub async fn run(listener: TcpListener) -> Result<Server, std::io::Error> {
-
     let db = web::Data::new(&*DB);
 
     let server = HttpServer::new(move || {
@@ -25,14 +24,13 @@ pub async fn run(listener: TcpListener) -> Result<Server, std::io::Error> {
                 web::scope("/api")
                     .configure(auth::init_auth_routes)
                     .configure(notes::init_notes_routes)
-                    .configure(user::init_user_routes)
+                    .configure(user::init_user_routes),
             )
             .default_service(web::route().to(general_handlers::p404))
             // Register application-wide models data below 👇
             .app_data(db.clone()) //  Register the database connection pool
     })
-        .listen(listener)?
-        .run();
+    .listen(listener)?
+    .run();
     Ok(server)
 }
-

@@ -1,50 +1,29 @@
-use actix_web::{web, HttpResponse, HttpRequest};
-use sea_orm::ModelTrait;
-use tracing::info;
-use entity::prelude::UserSecuritySettings;
-use entity::user::{Model as User};
-use entity::user_security_settings::{Model as SecuritySettings};
+use actix_web::{web, HttpRequest, HttpResponse};
 use entity::sea_orm_active_enums::TwoFactorMethod;
+use entity::user::Model as User;
+use entity::user_security_settings::Model as SecuritySettings;
 
 use crate::core::constants::core_constants;
-use crate::core::db::DB;
-use crate::models::{ServiceError};
+use crate::models::ServiceError;
 use crate::modules::auth::credentials::{
-    credential_validator_username_email,
-    generate_user_id,
-    validate_email_rules,
-    validate_password_rules,
-    validate_username_rules};
-use crate::modules::auth::service::{
-    create_user_and_try_save,
-    get_user_by_email,
-    get_user_by_username,
-    try_reset_password,
-    try_send_restore_email,
+    credential_validator_username_email, generate_user_id, validate_email_rules,
+    validate_password_rules, validate_username_rules,
 };
-use crate::modules::auth::email::{
-    validate_email,
-    verify_user_email
-};
+use crate::modules::auth::email::{send_validate_email, verify_user_email};
 use crate::modules::auth::models::{
-    ForgotPasswordParams,
-    LoginParams,
-    LoginResponse,
-    NewUserParams,
-    OTPCode,
-    ResetPasswordParams,
-    VerifyEmailParams
+    ForgotPasswordParams, LoginParams, LoginResponse, NewUserParams, OTPCode, ResetPasswordParams,
+    VerifyEmailParams,
 };
-use crate::modules::auth::session::{
-    generate_session_token,
-    get_ip_addr,
-    get_user_agent
+use crate::modules::auth::service::{
+    create_user_and_try_save, get_user_by_email, get_user_by_username, get_user_settings_by_id,
+    try_reset_password, try_send_restore_email,
 };
+use crate::modules::auth::session::{generate_session_token, get_ip_addr, get_user_agent};
 use crate::modules::auth::totp::{generate_email_code, verify_email_otp_code};
 
 pub async fn create_user(
     req: HttpRequest,
-    params: web::Json<NewUserParams>
+    params: web::Json<NewUserParams>,
 ) -> Result<HttpResponse, ServiceError> {
     if let Err(e) = validate_password_rules(&params.password, &params.password_confirm) {
         return Err(ServiceError::bad_request(
@@ -133,39 +112,37 @@ pub async fn create_user(
     let saved_user = saved_user.expect("Error unwrap saved user");
 
     // Send a validation email
-    validate_email(&saved_user.user_id, &saved_user.email, false)
+    send_validate_email(&saved_user.user_id, &saved_user.email, false)
         .await
         .map_err(|s| s.general(&req))?;
 
     /// MARK: - Need refactoring
     Ok(HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
-        .body(format!("
+        .body(format!(
+            "
              User {},\n
              Was created {},\n
              A verification email has been sent to: {}. \n
              Follow the link in the message to verify your email.\n
              The link will only be valid for 24 hours.",
-                       &saved_user.username,
-                       &saved_user.created_at,
-                       &saved_user.email
-        )
-        )
-    )
+            &saved_user.username, &saved_user.created_at, &saved_user.email
+        )))
 }
 
 pub async fn verify_email(
     req: HttpRequest,
-    params: web::Json<VerifyEmailParams>
+    params: web::Json<VerifyEmailParams>,
 ) -> Result<HttpResponse, ServiceError> {
-    verify_user_email(&params.email, &params.email_token).await
+    verify_user_email(&params.email, &params.email_token)
+        .await
         .map_err(|s| s.general(&req))?;
     Ok(HttpResponse::Ok().finish())
 }
 
 pub async fn login(
     req: HttpRequest,
-    params: web::Json<LoginParams>
+    params: web::Json<LoginParams>,
 ) -> Result<HttpResponse, ServiceError> {
     // Check the username is valid
     if validate_username_rules(&params.identifier).is_err()
@@ -183,38 +160,34 @@ pub async fn login(
         return Err(e.bad_request(&req));
     }
 
-    let result =  credential_validator_username_email(&params.identifier, &params.password)
+    let result = credential_validator_username_email(&params.identifier, &params.password)
         .await
-        .map_err(|s| s.general(&req))?;
+        .map_err(|s| ServiceError::general(&req, s.message, true))?;
 
-    let db = &*DB;
     if let Some(user) = result {
-        if let Some(settings) = user.find_related(UserSecuritySettings).one(db).await? {
-           return handle_login_result(
-                &user.user_id,
-                &user.email,
-                settings,
-                &req,
-                &params
-            ).await
-        }
+        let settings = get_user_settings_by_id(&user.user_id)
+            .await
+            .map_err(|s| ServiceError::general(&req, s.message, true))?;
+
+        return handle_login_result(&user.user_id, &user.email, settings, &req, &params).await;
     }
 
-    Err(ServiceError::unauthorized(&req, "Invalid credentials!", true))
+    Err(ServiceError::unauthorized(
+        &req,
+        "Invalid credentials!",
+        true,
+    ))
 }
 
 pub async fn login_2fa(
     req: HttpRequest,
-    params: web::Json<OTPCode>
+    params: web::Json<OTPCode>,
 ) -> Result<HttpResponse, ServiceError> {
-    let login_ip = get_ip_addr(&req)
-        .map_err(|s| ServiceError::general(&req, s.message, false))?;
+    let login_ip = get_ip_addr(&req).map_err(|s| ServiceError::general(&req, s.message, false))?;
 
-    let token = verify_email_otp_code(
-        &params.code,
-        &params.user_id,
-        &login_ip
-    ).await.map_err(|s| ServiceError::general(&req, s.message, true))?;
+    let token = verify_email_otp_code(&params.code, &params.user_id, &login_ip)
+        .await
+        .map_err(|s| ServiceError::general(&req, s.message, true))?;
 
     let json_response = LoginResponse::TokenResponse {
         token,
@@ -225,7 +198,7 @@ pub async fn login_2fa(
 
 pub async fn forgot_password(
     req: HttpRequest,
-    params: web::Json<ForgotPasswordParams>
+    params: web::Json<ForgotPasswordParams>,
 ) -> Result<HttpResponse, ServiceError> {
     try_send_restore_email(&req, params.0).await?;
     Ok(HttpResponse::Ok().json("A password reset request has been sent."))
@@ -233,7 +206,7 @@ pub async fn forgot_password(
 
 pub async fn password_reset(
     req: HttpRequest,
-    params: web::Json<ResetPasswordParams>
+    params: web::Json<ResetPasswordParams>,
 ) -> Result<HttpResponse, ServiceError> {
     try_reset_password(&req, params.0).await?;
     Ok(HttpResponse::Ok().json("Password successfully reset."))
@@ -244,10 +217,9 @@ async fn handle_login_result(
     user_email: &str,
     security_settings: SecuritySettings,
     req: &HttpRequest,
-    params: &LoginParams
+    params: &LoginParams,
 ) -> Result<HttpResponse, ServiceError> {
-    let login_ip = get_ip_addr(req)
-        .map_err(|s| ServiceError::general(req, s.message, false))?;
+    let login_ip = get_ip_addr(req).map_err(|s| ServiceError::general(req, s.message, false))?;
     let user_agent = get_user_agent(&req);
     let persistent = params.persist.unwrap_or(false);
 
@@ -257,29 +229,28 @@ async fn handle_login_result(
                 Ok(HttpResponse::Ok().json("Not implemented yet!"))
             }
             TwoFactorMethod::Email => {
-                generate_email_code(
-                    user_id,
-                    persistent,
-                    user_email,
-                    &login_ip,
-                    &user_agent
-                ).await.map_err(|s| ServiceError::general(&req, s.message, false))?;
-                let json = LoginResponse::OTPResponse { message: "The code has been sent to your email!".to_string() };
+                generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent)
+                    .await
+                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
+                let json = LoginResponse::OTPResponse {
+                    message: "The code has been sent to your email!".to_string(),
+                };
                 Ok(HttpResponse::Ok().json(json))
             }
         }
     } else {
-        let token = generate_session_token(
-            user_id,
-            persistent,
-            &login_ip,
-            &user_agent,
-        ).await.map_err(|s| ServiceError::general(&req, s.message, false))?;
-        info!("Successfully generate session token in user: {}", params.identifier);
+        let token = generate_session_token(user_id, persistent, &login_ip, &user_agent)
+            .await
+            .map_err(|s| ServiceError::general(&req, s.message, false))?;
+
+        if security_settings.email_on_success_enabled_at {
+            // send email on success
+        }
+
         let response = LoginResponse::TokenResponse {
             token,
             token_type: core_constants::BEARER.to_string(),
         };
         Ok(HttpResponse::Ok().json(response))
-    }
+    };
 }

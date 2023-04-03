@@ -1,18 +1,13 @@
 /// Module that contains all the auth middleware.
-use crate::modules::auth::session::{
-    get_session_token_service_request,
-    validate_session
-};
+use crate::modules::auth::session::{get_session_token_service_request, validate_session};
 
 use actix_http::body::BoxBody;
+use actix_http::HttpMessage;
 use actix_service::{Service, Transform};
 use actix_web::{
     dev,
-    Error,
-    FromRequest,
-    HttpRequest,
-    HttpResponse,
-    dev::{ServiceRequest, ServiceResponse}
+    dev::{ServiceRequest, ServiceResponse},
+    Error, FromRequest, HttpRequest, HttpResponse,
 };
 use futures::future::{err, ok, Ready};
 use futures::Future;
@@ -20,7 +15,6 @@ use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll};
-use actix_http::HttpMessage;
 use tracing::error;
 
 /// Wrapper for checking that the user is logged in
@@ -29,9 +23,9 @@ use tracing::error;
 pub struct AuthCheckService;
 
 impl<S> Transform<S, ServiceRequest> for AuthCheckService
-    where
-        S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
-        S::Future: 'static,
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
+    S::Future: 'static,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -51,9 +45,9 @@ pub struct AuthCheckMiddleware<S> {
 }
 
 impl<S> Service<ServiceRequest> for AuthCheckMiddleware<S>
-    where
-        S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
-        S::Future: 'static,
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
+    S::Future: 'static,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -68,31 +62,24 @@ impl<S> Service<ServiceRequest> for AuthCheckMiddleware<S>
         // Run this async so we can use async functions.
         Box::pin(async move {
             let is_logged_in = match get_session_token_service_request(&req) {
-                Some(token) => {
-                    match validate_session(&token).await {
-                        Ok(v) => v,
-                        Err(e) => {
-                            error!("Error validating token: {}", e);
-                            None
-                        }
+                Some(token) => match validate_session(&token).await {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!("Error validating token: {}", e);
+                        None
                     }
-                }
-                None => None
+                },
+                None => None,
             };
 
             match is_logged_in {
                 Some(user_id) => {
-                    let user = LoginUser { id: user_id } ;
+                    let user = LoginUser { id: user_id };
                     req.extensions_mut().insert(user);
                     let ok = srv.call(req).await?;
                     Ok(ok)
                 }
-                None => {
-                    Ok(req.into_response(
-                        HttpResponse::Unauthorized()
-                            .finish()
-                    ))
-                }
+                None => Ok(req.into_response(HttpResponse::Unauthorized().finish())),
             }
         })
     }
@@ -100,7 +87,7 @@ impl<S> Service<ServiceRequest> for AuthCheckMiddleware<S>
 
 #[derive(Debug, Clone)]
 pub struct LoginUser {
-   pub(crate) id: String
+    pub(crate) id: String,
 }
 impl FromRequest for LoginUser {
     type Error = Error;
@@ -109,7 +96,7 @@ impl FromRequest for LoginUser {
     fn from_request(req: &HttpRequest, _payload: &mut dev::Payload) -> Self::Future {
         return match req.extensions().get::<LoginUser>() {
             Some(user) => ok(user.clone()),
-            None => err(actix_web::error::ErrorBadRequest("ups..."))
+            None => err(actix_web::error::ErrorBadRequest("ups...")),
         };
     }
 }

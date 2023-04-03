@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse};
+use actix_web::HttpResponse;
 
 pub async fn ping() -> HttpResponse {
     HttpResponse::Ok().json("Pong!")

@@ -1,12 +1,12 @@
-pub mod general_handlers;
 pub mod auth;
-pub mod user;
+pub mod general_handlers;
 pub mod notes;
+pub mod user;
 
-use uuid::Uuid;
-use chrono::{Utc};
+use chrono::Utc;
 use hex::encode;
 use sha2::{Digest, Sha512};
+use uuid::Uuid;
 
 fn generate_unique_id() -> String {
     // Generate a new UUID

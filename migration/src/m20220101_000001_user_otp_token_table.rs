@@ -23,11 +23,15 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(UserOTPToken::UserId)
                             .string()
                             .not_null()
-                            .unique_key()
+                            .unique_key(),
                     )
                     .col(ColumnDef::new(UserOTPToken::OTPHash).string().not_null())
                     .col(ColumnDef::new(UserOTPToken::Expiry).timestamp().not_null())
-                    .col(ColumnDef::new(UserOTPToken::AttemptCount).integer().not_null())
+                    .col(
+                        ColumnDef::new(UserOTPToken::AttemptCount)
+                            .integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(UserOTPToken::Code).string().not_null())
                     .to_owned(),
             )

@@ -1,8 +1,8 @@
-pub mod startup;
 pub mod config;
-pub mod telemetry;
+pub mod constants;
 pub mod db;
 pub mod email;
-pub mod redis;
 pub mod middleware;
-pub mod constants;
+pub mod redis;
+pub mod startup;
+pub mod telemetry;
