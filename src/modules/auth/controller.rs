@@ -1,5 +1,5 @@
 use actix_web::{web, HttpRequest, HttpResponse};
-use entity::sea_orm_active_enums::TwoFactorMethod;
+use chrono::Utc;
 use entity::user::Model as User;
 use entity::user_security_settings::Model as SecuritySettings;
 
@@ -19,7 +19,7 @@ use crate::modules::auth::service::{
     try_reset_password, try_send_restore_email,
 };
 use crate::modules::auth::session::{generate_session_token, get_ip_addr, get_user_agent};
-use crate::modules::auth::totp::{generate_email_code, verify_email_otp_code};
+use crate::modules::auth::totp::{generate_email_code, verify_otp_codes};
 
 pub async fn create_user(
     req: HttpRequest,
@@ -165,6 +165,14 @@ pub async fn login(
         .map_err(|s| ServiceError::general(&req, s.message, true))?;
 
     if let Some(user) = result {
+        if user.login_blocked_until > Utc::now().naive_utc() {
+            Err(ServiceError::unauthorized(
+                &req,
+                "Too many attempts, try again later!",
+                true,
+            ))
+        }
+
         let settings = get_user_settings_by_id(&user.user_id)
             .await
             .map_err(|s| ServiceError::general(&req, s.message, true))?;
@@ -185,9 +193,14 @@ pub async fn login_2fa(
 ) -> Result<HttpResponse, ServiceError> {
     let login_ip = get_ip_addr(&req).map_err(|s| ServiceError::general(&req, s.message, false))?;
 
-    let token = verify_email_otp_code(&params.code, &params.user_id, &login_ip)
-        .await
-        .map_err(|s| ServiceError::general(&req, s.message, true))?;
+    let token = verify_otp_codes(
+        params.email_code.as_deref(),
+        params.app_code.as_deref(),
+        &*params.user_id,
+        &*login_ip,
+    )
+    .await
+    .map_err(|s| ServiceError::general(&req, s.message, true))?;
 
     let json_response = LoginResponse::TokenResponse {
         token,
@@ -223,34 +236,54 @@ async fn handle_login_result(
     let user_agent = get_user_agent(&req);
     let persistent = params.persist.unwrap_or(false);
 
-    return if let Some(method) = security_settings.two_factor_method {
-        match method {
-            TwoFactorMethod::AuthenticatorApp => {
-                Ok(HttpResponse::Ok().json("Not implemented yet!"))
-            }
-            TwoFactorMethod::Email => {
-                generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent)
-                    .await
-                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
-                let json = LoginResponse::OTPResponse {
-                    message: "The code has been sent to your email!".to_string(),
-                };
-                Ok(HttpResponse::Ok().json(json))
-            }
+    return match (
+        security_settings.two_factor_email,
+        security_settings.two_factor_authenticator_app,
+    ) {
+        (true, true) => {
+            generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent)
+                .await
+                .map_err(|s| ServiceError::general(&req, s.message, false))?;
+            let json = LoginResponse::OTPResponse {
+                message: "The code has been sent to your email!\n
+                Enter your code from email and code from 2FA apps like Google Authenticator and Authy!
+                "
+                .to_string(),
+                apps_code: true,
+            };
+            Ok(HttpResponse::Ok().json(json))
         }
-    } else {
-        let token = generate_session_token(user_id, persistent, &login_ip, &user_agent)
-            .await
-            .map_err(|s| ServiceError::general(&req, s.message, false))?;
-
-        if security_settings.email_on_success_enabled_at {
-            // send email on success
+        (true, false) => {
+            let json = LoginResponse::OTPResponse {
+                message: "Enter your OTP code".to_string(),
+                apps_code: false,
+            };
+            Ok(HttpResponse::Ok().json(json))
         }
+        (false, true) => {
+            generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent)
+                .await
+                .map_err(|s| ServiceError::general(&req, s.message, false))?;
+            let json = LoginResponse::OTPResponse {
+                message: "The code has been sent to your email!".to_string(),
+                apps_code: true,
+            };
+            Ok(HttpResponse::Ok().json(json))
+        }
+        (false, false) => {
+            let token = generate_session_token(user_id, persistent, &login_ip, &user_agent)
+                .await
+                .map_err(|s| ServiceError::general(&req, s.message, false))?;
 
-        let response = LoginResponse::TokenResponse {
-            token,
-            token_type: core_constants::BEARER.to_string(),
-        };
-        Ok(HttpResponse::Ok().json(response))
+            if security_settings.email_on_success_enabled_at {
+                // send email on success
+            }
+
+            let response = LoginResponse::TokenResponse {
+                token,
+                token_type: core_constants::BEARER.to_string(),
+            };
+            Ok(HttpResponse::Ok().json(response))
+        }
     };
 }

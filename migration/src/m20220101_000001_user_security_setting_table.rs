@@ -1,5 +1,4 @@
 use entity::{user, user_security_settings};
-use sea_orm::{sea_query::extension::postgres::Type, EnumIter};
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -8,15 +7,6 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .create_type(
-                Type::create()
-                    .as_enum(TwoFactorMethod::Table)
-                    .values([TwoFactorMethod::Email, TwoFactorMethod::AuthenticatorApp])
-                    .to_owned(),
-            )
-            .await?;
-
         manager
             .create_table(
                 Table::create()
@@ -46,12 +36,16 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(
-                        ColumnDef::new(UserSecuritySettings::TwoFactorMethod)
-                            .enumeration(
-                                TwoFactorMethod::Table,
-                                [TwoFactorMethod::Email, TwoFactorMethod::AuthenticatorApp],
-                            )
-                            .null(),
+                        ColumnDef::new(UserSecuritySettings::TwoFactorEmail)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(UserSecuritySettings::TwoFactorAuthenticatorApp)
+                            .boolean()
+                            .not_null()
+                            .default(false),
                     )
                     .col(
                         ColumnDef::new(UserSecuritySettings::TotpSecret)
@@ -88,10 +82,6 @@ impl MigrationTrait for Migration {
             .drop_table(Table::drop().table(UserSecuritySettings::Table).to_owned())
             .await?;
 
-        manager
-            .drop_type(Type::drop().name(TwoFactorMethod::Table).to_owned())
-            .await?;
-
         Ok(())
     }
 }
@@ -101,16 +91,10 @@ pub enum UserSecuritySettings {
     Id,
     Table,
     UserId,
-    TwoFactorMethod,
+    TwoFactorEmail,
+    TwoFactorAuthenticatorApp,
     TotpSecret,
     EmailOnSuccessEnabledAt,
     EmailOnFailureEnabledAt,
     CloseSessionsOnChangePassword,
-}
-
-#[derive(Iden, EnumIter)]
-enum TwoFactorMethod {
-    Table,
-    Email,
-    AuthenticatorApp,
 }

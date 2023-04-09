@@ -31,6 +31,21 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::post().to(controller::resend_verify_email)),
             )
             // 2FA
+            .service(
+                web::resource("/security-settings")
+                    .route(web::get().to(controller::get_security_settings)),
+            )
+            .service(
+                web::resource("/security-settings")
+                    .route(web::post().to(controller::update_security_settings)),
+            )
+            .service(
+                web::resource("/2fa-add-email").route(web::post().to(controller::add_email_2fa)),
+            )
+            .service(
+                web::resource("/2fa-remove-email")
+                    .route(web::post().to(controller::remove_email_2fa)),
+            )
             .service(web::resource("/2fa-add").route(web::post().to(controller::add_2fa)))
             .service(web::resource("/2fa-reset").route(web::post().to(controller::reset_2fa)))
             .service(web::resource("/2fa-remove").route(web::post().to(controller::remove_2fa))),

@@ -62,6 +62,38 @@ pub async fn resend_verify_email(
     Ok(HttpResponse::Ok().json("Email Verify Resend Successfully"))
 }
 
+pub async fn get_security_settings(
+    req: HttpRequest,
+    user: LoginUser,
+) -> Result<HttpResponse, ServiceError> {
+    // try_2fa_add(&req, &user.id).await?;
+    Ok(HttpResponse::Ok().json("get_security_settings"))
+}
+
+pub async fn update_security_settings(
+    req: HttpRequest,
+    user: LoginUser,
+) -> Result<HttpResponse, ServiceError> {
+    // try_2fa_add(&req, &user.id).await?;
+    Ok(HttpResponse::Ok().json("get_security_settings"))
+}
+
+pub async fn add_email_2fa(
+    req: HttpRequest,
+    user: LoginUser,
+) -> Result<HttpResponse, ServiceError> {
+    // try_2fa_add(&req, &user.id).await?;
+    Ok(HttpResponse::Ok().json("add_email_2fa"))
+}
+
+pub async fn remove_email_2fa(
+    req: HttpRequest,
+    user: LoginUser,
+) -> Result<HttpResponse, ServiceError> {
+    // try_2fa_add(&req, &user.id).await?;
+    Ok(HttpResponse::Ok().json("remove_email_2fa"))
+}
+
 pub async fn add_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
     try_2fa_add(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json("Add 2fa"))

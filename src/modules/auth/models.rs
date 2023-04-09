@@ -27,14 +27,15 @@ pub struct LoginParams {
 
 #[derive(Serialize, Deserialize)]
 pub enum LoginResponse {
-    OTPResponse { message: String },
+    OTPResponse { message: String, apps_code: bool },
     TokenResponse { token: String, token_type: String },
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct OTPCode {
-    pub code: String,
     pub user_id: String,
+    pub email_code: Option<String>,
+    pub app_code: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
