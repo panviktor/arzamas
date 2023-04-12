@@ -165,12 +165,14 @@ pub async fn login(
         .map_err(|s| ServiceError::general(&req, s.message, true))?;
 
     if let Some(user) = result {
-        if user.login_blocked_until > Utc::now().naive_utc() {
-            Err(ServiceError::unauthorized(
-                &req,
-                "Too many attempts, try again later!",
-                true,
-            ))
+        if let Some(blocked_time) = user.login_blocked_until {
+            if blocked_time > Utc::now().naive_utc() {
+                return Err(ServiceError::unauthorized(
+                    &req,
+                    "Too many attempts, try again later!",
+                    true,
+                ));
+            }
         }
 
         let settings = get_user_settings_by_id(&user.user_id)

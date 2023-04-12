@@ -4,11 +4,13 @@ use crate::modules::auth::session::{
     try_active_sessions, try_current_active_session, try_remove_active_session_token,
     try_remove_all_sessions_token,
 };
+use crate::modules::user::models::{ChangeEmailParams, ChangePasswordParams};
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::modules::user::service::{
-    try_2fa_add, try_2fa_remove, try_2fa_reset, try_about_me, try_change_email,
-    try_change_password, try_resend_verify_email, ChangeEmailParams, ChangePasswordParams,
+    try_2fa_add, try_2fa_remove, try_2fa_reset, try_about_me, try_add_email_2fa, try_change_email,
+    try_change_password, try_get_security_settings, try_remove_email_2fa, try_resend_verify_email,
+    try_update_security_settings,
 };
 
 pub async fn about_me(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
@@ -66,7 +68,7 @@ pub async fn get_security_settings(
     req: HttpRequest,
     user: LoginUser,
 ) -> Result<HttpResponse, ServiceError> {
-    // try_2fa_add(&req, &user.id).await?;
+    try_get_security_settings(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json("get_security_settings"))
 }
 
@@ -74,7 +76,7 @@ pub async fn update_security_settings(
     req: HttpRequest,
     user: LoginUser,
 ) -> Result<HttpResponse, ServiceError> {
-    // try_2fa_add(&req, &user.id).await?;
+    try_update_security_settings(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json("get_security_settings"))
 }
 
@@ -82,7 +84,7 @@ pub async fn add_email_2fa(
     req: HttpRequest,
     user: LoginUser,
 ) -> Result<HttpResponse, ServiceError> {
-    // try_2fa_add(&req, &user.id).await?;
+    try_add_email_2fa(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json("add_email_2fa"))
 }
 
@@ -90,7 +92,7 @@ pub async fn remove_email_2fa(
     req: HttpRequest,
     user: LoginUser,
 ) -> Result<HttpResponse, ServiceError> {
-    // try_2fa_add(&req, &user.id).await?;
+    try_remove_email_2fa(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json("remove_email_2fa"))
 }
 

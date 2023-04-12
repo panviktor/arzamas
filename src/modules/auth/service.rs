@@ -357,15 +357,18 @@ pub async fn verify_email_by(user_id: &str) -> Result<(), ServerError> {
     Ok(())
 }
 
-pub async fn block_user_until(user: &str, expiry: DateTime<Utc>) -> Result<(), ServerError> {
-    if let Some(user) = get_user_by_id(&params.user_id)
+pub async fn block_user_until(user_id: &str, expiry: DateTime<Utc>) -> Result<(), ServerError> {
+    if let Some(user) = get_user_by_id(user_id)
         .await
-        .map_err(|s| s.general(&req))?
+        .map_err(|e| err_server!("Problem finding user {}:{}", user_id, e))?
     {
         let db = &*DB;
         let mut active: user::ActiveModel = user.into();
         active.login_blocked_until = Set(Some(expiry.naive_utc()));
-        active.update(db).await?;
+        active
+            .update(db)
+            .await
+            .map_err(|e| err_server!("Problem updating user {}:{}", user_id, e))?;
     }
     Ok(())
 }

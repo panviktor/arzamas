@@ -191,5 +191,3 @@ pub async fn verify_otp_codes(
 
     Err(err_server!("Invalid OTP Code."))
 }
-
-async fn attempt_count() {}

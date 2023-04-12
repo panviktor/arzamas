@@ -3,7 +3,6 @@ use chrono::Utc;
 use entity::user;
 use sea_orm::ActiveModelTrait;
 use sea_orm::ActiveValue::Set;
-use serde_derive::{Deserialize, Serialize};
 
 use crate::core::db::DB;
 use crate::err_server;
@@ -13,29 +12,7 @@ use crate::modules::auth::credentials::{
 };
 use crate::modules::auth::email::send_validate_email;
 use crate::modules::auth::service::{get_user_by_email, get_user_by_id};
-
-/// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize)]
-pub struct ChangePasswordParams {
-    current_password: String,
-    new_password: String,
-    new_password_confirm: String,
-}
-
-/// Form parameters for changing a user's email.
-#[derive(Serialize, Deserialize)]
-pub struct ChangeEmailParams {
-    current_password: String,
-    new_email: String,
-    new_email_confirm: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct AboutMeInformation {
-    name: String,
-    email: String,
-    email_validated: bool,
-}
+use crate::modules::user::models::{AboutMeInformation, ChangeEmailParams, ChangePasswordParams};
 
 pub async fn try_about_me(
     req: &HttpRequest,
@@ -174,7 +151,48 @@ pub async fn try_resend_verify_email(req: &HttpRequest, user_id: &str) -> Result
     ));
 }
 
+// Security Settings
+
+pub async fn try_get_security_settings(
+    req: &HttpRequest,
+    user_id: &str,
+) -> Result<(), ServiceError> {
+    return Err(ServiceError::bad_request(
+        &req,
+        format!("User not found."),
+        true,
+    ));
+}
+
+pub async fn try_update_security_settings(
+    req: &HttpRequest,
+    user_id: &str,
+) -> Result<(), ServiceError> {
+    return Err(ServiceError::bad_request(
+        &req,
+        format!("User not found."),
+        true,
+    ));
+}
+
 // 2FA
+
+pub async fn try_add_email_2fa(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
+    return Err(ServiceError::bad_request(
+        &req,
+        format!("User not found."),
+        true,
+    ));
+}
+
+pub async fn try_remove_email_2fa(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
+    return Err(ServiceError::bad_request(
+        &req,
+        format!("User not found."),
+        true,
+    ));
+}
+
 pub async fn try_2fa_add(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
     let codes = generate_totp_backup_codes().unwrap();
     println!("{codes:?}");
