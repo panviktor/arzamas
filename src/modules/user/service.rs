@@ -1,6 +1,7 @@
 use actix_web::HttpRequest;
 use chrono::Utc;
 use entity::user;
+use entity::user_security_settings;
 use sea_orm::ActiveModelTrait;
 use sea_orm::ActiveValue::Set;
 
@@ -11,7 +12,7 @@ use crate::modules::auth::credentials::{
     credential_validator, generate_password_hash, validate_email_rules, validate_password_rules,
 };
 use crate::modules::auth::email::send_validate_email;
-use crate::modules::auth::service::{get_user_by_email, get_user_by_id};
+use crate::modules::auth::service::{get_user_by_email, get_user_by_id, get_user_settings_by_id};
 use crate::modules::user::models::{AboutMeInformation, ChangeEmailParams, ChangePasswordParams};
 
 pub async fn try_about_me(
@@ -156,12 +157,11 @@ pub async fn try_resend_verify_email(req: &HttpRequest, user_id: &str) -> Result
 pub async fn try_get_security_settings(
     req: &HttpRequest,
     user_id: &str,
-) -> Result<(), ServiceError> {
-    return Err(ServiceError::bad_request(
-        &req,
-        format!("User not found."),
-        true,
-    ));
+) -> Result<user_security_settings::Model, ServiceError> {
+    let settings = get_user_settings_by_id(user_id)
+        .await
+        .map_err(|s| s.general(&req))?;
+    Ok(settings)
 }
 
 pub async fn try_update_security_settings(
@@ -194,9 +194,6 @@ pub async fn try_remove_email_2fa(req: &HttpRequest, user_id: &str) -> Result<()
 }
 
 pub async fn try_2fa_add(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
-    let codes = generate_totp_backup_codes().unwrap();
-    println!("{codes:?}");
-
     return Err(ServiceError::bad_request(
         &req,
         format!("User not found."),
@@ -221,7 +218,7 @@ pub async fn try_2fa_remove(req: &HttpRequest, user_id: &str) -> Result<(), Serv
 }
 
 /// Generate 10 TOTP backup codes.
-pub fn generate_totp_backup_codes() -> Result<Vec<String>, ServerError> {
+fn generate_totp_backup_codes() -> Result<Vec<String>, ServerError> {
     let mut backup_codes: Vec<String> = vec![];
     for _ in 0..10 {
         let mut token = [0u8; 16];

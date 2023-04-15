@@ -11,7 +11,7 @@ use crate::err_server;
 use crate::models::ServerError;
 use crate::modules::auth::email::send_totp_email_code;
 use crate::modules::auth::hash_token;
-use crate::modules::auth::service::block_user_until;
+use crate::modules::auth::service::{block_user_until, set_attempt_count};
 use crate::modules::auth::session::{decode_token, generate_token};
 
 pub async fn generate_email_code(
@@ -106,88 +106,117 @@ pub async fn verify_otp_codes(
 
     if user_otp_token.is_none() {
         return Err(err_server!(
-            "No security settings found for user id {}",
+            "No available security settings found for user id {}",
             user_id
         ));
     }
 
     let user_otp_token = user_otp_token.unwrap();
 
-    match (
+    return match (
         user_settings.two_factor_email,
         user_settings.two_factor_authenticator_app,
     ) {
         (true, true) => {
             if email_code.is_none() || app_code.is_none() {
                 return Err(err_server!(
-                    "No  2fa auth code found for user id {}",
+                    "No 2fa auth code found for user id {}",
                     user_id
                 ));
             }
 
-            // validate email, validate otp set ok/false attempt_count,
+            let user_otp_token = validate_email_otp(user_otp_token, email_code).await?;
+            validate_app_code(app_code, user_id).await?;
+            let token = validate_ip(user_otp_token, login_ip).await?;
+            Ok(token)
         }
         (true, false) => {
-            if email_code.is_none() {
+            let user_otp_token = validate_email_otp(user_otp_token, email_code).await?;
+            let token = validate_ip(user_otp_token, login_ip).await?;
+            Ok(token)
+        }
+        (false, true) => {
+            if app_code.is_none() {
                 return Err(err_server!(
                     "No 2fa auth code found for user id {}",
                     user_id
                 ));
             }
 
-            let email_code = email_code.unwrap();
-
-            if user_otp_token.expiry > Utc::now().naive_utc() && user_otp_token.attempt_count > 4 {
-                block_user_until(user_id, Utc::now() + Duration::minutes(15)).await?;
-
-                user_otp_token.delete(db).await.map_err(|e| {
-                    err_server!("Problem delete OTP token for user {}: {}", user_id, e)
-                })?;
-                return Err(err_server!("Invalid OTP Code, try again"));
-            };
-
-            let hash = hash_token(email_code);
-
-            if user_otp_token.code != hash {
-                let user_attempt_count = user_otp_token.attempt_count;
-                let mut new_user: user_otp_token::ActiveModel = user_otp_token.into();
-                new_user.attempt_count = Set(user_attempt_count + 1);
-                new_user
-                    .update(db)
-                    .await
-                    .map_err(|e| err_server!("Problem updating OTP token {}:{}", user_id, e))?;
-                return Err(err_server!("Invalid OTP Code, try again"));
-            }
-
-            if let Ok(decoded_data) = decode_token(&user_otp_token.otp_hash) {
-                let token = decoded_data.claims;
-                let hash = user_otp_token.otp_hash.clone();
-
-                let mut client = REDIS_CLIENT.get_async_connection().await?;
-                client.hset(token.user_id, token.session_id, &hash).await?;
-
-                user_otp_token.delete(db).await.map_err(|e| {
-                    err_server!("Problem delete OTP token for user {}: {}", user_id, e)
-                })?;
-                if token.login_ip == login_ip {
-                    return Ok(hash);
-                }
-            }
+            validate_app_code(app_code, user_id).await?;
+            let token = validate_ip(user_otp_token, login_ip).await?;
+            Ok(token)
         }
-        (false, true) => {
-            if app_code.is_none() {
-                return Err(err_server!(
-                    "No  2fa auth code found for user id {}",
-                    user_id
-                ));
-            }
+        (false, false) => Err(err_server!("Neither email code nor app code is enabled")),
+    };
+}
 
-            //  validate otp set ok/false attempt_count,
-        }
-        (false, false) => {
-            return Err(err_server!("Neither email code nor app code is enabled"));
-        }
+async fn validate_email_otp(
+    user_otp_token: user_otp_token::Model,
+    email_code: Option<&str>,
+) -> Result<(user_otp_token::Model), ServerError> {
+    if email_code.is_none() {
+        return Err(err_server!(
+            "No 2fa auth code found for user id {}",
+            user_otp_token.user_id
+        ));
+    }
+    let email_code = email_code.unwrap();
+
+    if Utc::now().naive_utc() < user_otp_token.expiry && user_otp_token.attempt_count > 4 {
+        let db = &*DB;
+        block_user_until(&user_otp_token.user_id, Utc::now() + Duration::minutes(15)).await?;
+        let user_id = user_otp_token.user_id.clone();
+        user_otp_token
+            .delete(db)
+            .await
+            .map_err(|e| err_server!("Problem delete OTP token for user {}: {}", user_id, e))?;
+        return Err(err_server!("Invalid OTP Code, try again"));
+    };
+
+    let hash = hash_token(email_code);
+
+    if user_otp_token.code != hash {
+        set_attempt_count(user_otp_token.attempt_count, user_otp_token).await?;
+        return Err(err_server!("Invalid OTP Code, try again"));
     }
 
+    Ok(user_otp_token)
+}
+
+async fn validate_app_code(app_code: Option<&str>, user_id: &str) -> Result<String, ServerError> {
+    if app_code.is_none() {
+        return Err(err_server!(
+            "No 2fa auth code found for user id {}",
+            user_id
+        ));
+    }
+    let email_code = app_code.unwrap();
+
+    Err(err_server!("Invalid OTP APP Code."))
+}
+async fn validate_ip(
+    user_otp_token: user_otp_token::Model,
+    ip: &str,
+) -> Result<String, ServerError> {
+    if let Ok(decoded_data) = decode_token(&user_otp_token.otp_hash) {
+        let db = &*DB;
+        let token = decoded_data.claims;
+        let hash = user_otp_token.otp_hash.clone();
+
+        let mut client = REDIS_CLIENT.get_async_connection().await?;
+        client
+            .hset(token.user_id.clone(), token.session_id, &hash)
+            .await?;
+
+        user_otp_token.delete(db).await.map_err(|e| {
+            err_server!("Problem delete OTP token for user {}: {}", token.user_id, e)
+        })?;
+        return if token.login_ip == ip {
+            Ok(hash)
+        } else {
+            Err(err_server!("Your IP has changed"))
+        };
+    }
     Err(err_server!("Invalid OTP Code."))
 }

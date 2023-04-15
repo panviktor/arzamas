@@ -2,7 +2,9 @@ use actix_web::HttpRequest;
 use chrono::{DateTime, Utc};
 use entity::user::Model as User;
 use entity::user_security_settings::Model as SecuritySettings;
-use entity::{user, user_confirmation, user_restore_password, user_security_settings};
+use entity::{
+    user, user_confirmation, user_otp_token, user_restore_password, user_security_settings,
+};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
 
 use crate::core::db::DB;
@@ -370,5 +372,20 @@ pub async fn block_user_until(user_id: &str, expiry: DateTime<Utc>) -> Result<()
             .await
             .map_err(|e| err_server!("Problem updating user {}:{}", user_id, e))?;
     }
+    Ok(())
+}
+
+pub async fn set_attempt_count(
+    attempt_count: i32,
+    model: user_otp_token::Model,
+) -> Result<(), ServerError> {
+    let db = &*DB;
+    let user_id = model.user_id.clone();
+    let mut new_user: user_otp_token::ActiveModel = model.into();
+    new_user.attempt_count = Set(attempt_count + 1);
+    new_user
+        .update(db)
+        .await
+        .map_err(|e| err_server!("Problem updating OTP token attempt count {}:{}", user_id, e))?;
     Ok(())
 }
