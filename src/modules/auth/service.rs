@@ -377,12 +377,11 @@ pub async fn block_user_until(user_id: &str, expiry: DateTime<Utc>) -> Result<()
 
 pub async fn set_attempt_count(
     attempt_count: i32,
-    model: user_otp_token::Model,
+    user_id: &str,
+    mut new_user: user_otp_token::ActiveModel,
 ) -> Result<(), ServerError> {
     let db = &*DB;
-    let user_id = model.user_id.clone();
-    let mut new_user: user_otp_token::ActiveModel = model.into();
-    new_user.attempt_count = Set(attempt_count + 1);
+    new_user.attempt_count = Set(attempt_count);
     new_user
         .update(db)
         .await

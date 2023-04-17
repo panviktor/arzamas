@@ -85,7 +85,7 @@ pub async fn add_email_2fa(
     user: LoginUser,
 ) -> Result<HttpResponse, ServiceError> {
     try_add_email_2fa(&req, &user.id).await?;
-    Ok(HttpResponse::Ok().json("add_email_2fa"))
+    Ok(HttpResponse::Ok().json("Sending an authorization code by email is activated."))
 }
 
 pub async fn remove_email_2fa(
@@ -93,7 +93,7 @@ pub async fn remove_email_2fa(
     user: LoginUser,
 ) -> Result<HttpResponse, ServiceError> {
     try_remove_email_2fa(&req, &user.id).await?;
-    Ok(HttpResponse::Ok().json("remove_email_2fa"))
+    Ok(HttpResponse::Ok().json("Sending an authorization code by email is disabled."))
 }
 
 pub async fn add_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {

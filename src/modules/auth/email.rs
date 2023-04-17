@@ -1,21 +1,17 @@
 use chrono::{Duration, Utc};
 
-use crate::core::config::{get_config};
-use crate::models::ServerError;
-use crate::err_server;
+use crate::core::config::get_config;
 use crate::core::email::MAILER;
+use crate::err_server;
+use crate::models::ServerError;
 
 use lettre::{
     message::{header, SinglePart},
-    AsyncTransport,
-    Message as LettreMessage,
+    AsyncTransport, Message as LettreMessage,
 };
 
 use crate::modules::auth::service::{
-    add_email_token,
-    add_password_reset_token,
-    find_email_verify_token,
-    verify_email_by
+    add_email_token, add_password_reset_token, find_email_verify_token, verify_email_by,
 };
 
 /// Send a verification email to the supplied email.
@@ -27,19 +23,20 @@ pub async fn send_verification_email(to_email: &str, token: &str) -> Result<(), 
         "This email was used to register for the Arzamas App.\n\
              To verify your email copy your token to app! \n\
              Token: {}\n\
-             This token will expire in 24 hours.",  token
+             This token will expire in 24 hours.",
+        token
     );
 
     let email = LettreMessage::builder()
         .from(format!("Sender <{}>", from).parse().unwrap())
-        .to(format!("Receiver <{}>", to_email)
-            .parse().unwrap())
+        .to(format!("Receiver <{}>", to_email).parse().unwrap())
         .subject("Authentication: Email Verification.")
         .singlepart(
             SinglePart::builder()
                 .header(header::ContentType::TEXT_PLAIN)
                 .body(text),
-        ).map_err(|e| err_server!("Problem send email {}", e))?;
+        )
+        .map_err(|e| err_server!("Problem send email {}", e))?;
 
     // Open a remote connection to gmail
     let mailer = &MAILER;
@@ -50,7 +47,7 @@ pub async fn send_verification_email(to_email: &str, token: &str) -> Result<(), 
             tracing::debug!("Email sent successfully!");
             Ok(())
         }
-        Err(e) => Err(err_server!("Error unlocking mailer: {}", e))
+        Err(e) => Err(err_server!("Error unlocking mailer: {}", e)),
     }
 }
 
@@ -67,7 +64,9 @@ pub async fn send_password_reset_email(user_id: &str, to_email: &str) -> Result<
             user_id,
             &password_reset_token,
             Utc::now() + Duration::days(1),
-        ).await {
+        )
+        .await
+        {
             Ok(_) => {
                 error = None;
                 break;
@@ -93,7 +92,8 @@ pub async fn send_password_reset_email(user_id: &str, to_email: &str) -> Result<
              To reset your password copy your token to app! \n\
              Token: {}\n\
              User_id: {}\n\
-             This token will expire in 24 hours.",  password_reset_token,  user_id
+             This token will expire in 24 hours.",
+        password_reset_token, user_id
     );
 
     let email = LettreMessage::builder()
@@ -104,7 +104,8 @@ pub async fn send_password_reset_email(user_id: &str, to_email: &str) -> Result<
             SinglePart::builder()
                 .header(header::ContentType::TEXT_PLAIN)
                 .body(text),
-        ).map_err(|e| err_server!("Problem send email {}", e))?;
+        )
+        .map_err(|e| err_server!("Problem send email {}", e))?;
 
     // Open a remote connection to gmail
     let mailer = &MAILER;
@@ -115,7 +116,7 @@ pub async fn send_password_reset_email(user_id: &str, to_email: &str) -> Result<
             tracing::debug!("Email sent successfully!");
             Ok(())
         }
-        Err(e) => Err(err_server!("Error unlocking mailer: {}", e))
+        Err(e) => Err(err_server!("Error unlocking mailer: {}", e)),
     }
 }
 
@@ -123,7 +124,7 @@ pub async fn send_password_reset_email(user_id: &str, to_email: &str) -> Result<
 pub async fn send_validate_email(
     user_id: &str,
     email: &str,
-    user_exists: bool
+    user_exists: bool,
 ) -> Result<(), ServerError> {
     let mut insert_error: Option<ServerError> = None;
     let mut email_token = "".to_string();
@@ -135,8 +136,10 @@ pub async fn send_validate_email(
             email,
             &email_token,
             Utc::now() + Duration::days(1),
-            user_exists
-        ).await {
+            user_exists,
+        )
+        .await
+        {
             Ok(_) => {
                 insert_error = None;
                 break;
@@ -162,20 +165,17 @@ pub async fn send_validate_email(
     Ok(())
 }
 
-pub async fn verify_user_email(
-    email: &str,
-    token: &str
-) -> Result<(), ServerError> {
+pub async fn verify_user_email(email: &str, token: &str) -> Result<(), ServerError> {
     let verification = find_email_verify_token(email).await;
     match verification {
         Ok(model) => {
             let now = Utc::now().naive_utc();
             if model.otp_hash == token && model.expiry > now {
-                return verify_email_by(&model.user_id).await
+                return verify_email_by(&model.user_id).await;
             }
             Err(err_server!("Problem: expiry or invalid code from email!"))
         }
-        Err(_) => { Err(err_server!("Problem finding email and token {}", email)) }
+        Err(_) => Err(err_server!("Problem finding email and token {}", email)),
     }
 }
 
@@ -203,7 +203,8 @@ pub async fn send_totp_email_code(
             SinglePart::builder()
                 .header(header::ContentType::TEXT_PLAIN)
                 .body(text),
-        ).map_err(|e| err_server!("Problem send 2FA Verification email {}:{}", user_id, e))?;
+        )
+        .map_err(|e| err_server!("Problem send 2FA Verification email {}:{}", user_id, e))?;
 
     let mailer = &MAILER;
     match mailer.send(email).await {
@@ -211,6 +212,39 @@ pub async fn send_totp_email_code(
             tracing::debug!("Email sent successfully!");
             Ok(())
         }
-        Err(e) => Err(err_server!("Problem send 2FA Verification email: {}", e))
+        Err(e) => Err(err_server!("Problem send 2FA Verification email: {}", e)),
+    }
+}
+
+pub async fn success_enter_email(email: &str, login_ip: &str) -> Result<(), ServerError> {
+    let config = get_config().expect("Failed to read configuration.");
+    let from = config.email_settings.email_from;
+
+    let now = Utc::now().naive_utc();
+    let text = format!(
+        "Hello, {}! Someone signed in to your account!\n\
+         Date: {}\n\
+         IP: {}\n",
+        email, now, login_ip
+    );
+
+    let email = LettreMessage::builder()
+        .from(format!("Sender <{}>", from).parse().unwrap())
+        .to(format!("Receiver <{}>", email).parse().unwrap())
+        .subject("Login to your account.")
+        .singlepart(
+            SinglePart::builder()
+                .header(header::ContentType::TEXT_PLAIN)
+                .body(text),
+        )
+        .map_err(|e| err_server!("Problem login email {}", e))?;
+
+    let mailer = &MAILER;
+    match mailer.send(email).await {
+        Ok(_) => {
+            tracing::debug!("Email sent successfully!");
+            Ok(())
+        }
+        Err(e) => Err(err_server!("Problem login email: {}", e)),
     }
 }

@@ -1,5 +1,4 @@
 use actix_web::{web, HttpRequest, HttpResponse};
-use chrono::Utc;
 use entity::user::Model as User;
 use entity::user_security_settings::Model as SecuritySettings;
 
@@ -9,7 +8,7 @@ use crate::modules::auth::credentials::{
     credential_validator_username_email, generate_user_id, validate_email_rules,
     validate_password_rules, validate_username_rules,
 };
-use crate::modules::auth::email::{send_validate_email, verify_user_email};
+use crate::modules::auth::email::{send_validate_email, success_enter_email, verify_user_email};
 use crate::modules::auth::models::{
     ForgotPasswordParams, LoginParams, LoginResponse, NewUserParams, OTPCode, ResetPasswordParams,
     VerifyEmailParams,
@@ -165,15 +164,15 @@ pub async fn login(
         .map_err(|s| ServiceError::general(&req, s.message, true))?;
 
     if let Some(user) = result {
-        if let Some(blocked_time) = user.login_blocked_until {
-            if blocked_time > Utc::now().naive_utc() {
-                return Err(ServiceError::unauthorized(
-                    &req,
-                    "Too many attempts, try again later!",
-                    true,
-                ));
-            }
-        }
+        // if let Some(blocked_time) = user.login_blocked_until {
+        //     if blocked_time > Utc::now().naive_utc() {
+        //         return Err(ServiceError::unauthorized(
+        //             &req,
+        //             "Too many attempts, try again later!",
+        //             true,
+        //         ));
+        //     }
+        // }
 
         let settings = get_user_settings_by_id(&user.user_id)
             .await
@@ -256,18 +255,18 @@ async fn handle_login_result(
             Ok(HttpResponse::Ok().json(json))
         }
         (true, false) => {
-            let json = LoginResponse::OTPResponse {
-                message: "Enter your OTP code".to_string(),
-                apps_code: false,
-            };
-            Ok(HttpResponse::Ok().json(json))
-        }
-        (false, true) => {
             generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent)
                 .await
                 .map_err(|s| ServiceError::general(&req, s.message, false))?;
             let json = LoginResponse::OTPResponse {
                 message: "The code has been sent to your email!".to_string(),
+                apps_code: false,
+            };
+            Ok(HttpResponse::Ok().json(json))
+        }
+        (false, true) => {
+            let json = LoginResponse::OTPResponse {
+                message: "Enter your OTP code".to_string(),
                 apps_code: true,
             };
             Ok(HttpResponse::Ok().json(json))
@@ -278,7 +277,9 @@ async fn handle_login_result(
                 .map_err(|s| ServiceError::general(&req, s.message, false))?;
 
             if security_settings.email_on_success_enabled_at {
-                // send email on success
+                success_enter_email(user_email, &login_ip)
+                    .await
+                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
             }
 
             let response = LoginResponse::TokenResponse {

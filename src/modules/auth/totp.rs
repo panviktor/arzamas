@@ -51,7 +51,7 @@ pub async fn generate_email_code(
     {
         let mut active: user_otp_token::ActiveModel = user.into();
         active.otp_hash = Set(totp_token);
-        active.expiry = Set(expiry.naive_utc());
+        active.expiry = Set(code_expiration.naive_utc());
         active.attempt_count = Set(0);
         active.code = Set(hash);
         active
@@ -142,8 +142,7 @@ pub async fn verify_otp_codes(
                     user_id
                 ));
             }
-
-            validate_app_code(app_code, user_id).await?;
+            validate_app_code(None, user_id).await?;
             let token = validate_ip(user_otp_token, login_ip).await?;
             Ok(token)
         }
@@ -163,21 +162,31 @@ async fn validate_email_otp(
     }
     let email_code = email_code.unwrap();
 
-    if Utc::now().naive_utc() < user_otp_token.expiry && user_otp_token.attempt_count > 4 {
-        let db = &*DB;
+    if user_otp_token.attempt_count >= 4 {
+        return Err(err_server!("Too many attempts ..."));
+    }
+
+    if user_otp_token.expiry < Utc::now().naive_utc() {
         block_user_until(&user_otp_token.user_id, Utc::now() + Duration::minutes(15)).await?;
         let user_id = user_otp_token.user_id.clone();
+        let db = &*DB;
+
         user_otp_token
             .delete(db)
             .await
             .map_err(|e| err_server!("Problem delete OTP token for user {}: {}", user_id, e))?;
-        return Err(err_server!("Invalid OTP Code, try again"));
+
+        return Err(err_server!("Invalid OTP Code, try login again"));
     };
 
     let hash = hash_token(email_code);
 
     if user_otp_token.code != hash {
-        set_attempt_count(user_otp_token.attempt_count, user_otp_token).await?;
+        let new_count = user_otp_token.attempt_count + 1;
+        let user_id = user_otp_token.user_id.clone();
+        let mut new_user: user_otp_token::ActiveModel = user_otp_token.into();
+        set_attempt_count(new_count, &user_id, new_user).await?;
+
         return Err(err_server!("Invalid OTP Code, try again"));
     }
 
