@@ -144,6 +144,5 @@ pub fn get_config() -> Result<Settings, dotenv::Error> {
 }
 
 lazy_static! {
-    pub static ref APP_SETTINGS: Settings =
-        { get_config().expect("Failed to read configuration.") };
+    pub static ref APP_SETTINGS: Settings = get_config().expect("Failed to read configuration.");
 }

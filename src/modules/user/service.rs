@@ -2,8 +2,8 @@ use actix_web::HttpRequest;
 use chrono::Utc;
 use entity::user;
 use entity::user_security_settings;
-use sea_orm::ActiveModelTrait;
 use sea_orm::ActiveValue::Set;
+use sea_orm::{ActiveModelTrait, IntoActiveModel};
 
 use crate::core::db::DB;
 use crate::err_server;
@@ -178,19 +178,11 @@ pub async fn try_update_security_settings(
 // 2FA
 
 pub async fn try_add_email_2fa(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
-    return Err(ServiceError::bad_request(
-        &req,
-        format!("User not found."),
-        true,
-    ));
+    toggle_email(req, user_id, true).await
 }
 
 pub async fn try_remove_email_2fa(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
-    return Err(ServiceError::bad_request(
-        &req,
-        format!("User not found."),
-        true,
-    ));
+    toggle_email(req, user_id, false).await
 }
 
 pub async fn try_2fa_add(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
@@ -227,4 +219,18 @@ fn generate_totp_backup_codes() -> Result<Vec<String>, ServerError> {
         backup_codes.push(hex::encode(token.to_vec()));
     }
     Ok(backup_codes)
+}
+
+async fn toggle_email(
+    req: &HttpRequest,
+    user_id: &str,
+    two_factor: bool,
+) -> Result<(), ServiceError> {
+    let settings = try_get_security_settings(req, user_id).await?;
+    let db = &*DB;
+
+    let mut settings = settings.into_active_model();
+    settings.two_factor_email = Set(two_factor);
+    settings.update(db).await?;
+    Ok(())
 }

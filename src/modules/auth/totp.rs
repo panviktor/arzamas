@@ -154,7 +154,7 @@ pub async fn verify_otp_codes(
 async fn validate_email_otp(
     user_otp_token: user_otp_token::Model,
     email_code: Option<&str>,
-) -> Result<(user_otp_token::Model), ServerError> {
+) -> Result<user_otp_token::Model, ServerError> {
     if email_code.is_none() {
         return Err(err_server!(
             "No 2fa auth code found for user id {}",
