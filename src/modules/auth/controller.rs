@@ -1,4 +1,5 @@
 use actix_web::{web, HttpRequest, HttpResponse};
+use chrono::Utc;
 use entity::user::Model as User;
 use entity::user_security_settings::Model as SecuritySettings;
 
@@ -164,15 +165,15 @@ pub async fn login(
         .map_err(|s| ServiceError::general(&req, s.message, true))?;
 
     if let Some(user) = result {
-        // if let Some(blocked_time) = user.login_blocked_until {
-        //     if blocked_time > Utc::now().naive_utc() {
-        //         return Err(ServiceError::unauthorized(
-        //             &req,
-        //             "Too many attempts, try again later!",
-        //             true,
-        //         ));
-        //     }
-        // }
+        if let Some(blocked_time) = user.login_blocked_until {
+            if blocked_time > Utc::now().naive_utc() {
+                return Err(ServiceError::unauthorized(
+                    &req,
+                    "Too many attempts, try again later!",
+                    true,
+                ));
+            }
+        }
 
         let settings = get_user_settings_by_id(&user.user_id)
             .await
