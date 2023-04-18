@@ -19,4 +19,6 @@
 - JWT token authentication
 - SeaORM as an ORM
 
+---
+[![Build](https://github.com/panviktor/arzamas/actions/workflows/build.yml/badge.svg)](https://github.com/panviktor/vaultwarden/arzamas/workflows/build.yml)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
