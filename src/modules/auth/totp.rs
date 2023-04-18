@@ -184,7 +184,7 @@ async fn validate_email_otp(
     if user_otp_token.code != hash {
         let new_count = user_otp_token.attempt_count + 1;
         let user_id = user_otp_token.user_id.clone();
-        let mut new_user: user_otp_token::ActiveModel = user_otp_token.into();
+        let new_user: user_otp_token::ActiveModel = user_otp_token.into();
         set_attempt_count(new_count, &user_id, new_user).await?;
 
         return Err(err_server!("Invalid OTP Code, try again"));
