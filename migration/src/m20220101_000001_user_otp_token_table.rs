@@ -25,7 +25,13 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .unique_key(),
                     )
-                    .col(ColumnDef::new(UserOTPToken::OTPHash).string().not_null())
+                    .col(
+                        ColumnDef::new(UserOTPToken::OTPEmailHash)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(UserOTPToken::OTPAppHash).string().null())
+                    .col(ColumnDef::new(UserOTPToken::OTPAppMnemonic).string().null())
                     .col(ColumnDef::new(UserOTPToken::Expiry).timestamp().not_null())
                     .col(
                         ColumnDef::new(UserOTPToken::AttemptCount)
@@ -52,7 +58,9 @@ pub enum UserOTPToken {
     Id,
     Table,
     UserId,
-    OTPHash,
+    OTPEmailHash,
+    OTPAppHash,
+    OTPAppMnemonic,
     Expiry,
     AttemptCount,
     Code,

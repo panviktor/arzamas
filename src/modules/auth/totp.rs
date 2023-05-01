@@ -50,7 +50,7 @@ pub async fn generate_email_code(
         .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))?
     {
         let mut active: user_otp_token::ActiveModel = user.into();
-        active.otp_hash = Set(totp_token);
+        active.otp_email_hash = Set(totp_token);
         active.expiry = Set(code_expiration.naive_utc());
         active.attempt_count = Set(0);
         active.code = Set(hash);
@@ -61,7 +61,7 @@ pub async fn generate_email_code(
     } else {
         let user = user_otp_token::ActiveModel {
             user_id: Set(user_id.to_string()),
-            otp_hash: Set(totp_token),
+            otp_email_hash: Set(totp_token),
             expiry: Set(code_expiration.naive_utc()),
             attempt_count: Set(0),
             code: Set(hash),
@@ -208,10 +208,10 @@ async fn validate_ip(
     user_otp_token: user_otp_token::Model,
     ip: &str,
 ) -> Result<String, ServerError> {
-    if let Ok(decoded_data) = decode_token(&user_otp_token.otp_hash) {
+    if let Ok(decoded_data) = decode_token(&user_otp_token.otp_email_hash) {
         let db = &*DB;
         let token = decoded_data.claims;
-        let hash = user_otp_token.otp_hash.clone();
+        let hash = user_otp_token.otp_email_hash.clone();
 
         let mut client = REDIS_CLIENT.get_async_connection().await?;
         client

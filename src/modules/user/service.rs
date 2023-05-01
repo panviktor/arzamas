@@ -1,9 +1,12 @@
 use actix_web::HttpRequest;
+use base32;
+use bip39::{Language, Mnemonic};
 use chrono::Utc;
 use entity::user;
 use entity::user_security_settings;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{ActiveModelTrait, IntoActiveModel};
+use url::Url;
 
 use crate::core::db::DB;
 use crate::err_server;
@@ -186,6 +189,44 @@ pub async fn try_remove_email_2fa(req: &HttpRequest, user_id: &str) -> Result<()
 }
 
 pub async fn try_2fa_add(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
+    let mut secret = [0u8; 32];
+    getrandom::getrandom(&mut secret).expect("Failed to fill bytes with randomness");
+    let mnemonic = Mnemonic::from_entropy(&secret, Language::English).unwrap();
+    let mnemonic = mnemonic.phrase().to_string();
+    let base32_secret = base32::encode(base32::Alphabet::RFC4648 { padding: false }, &secret);
+    let url = generate_totp_uri(&base32_secret, user_id, "Arzamas");
+
+    println!("Mnemonic: {}", mnemonic);
+    println!("{}", { url });
+    println!("{}", { base32_secret });
+
+    // Generate a QR code containing the base32-encoded secret?
+    // let qr_code = generate_qr_code(&base32_secret, user_id);
+
+    // Save the base32-encoded secret and the mnemonic securely in the database
+    // associated with the user's account
+    // save_secret_and_mnemonic(user_id, &base32_secret, &mnemonic)?;
+
+    // Return the QR code to the user for them to scan with their TOTP app?
+    // send_qr_code_to_user(req, &qr_code)?;
+
+    // let secret_bytes = base32::encode(
+    //     base32::Alphabet::RFC4648 { padding: false },
+    //     &token.as_bytes(),
+    // );
+
+    // println!("{:?}", { str });
+
+    // let db = &*DB;
+    // let settings = get_user_settings_by_id(user_id)
+    //     .await
+    //     .map_err(|s| s.general(&req))?;
+    //
+    // let mut settings = settings.into_active_model();
+    // settings.totp_secret = Set(Some(codes));
+    // settings.two_factor_authenticator_app = Set(true);
+    // settings.update(db).await?;
+
     return Err(ServiceError::bad_request(
         &req,
         format!("User not found."),
@@ -233,4 +274,21 @@ async fn toggle_email(
     settings.two_factor_email = Set(two_factor);
     settings.update(db).await?;
     Ok(())
+}
+
+/// need refactoring to valid google app scheme?
+pub fn generate_totp_uri(secret: &str, user_id: &str, issuer: &str) -> String {
+    let mut url = Url::parse("otpauth://totp/").unwrap();
+    url.path_segments_mut()
+        .unwrap()
+        .push(&format!("{}:{}", issuer, user_id));
+
+    url.query_pairs_mut()
+        .append_pair("secret", secret)
+        .append_pair("issuer", issuer)
+        .append_pair("algorithm", "SHA1")
+        .append_pair("digits", "6")
+        .append_pair("period", "30");
+
+    url.to_string()
 }
