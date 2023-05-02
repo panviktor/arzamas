@@ -22,3 +22,9 @@ pub struct AboutMeInformation {
     pub email: String,
     pub email_validated: bool,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct AuthenticationAppInformation {
+    pub mnemonic: String,
+    pub base32_secret: String,
+}

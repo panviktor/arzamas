@@ -3,20 +3,24 @@ use base32;
 use bip39::{Language, Mnemonic};
 use chrono::Utc;
 use entity::user;
+use entity::user_otp_token;
 use entity::user_security_settings;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{ActiveModelTrait, IntoActiveModel};
 use url::Url;
 
 use crate::core::db::DB;
-use crate::err_server;
-use crate::models::{ServerError, ServiceError};
+use crate::models::ServiceError;
 use crate::modules::auth::credentials::{
     credential_validator, generate_password_hash, validate_email_rules, validate_password_rules,
 };
 use crate::modules::auth::email::send_validate_email;
-use crate::modules::auth::service::{get_user_by_email, get_user_by_id, get_user_settings_by_id};
-use crate::modules::user::models::{AboutMeInformation, ChangeEmailParams, ChangePasswordParams};
+use crate::modules::auth::service::{
+    get_user_by_email, get_user_by_id, get_user_security_token_by_id, get_user_settings_by_id,
+};
+use crate::modules::user::models::{
+    AboutMeInformation, AuthenticationAppInformation, ChangeEmailParams, ChangePasswordParams,
+};
 
 pub async fn try_about_me(
     req: &HttpRequest,
@@ -188,7 +192,10 @@ pub async fn try_remove_email_2fa(req: &HttpRequest, user_id: &str) -> Result<()
     toggle_email(req, user_id, false).await
 }
 
-pub async fn try_2fa_add(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
+pub async fn try_2fa_add(
+    req: &HttpRequest,
+    user_id: &str,
+) -> Result<AuthenticationAppInformation, ServiceError> {
     let mut secret = [0u8; 32];
     getrandom::getrandom(&mut secret).expect("Failed to fill bytes with randomness");
     let mnemonic = Mnemonic::from_entropy(&secret, Language::English).unwrap();
@@ -196,42 +203,30 @@ pub async fn try_2fa_add(req: &HttpRequest, user_id: &str) -> Result<(), Service
     let base32_secret = base32::encode(base32::Alphabet::RFC4648 { padding: false }, &secret);
     let url = generate_totp_uri(&base32_secret, user_id, "Arzamas");
 
-    println!("Mnemonic: {}", mnemonic);
-    println!("{}", { url });
-    println!("{}", { base32_secret });
+    let db = &*DB;
+    let otp_token = get_user_security_token_by_id(user_id)
+        .await
+        .map_err(|s| s.general(&req))?;
 
-    // Generate a QR code containing the base32-encoded secret?
-    // let qr_code = generate_qr_code(&base32_secret, user_id);
+    let mut otp_token = otp_token.into_active_model();
+    otp_token.otp_app_hash = Set(Some(base32_secret.clone()));
+    otp_token.otp_app_mnemonic = Set(Some(mnemonic.clone()));
+    otp_token.update(db).await?;
 
-    // Save the base32-encoded secret and the mnemonic securely in the database
-    // associated with the user's account
-    // save_secret_and_mnemonic(user_id, &base32_secret, &mnemonic)?;
+    /// TODO: activate after confirm mnemonic
+    let settings = get_user_settings_by_id(user_id)
+        .await
+        .map_err(|s| s.general(&req))?;
 
-    // Return the QR code to the user for them to scan with their TOTP app?
-    // send_qr_code_to_user(req, &qr_code)?;
+    let mut settings = settings.into_active_model();
+    settings.two_factor_authenticator_app = Set(true);
+    settings.update(db).await?;
+    let json = AuthenticationAppInformation {
+        mnemonic,
+        base32_secret,
+    };
 
-    // let secret_bytes = base32::encode(
-    //     base32::Alphabet::RFC4648 { padding: false },
-    //     &token.as_bytes(),
-    // );
-
-    // println!("{:?}", { str });
-
-    // let db = &*DB;
-    // let settings = get_user_settings_by_id(user_id)
-    //     .await
-    //     .map_err(|s| s.general(&req))?;
-    //
-    // let mut settings = settings.into_active_model();
-    // settings.totp_secret = Set(Some(codes));
-    // settings.two_factor_authenticator_app = Set(true);
-    // settings.update(db).await?;
-
-    return Err(ServiceError::bad_request(
-        &req,
-        format!("User not found."),
-        true,
-    ));
+    Ok(json)
 }
 
 pub async fn try_2fa_reset(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
@@ -248,18 +243,6 @@ pub async fn try_2fa_remove(req: &HttpRequest, user_id: &str) -> Result<(), Serv
         format!("User not found."),
         true,
     ));
-}
-
-/// Generate 10 TOTP backup codes.
-fn generate_totp_backup_codes() -> Result<Vec<String>, ServerError> {
-    let mut backup_codes: Vec<String> = vec![];
-    for _ in 0..10 {
-        let mut token = [0u8; 16];
-        getrandom::getrandom(&mut token)
-            .map_err(|e| err_server!("Error generating token: {}", e))?;
-        backup_codes.push(hex::encode(token.to_vec()));
-    }
-    Ok(backup_codes)
 }
 
 async fn toggle_email(

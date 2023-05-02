@@ -97,8 +97,8 @@ pub async fn remove_email_2fa(
 }
 
 pub async fn add_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
-    try_2fa_add(&req, &user.id).await?;
-    Ok(HttpResponse::Ok().json("Add 2fa"))
+    let json = try_2fa_add(&req, &user.id).await?;
+    Ok(HttpResponse::Ok().json(json))
 }
 
 pub async fn reset_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {

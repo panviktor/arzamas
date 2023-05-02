@@ -1,6 +1,7 @@
 use actix_web::HttpRequest;
 use chrono::{DateTime, Utc};
 use entity::user::Model as User;
+use entity::user_otp_token::Model as SecurityToken;
 use entity::user_security_settings::Model as SecuritySettings;
 use entity::{
     user, user_confirmation, user_otp_token, user_restore_password, user_security_settings,
@@ -74,6 +75,34 @@ pub async fn get_user_settings_by_id(user_id: &str) -> Result<SecuritySettings, 
         Ok(None) => Err(err_server!(
             "Problem querying database for user settings: can't unwrap ORM"
         )),
+        Err(e) => Err(err_server!(
+            "Problem querying database for user {}: {}",
+            user_id,
+            e
+        )),
+    }
+}
+
+/// Get a user security token
+pub async fn get_user_security_token_by_id(user_id: &str) -> Result<SecurityToken, ServerError> {
+    let db = &*DB;
+    let token_result = entity::prelude::UserOtpToken::find()
+        .filter(user_otp_token::Column::UserId.eq(user_id))
+        .one(db)
+        .await;
+
+    match token_result {
+        Ok(Some(token)) => Ok(token),
+        Ok(None) => {
+            let token = user_otp_token::ActiveModel {
+                user_id: Set(user_id.to_string()),
+                ..Default::default()
+            }
+            .insert(db)
+            .await
+            .map_err(|e| err_server!("Problem create OTP token {}:{}", user_id, e))?;
+            Ok(token)
+        }
         Err(e) => Err(err_server!(
             "Problem querying database for user {}: {}",
             user_id,
