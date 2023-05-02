@@ -25,20 +25,17 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .unique_key(),
                     )
-                    .col(
-                        ColumnDef::new(UserOTPToken::OTPEmailHash)
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(UserOTPToken::OTPEmailHash).string().null())
                     .col(ColumnDef::new(UserOTPToken::OTPAppHash).string().null())
                     .col(ColumnDef::new(UserOTPToken::OTPAppMnemonic).string().null())
-                    .col(ColumnDef::new(UserOTPToken::Expiry).timestamp().not_null())
+                    .col(ColumnDef::new(UserOTPToken::Expiry).timestamp().null())
                     .col(
                         ColumnDef::new(UserOTPToken::AttemptCount)
                             .integer()
-                            .not_null(),
+                            .not_null()
+                            .default(0),
                     )
-                    .col(ColumnDef::new(UserOTPToken::Code).string().not_null())
+                    .col(ColumnDef::new(UserOTPToken::Code).string().null())
                     .to_owned(),
             )
             .await

@@ -50,10 +50,10 @@ pub async fn generate_email_code(
         .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))?
     {
         let mut active: user_otp_token::ActiveModel = user.into();
-        active.otp_email_hash = Set(totp_token);
-        active.expiry = Set(code_expiration.naive_utc());
+        active.otp_email_hash = Set(Some(totp_token));
+        active.expiry = Set(Some(code_expiration.naive_utc()));
         active.attempt_count = Set(0);
-        active.code = Set(hash);
+        active.code = Set(Some(hash));
         active
             .update(db)
             .await
@@ -61,10 +61,10 @@ pub async fn generate_email_code(
     } else {
         let user = user_otp_token::ActiveModel {
             user_id: Set(user_id.to_string()),
-            otp_email_hash: Set(totp_token),
-            expiry: Set(code_expiration.naive_utc()),
+            otp_email_hash: Set(Some(totp_token)),
+            expiry: Set(Some(code_expiration.naive_utc())),
             attempt_count: Set(0),
-            code: Set(hash),
+            code: Set(Some(hash)),
             ..Default::default()
         }
         .insert(db)
@@ -166,31 +166,39 @@ async fn validate_email_otp(
         return Err(err_server!("Too many attempts ..."));
     }
 
-    if user_otp_token.expiry < Utc::now().naive_utc() {
-        block_user_until(&user_otp_token.user_id, Utc::now() + Duration::minutes(15)).await?;
-        let user_id = user_otp_token.user_id.clone();
-        let db = &*DB;
+    if let Some(expiry) = user_otp_token.expiry {
+        if expiry < Utc::now().naive_utc() {
+            block_user_until(&user_otp_token.user_id, Utc::now() + Duration::minutes(15)).await?;
+            let user_id = user_otp_token.user_id.clone();
+            let db = &*DB;
 
-        user_otp_token
-            .delete(db)
-            .await
-            .map_err(|e| err_server!("Problem delete OTP token for user {}: {}", user_id, e))?;
+            user_otp_token
+                .delete(db)
+                .await
+                .map_err(|e| err_server!("Problem delete OTP token for user {}: {}", user_id, e))?;
 
-        return Err(err_server!("Invalid OTP Code, try login again"));
-    };
+            return Err(err_server!("Invalid OTP Code, try login again"));
+        }
+    } else {
+        return Err(err_server!("Invalid Expiry Token, try login again"));
+    }
 
     let hash = hash_token(email_code);
 
-    if user_otp_token.code != hash {
-        let new_count = user_otp_token.attempt_count + 1;
-        let user_id = user_otp_token.user_id.clone();
-        let new_user: user_otp_token::ActiveModel = user_otp_token.into();
-        set_attempt_count(new_count, &user_id, new_user).await?;
+    if let Some(code) = user_otp_token.code.clone() {
+        if code != hash {
+            let new_count = user_otp_token.attempt_count + 1;
+            let user_id = user_otp_token.user_id.clone();
+            let new_user: user_otp_token::ActiveModel = user_otp_token.into();
+            set_attempt_count(new_count, &user_id, new_user).await?;
 
-        return Err(err_server!("Invalid OTP Code, try again"));
+            return Err(err_server!("Invalid OTP Code, try again"));
+        } else {
+            Ok(user_otp_token)
+        }
+    } else {
+        return Err(err_server!("Invalid Expiry Token, try login again"));
     }
-
-    Ok(user_otp_token)
 }
 
 async fn validate_app_code(app_code: Option<&str>, user_id: &str) -> Result<String, ServerError> {
@@ -204,28 +212,31 @@ async fn validate_app_code(app_code: Option<&str>, user_id: &str) -> Result<Stri
 
     Err(err_server!("Invalid OTP APP Code."))
 }
+
 async fn validate_ip(
     user_otp_token: user_otp_token::Model,
     ip: &str,
 ) -> Result<String, ServerError> {
-    if let Ok(decoded_data) = decode_token(&user_otp_token.otp_email_hash) {
-        let db = &*DB;
-        let token = decoded_data.claims;
-        let hash = user_otp_token.otp_email_hash.clone();
+    if let Some(otp_email_hash) = user_otp_token.otp_email_hash.clone() {
+        if let Ok(decoded_data) = decode_token(&otp_email_hash) {
+            let db = &*DB;
+            let token = decoded_data.claims;
+            let hash = otp_email_hash.clone();
 
-        let mut client = REDIS_CLIENT.get_async_connection().await?;
-        client
-            .hset(token.user_id.clone(), token.session_id, &hash)
-            .await?;
+            let mut client = REDIS_CLIENT.get_async_connection().await?;
+            client
+                .hset(token.user_id.clone(), token.session_id, &hash)
+                .await?;
 
-        user_otp_token.delete(db).await.map_err(|e| {
-            err_server!("Problem delete OTP token for user {}: {}", token.user_id, e)
-        })?;
-        return if token.login_ip == ip {
-            Ok(hash)
-        } else {
-            Err(err_server!("Your IP has changed"))
-        };
+            user_otp_token.delete(db).await.map_err(|e| {
+                err_server!("Problem delete OTP token for user {}: {}", token.user_id, e)
+            })?;
+            return if token.login_ip == ip {
+                Ok(hash)
+            } else {
+                Err(err_server!("Your IP has changed"))
+            };
+        }
     }
     Err(err_server!("Invalid OTP Code."))
 }

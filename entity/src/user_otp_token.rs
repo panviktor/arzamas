@@ -2,19 +2,19 @@
 
 use sea_orm::entity::prelude::*;
 
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "user_otp_token")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i64,
     #[sea_orm(unique)]
     pub user_id: String,
-    pub otp_email_hash: String,
+    pub otp_email_hash: Option<String>,
     pub otp_app_hash: Option<String>,
     pub otp_app_mnemonic: Option<String>,
-    pub expiry: DateTime,
+    pub expiry: Option<DateTime>,
     pub attempt_count: i32,
-    pub code: String,
+    pub code: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
