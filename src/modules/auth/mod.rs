@@ -38,7 +38,11 @@ pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
                     })
                     .route(web::post().to(controller::verify_email)),
             )
-            .service(web::resource("/login").route(web::post().to(controller::login)))
+            .service(
+                web::resource("/login")
+                    .wrap(rate_limiter::RateLimitServices { requests_count: 50 })
+                    .route(web::post().to(controller::login)),
+            )
             .service(
                 web::resource("/forgot-password")
                     .wrap(rate_limiter::RateLimitServices { requests_count: 25 })

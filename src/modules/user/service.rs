@@ -3,7 +3,6 @@ use base32;
 use bip39::{Language, Mnemonic};
 use chrono::Utc;
 use entity::user;
-use entity::user_otp_token;
 use entity::user_security_settings;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{ActiveModelTrait, IntoActiveModel};

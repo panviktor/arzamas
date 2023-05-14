@@ -90,8 +90,7 @@ pub async fn get_user_security_token_by_id(user_id: &str) -> Result<SecurityToke
         .filter(user_otp_token::Column::UserId.eq(user_id))
         .one(db)
         .await;
-
-    match token_result {
+    return match token_result {
         Ok(Some(token)) => Ok(token),
         Ok(None) => {
             let token = user_otp_token::ActiveModel {
@@ -108,7 +107,7 @@ pub async fn get_user_security_token_by_id(user_id: &str) -> Result<SecurityToke
             user_id,
             e
         )),
-    }
+    };
 }
 
 /// Get a single user from the DB, searching by username

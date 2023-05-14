@@ -5,14 +5,62 @@ use entity::user_otp_token;
 use entity::user_security_settings;
 use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
+use sha2::digest::{Mac, MacError};
+use totp_rs::{Algorithm, Secret, TOTP};
 use uuid::Uuid;
 
 use crate::err_server;
 use crate::models::ServerError;
 use crate::modules::auth::email::send_totp_email_code;
 use crate::modules::auth::hash_token;
-use crate::modules::auth::service::{block_user_until, set_attempt_count};
+use crate::modules::auth::service::{
+    block_user_until, get_user_security_token_by_id, set_attempt_count,
+};
 use crate::modules::auth::session::{decode_token, generate_token};
+
+pub async fn set_app_only_expire_time(
+    user_id: &str,
+    persistent: bool,
+    email: &str,
+    login_ip: &str,
+    user_agent: &str,
+) -> Result<(), ServerError> {
+    let expiry = match persistent {
+        false => Utc::now() + Duration::days(1),
+        true => Utc::now() + Duration::days(7),
+    };
+
+    let code_expiration = Utc::now() + Duration::minutes(3);
+    let login_session = Uuid::new_v4().to_string();
+
+    let totp_token = generate_token(
+        user_id,
+        &login_session,
+        login_ip,
+        user_agent,
+        expiry.timestamp_nanos(),
+    )
+    .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
+
+    let db = &*DB;
+    if let Some(user) = user_otp_token::Entity::find()
+        .filter(user_otp_token::Column::UserId.contains(user_id))
+        .one(db)
+        .await
+        .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))?
+    {
+        let mut active: user_otp_token::ActiveModel = user.into();
+        active.otp_email_hash = Set(Some(totp_token));
+        active.expiry = Set(Some(code_expiration.naive_utc()));
+        active.attempt_count = Set(0);
+        active
+            .update(db)
+            .await
+            .map_err(|e| err_server!("Problem updating user OTP data {}:{}", user_id, e))?;
+        return Ok(());
+    }
+    return Err(err_server!("User not found!"));
+}
 
 pub async fn generate_email_code(
     user_id: &str,
@@ -58,21 +106,10 @@ pub async fn generate_email_code(
             .update(db)
             .await
             .map_err(|e| err_server!("Problem updating user OTP data {}:{}", user_id, e))?;
-    } else {
-        let user = user_otp_token::ActiveModel {
-            user_id: Set(user_id.to_string()),
-            otp_email_hash: Set(Some(totp_token)),
-            expiry: Set(Some(code_expiration.naive_utc())),
-            attempt_count: Set(0),
-            code: Set(Some(hash)),
-            ..Default::default()
-        }
-        .insert(db)
-        .await
-        .map_err(|e| err_server!("Problem user OTP data {}:{}", user_id, e))?;
+        send_totp_email_code(email, &code, user_id).await?;
+        return Ok(());
     }
-    send_totp_email_code(email, &code, user_id).await?;
-    Ok(())
+    return Err(err_server!("User not found!"));
 }
 
 pub async fn verify_otp_codes(
@@ -120,13 +157,13 @@ pub async fn verify_otp_codes(
         (true, true) => {
             if email_code.is_none() || app_code.is_none() {
                 return Err(err_server!(
-                    "No 2fa auth code found for user id {}",
+                    "No 2fa auth codes found for user id {}",
                     user_id
                 ));
             }
 
             let user_otp_token = validate_email_otp(user_otp_token, email_code).await?;
-            validate_app_code(app_code, user_id).await?;
+            let user_otp_token = validate_app_code(user_otp_token, app_code, user_id).await?;
             let token = validate_ip(user_otp_token, login_ip).await?;
             Ok(token)
         }
@@ -138,11 +175,11 @@ pub async fn verify_otp_codes(
         (false, true) => {
             if app_code.is_none() {
                 return Err(err_server!(
-                    "No 2fa auth code found for user id {}",
+                    "No 2fa auth app-code found for user id {}",
                     user_id
                 ));
             }
-            validate_app_code(None, user_id).await?;
+            let user_otp_token = validate_app_code(user_otp_token, app_code, user_id).await?;
             let token = validate_ip(user_otp_token, login_ip).await?;
             Ok(token)
         }
@@ -201,16 +238,59 @@ async fn validate_email_otp(
     }
 }
 
-async fn validate_app_code(app_code: Option<&str>, user_id: &str) -> Result<String, ServerError> {
-    if app_code.is_none() {
-        return Err(err_server!(
-            "No 2fa auth code found for user id {}",
-            user_id
-        ));
-    }
-    let email_code = app_code.unwrap();
+async fn validate_app_code(
+    user_otp_token: user_otp_token::Model,
+    app_code: Option<&str>,
+    user_id: &str,
+) -> Result<user_otp_token::Model, ServerError> {
+    return match app_code {
+        None => {
+            let error_message = format!("No 2FA auth app-code found for user id {}", user_id);
+            Err(err_server!("{}", error_message))
+        }
+        Some(code) => {
+            if user_otp_token.attempt_count >= 4 {
+                return Err(err_server!("Too many attempts ..."));
+            }
 
-    Err(err_server!("Invalid OTP APP Code."))
+            return if let Some(expiry) = user_otp_token.expiry {
+                if expiry < Utc::now().naive_utc() {
+                    block_user_until(&user_otp_token.user_id, Utc::now() + Duration::minutes(15))
+                        .await?;
+                    let user_id = user_otp_token.user_id.clone();
+                    let db = &*DB;
+
+                    user_otp_token.delete(db).await.map_err(|e| {
+                        err_server!("Problem delete OTP token for user {}: {}", user_id, e)
+                    })?;
+
+                    return Err(err_server!("Invalid date for OTP code, try login again!!"));
+                }
+
+                return if let Ok(_) = generate_app_code(user_id, code).await {
+                    Ok(user_otp_token)
+                } else {
+                    let new_count = user_otp_token.attempt_count + 1;
+                    let user_id = user_otp_token.user_id.clone();
+                    let new_user: user_otp_token::ActiveModel = user_otp_token.into();
+                    set_attempt_count(new_count, &user_id, new_user).await?;
+
+                    Err(err_server!("Invalid OTP Code, try again, need new login!"))
+                };
+            } else {
+                Err(err_server!("Invalid Expiry Token, try login again!"))
+            };
+        }
+    };
+}
+
+async fn generate_app_code(user_id: &str, code: &str) -> Result<(), ServerError> {
+    let otp_token = get_user_security_token_by_id(user_id).await?;
+    if let Some(saved_hash) = otp_token.otp_app_hash {
+        verify_totp(&saved_hash, code)
+    } else {
+        Err(err_server!("Hash not found, try login again!?"))
+    }
 }
 
 async fn validate_ip(
@@ -228,9 +308,6 @@ async fn validate_ip(
                 .hset(token.user_id.clone(), token.session_id, &hash)
                 .await?;
 
-            user_otp_token.delete(db).await.map_err(|e| {
-                err_server!("Problem delete OTP token for user {}: {}", token.user_id, e)
-            })?;
             return if token.login_ip == ip {
                 Ok(hash)
             } else {
@@ -239,4 +316,18 @@ async fn validate_ip(
         }
     }
     Err(err_server!("Invalid OTP Code."))
+}
+
+pub fn verify_totp(secret: &str, token: &str) -> Result<(), ServerError> {
+    if let Ok(secret) = Secret::Encoded(secret.to_string()).to_bytes() {
+        let totp = TOTP::new(Algorithm::SHA1, 6, 1, 30, secret)
+            .map_err(|e| err_server!("Failed to create TOTP: {}", e))?;
+        let res = totp.check_current(token);
+        if let Ok(res) = totp.check_current(token) {
+            if res {
+                return Ok(());
+            }
+        }
+    }
+    Err(err_server!("Invalid OTP Code!*"))
 }

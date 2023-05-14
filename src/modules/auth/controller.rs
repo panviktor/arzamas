@@ -2,6 +2,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use entity::user::Model as User;
 use entity::user_security_settings::Model as SecuritySettings;
+use sea_orm::ColIdx;
 
 use crate::core::constants::core_constants;
 use crate::models::ServiceError;
@@ -19,7 +20,7 @@ use crate::modules::auth::service::{
     try_reset_password, try_send_restore_email,
 };
 use crate::modules::auth::session::{generate_session_token, get_ip_addr, get_user_agent};
-use crate::modules::auth::totp::{generate_email_code, verify_otp_codes};
+use crate::modules::auth::totp::{generate_email_code, set_app_only_expire_time, verify_otp_codes};
 
 pub async fn create_user(
     req: HttpRequest,
@@ -252,6 +253,7 @@ async fn handle_login_result(
                 "
                 .to_string(),
                 apps_code: true,
+                id: None,
             };
             Ok(HttpResponse::Ok().json(json))
         }
@@ -262,13 +264,18 @@ async fn handle_login_result(
             let json = LoginResponse::OTPResponse {
                 message: "The code has been sent to your email!".to_string(),
                 apps_code: false,
+                id: None,
             };
             Ok(HttpResponse::Ok().json(json))
         }
         (false, true) => {
+            set_app_only_expire_time(user_id, persistent, user_email, &login_ip, &user_agent)
+                .await
+                .map_err(|s| ServiceError::general(&req, s.message, false))?;
             let json = LoginResponse::OTPResponse {
-                message: "Enter your OTP code".to_string(),
+                message: "Enter your OTP code! For better security, use dual authorization in conjunction with email.".to_string(),
                 apps_code: true,
+                id: Some(user_id.to_string()),
             };
             Ok(HttpResponse::Ok().json(json))
         }
