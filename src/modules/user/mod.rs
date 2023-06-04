@@ -48,6 +48,7 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::post().to(controller::remove_email_2fa)),
             )
             .service(web::resource("/2fa-add").route(web::post().to(controller::add_2fa)))
+            .service(web::resource("/2fa-activate").route(web::post().to(controller::activate_2fa)))
             .service(web::resource("/2fa-reset").route(web::post().to(controller::reset_2fa)))
             .service(web::resource("/2fa-remove").route(web::post().to(controller::remove_2fa))),
     );

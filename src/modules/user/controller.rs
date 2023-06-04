@@ -4,13 +4,13 @@ use crate::modules::auth::session::{
     try_active_sessions, try_current_active_session, try_remove_active_session_token,
     try_remove_all_sessions_token,
 };
-use crate::modules::user::models::{ChangeEmailParams, ChangePasswordParams};
+use crate::modules::user::models::{ChangeEmailParams, ChangePasswordParams, MnemonicConfirmation};
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::modules::user::service::{
-    try_2fa_add, try_2fa_remove, try_2fa_reset, try_about_me, try_add_email_2fa, try_change_email,
-    try_change_password, try_get_security_settings, try_remove_email_2fa, try_resend_verify_email,
-    try_update_security_settings,
+    try_2fa_activate, try_2fa_add, try_2fa_remove, try_2fa_reset, try_about_me, try_add_email_2fa,
+    try_change_email, try_change_password, try_get_security_settings, try_remove_email_2fa,
+    try_resend_verify_email, try_update_security_settings,
 };
 
 pub async fn about_me(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
@@ -101,6 +101,18 @@ pub async fn add_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, 
     Ok(HttpResponse::Ok().json(json))
 }
 
+pub async fn activate_2fa(
+    req: HttpRequest,
+    user: LoginUser,
+    params: web::Json<MnemonicConfirmation>,
+) -> Result<HttpResponse, ServiceError> {
+    try_2fa_activate(&req, &user.id, params.0).await?;
+    Ok(HttpResponse::Ok().json("2FA Successfully Added:\
+     Congratulations on successfully setting up two-factor authentication (2FA) for your account!\
+     This additional layer of security will help protect your account and ensure that only authorized individuals can access it. \
+     Remember to keep your 2FA device or app safe and secure."))
+}
+
 pub async fn reset_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
     try_2fa_reset(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json("Reset 2fa"))
@@ -108,5 +120,8 @@ pub async fn reset_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse
 
 pub async fn remove_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
     try_2fa_remove(&req, &user.id).await?;
-    Ok(HttpResponse::Ok().json("Remove 2fa"))
+    Ok(HttpResponse::Ok().json("Remove 2FA Success: \
+    Please keep in mind that disabling two-factor authentication (2FA) reduces the security of your account.\
+    It is recommended to use alternative security measures such as strong passwords, regular account monitoring,\
+    and enabling other security features provided by the platform to maintain the security of your account."))
 }

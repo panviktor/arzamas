@@ -28,3 +28,8 @@ pub struct AuthenticationAppInformation {
     pub mnemonic: String,
     pub base32_secret: String,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct MnemonicConfirmation {
+    pub mnemonic: String,
+}

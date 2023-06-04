@@ -5,7 +5,7 @@ use entity::user_otp_token;
 use entity::user_security_settings;
 use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
-use sha2::digest::{Mac, MacError};
+use sha2::digest::Mac;
 use totp_rs::{Algorithm, Secret, TOTP};
 use uuid::Uuid;
 
@@ -287,6 +287,11 @@ async fn validate_app_code(
 async fn generate_app_code(user_id: &str, code: &str) -> Result<(), ServerError> {
     let otp_token = get_user_security_token_by_id(user_id).await?;
     if let Some(saved_hash) = otp_token.otp_app_hash {
+        ///
+        ///
+        /// all try mnemonic!
+        ///
+        ///
         verify_totp(&saved_hash, code)
     } else {
         Err(err_server!("Hash not found, try login again!?"))

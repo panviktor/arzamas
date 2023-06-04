@@ -19,6 +19,7 @@ use crate::modules::auth::service::{
 };
 use crate::modules::user::models::{
     AboutMeInformation, AuthenticationAppInformation, ChangeEmailParams, ChangePasswordParams,
+    MnemonicConfirmation,
 };
 
 pub async fn try_about_me(
@@ -212,14 +213,6 @@ pub async fn try_2fa_add(
     otp_token.otp_app_mnemonic = Set(Some(mnemonic.clone()));
     otp_token.update(db).await?;
 
-    /// TODO: activate after confirm mnemonic
-    let settings = get_user_settings_by_id(user_id)
-        .await
-        .map_err(|s| s.general(&req))?;
-
-    let mut settings = settings.into_active_model();
-    settings.two_factor_authenticator_app = Set(true);
-    settings.update(db).await?;
     let json = AuthenticationAppInformation {
         mnemonic,
         base32_secret,
@@ -228,7 +221,46 @@ pub async fn try_2fa_add(
     Ok(json)
 }
 
+pub async fn try_2fa_activate(
+    req: &HttpRequest,
+    user_id: &str,
+    params: MnemonicConfirmation,
+) -> Result<(), ServiceError> {
+    let otp_token = get_user_security_token_by_id(user_id)
+        .await
+        .map_err(|s| s.general(&req))?;
+
+    if let Some(mnemonic) = otp_token.otp_app_mnemonic {
+        return if mnemonic == params.mnemonic {
+            let settings = get_user_settings_by_id(user_id)
+                .await
+                .map_err(|s| s.general(&req))?;
+            let mut settings = settings.into_active_model();
+
+            settings.two_factor_authenticator_app = Set(true);
+            settings.update(db).await?;
+            Ok(())
+        } else {
+            Err(ServiceError::bad_request(
+                &req,
+                "Wrong mnemonic phrase".to_string(),
+                true,
+            ))
+        };
+    }
+
+    return Err(ServiceError::bad_request(
+        &req,
+        "Error validate mnemonic".to_string(),
+        true,
+    ));
+}
+
 pub async fn try_2fa_reset(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
+    ///
+    /// try_2fa_add
+    /// try_2fa_activate
+    ///
     return Err(ServiceError::bad_request(
         &req,
         format!("User not found."),
@@ -237,11 +269,13 @@ pub async fn try_2fa_reset(req: &HttpRequest, user_id: &str) -> Result<(), Servi
 }
 
 pub async fn try_2fa_remove(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
-    return Err(ServiceError::bad_request(
-        &req,
-        format!("User not found."),
-        true,
-    ));
+    let settings = get_user_settings_by_id(user_id)
+        .await
+        .map_err(|s| s.general(&req))?;
+    let mut settings = settings.into_active_model();
+    settings.two_factor_authenticator_app = Set(false);
+    settings.update(db).await?;
+    Ok(())
 }
 
 async fn toggle_email(
