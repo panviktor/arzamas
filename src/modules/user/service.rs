@@ -196,29 +196,7 @@ pub async fn try_2fa_add(
     req: &HttpRequest,
     user_id: &str,
 ) -> Result<AuthenticationAppInformation, ServiceError> {
-    let mut secret = [0u8; 32];
-    getrandom::getrandom(&mut secret).expect("Failed to fill bytes with randomness");
-    let mnemonic = Mnemonic::from_entropy(&secret, Language::English).unwrap();
-    let mnemonic = mnemonic.phrase().to_string();
-    let base32_secret = base32::encode(base32::Alphabet::RFC4648 { padding: false }, &secret);
-    let url = generate_totp_uri(&base32_secret, user_id, "Arzamas");
-
-    let db = &*DB;
-    let otp_token = get_user_security_token_by_id(user_id)
-        .await
-        .map_err(|s| s.general(&req))?;
-
-    let mut otp_token = otp_token.into_active_model();
-    otp_token.otp_app_hash = Set(Some(base32_secret.clone()));
-    otp_token.otp_app_mnemonic = Set(Some(mnemonic.clone()));
-    otp_token.update(db).await?;
-
-    let json = AuthenticationAppInformation {
-        mnemonic,
-        base32_secret,
-    };
-
-    Ok(json)
+    generate_2fa_secret(req, user_id).await
 }
 
 pub async fn try_2fa_activate(
@@ -257,17 +235,11 @@ pub async fn try_2fa_activate(
     ));
 }
 
-pub async fn try_2fa_reset(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
-    ///
-    /// try_2fa_add
-    /// try_2fa_activate
-    ///
-    ///
-    return Err(ServiceError::bad_request(
-        &req,
-        format!("User not found."),
-        true,
-    ));
+pub async fn try_2fa_reset(
+    req: &HttpRequest,
+    user_id: &str,
+) -> Result<AuthenticationAppInformation, ServiceError> {
+    generate_2fa_secret(req, user_id).await
 }
 
 pub async fn try_2fa_remove(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
@@ -310,4 +282,33 @@ pub fn generate_totp_uri(secret: &str, user_id: &str, issuer: &str) -> String {
         .append_pair("period", "30");
 
     url.to_string()
+}
+
+async fn generate_2fa_secret(
+    req: &HttpRequest,
+    user_id: &str,
+) -> Result<AuthenticationAppInformation, ServiceError> {
+    let mut secret = [0u8; 32];
+    getrandom::getrandom(&mut secret).expect("Failed to fill bytes with randomness");
+    let mnemonic = Mnemonic::from_entropy(&secret, Language::English).unwrap();
+    let mnemonic = mnemonic.phrase().to_string();
+    let base32_secret = base32::encode(base32::Alphabet::RFC4648 { padding: false }, &secret);
+    let url = generate_totp_uri(&base32_secret, user_id, "Arzamas");
+
+    let db = &*DB;
+    let otp_token = get_user_security_token_by_id(user_id)
+        .await
+        .map_err(|s| s.general(&req))?;
+
+    let mut otp_token = otp_token.into_active_model();
+    otp_token.otp_app_hash = Set(Some(base32_secret.clone()));
+    otp_token.otp_app_mnemonic = Set(Some(mnemonic.clone()));
+    otp_token.update(db).await?;
+
+    let json = AuthenticationAppInformation {
+        mnemonic,
+        base32_secret,
+    };
+
+    Ok(json)
 }
