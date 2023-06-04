@@ -114,8 +114,8 @@ pub async fn activate_2fa(
 }
 
 pub async fn reset_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
-    try_2fa_reset(&req, &user.id).await?;
-    Ok(HttpResponse::Ok().json("Reset 2fa"))
+    let json = try_2fa_reset(&req, &user.id).await?;
+    Ok(HttpResponse::Ok().json(json))
 }
 
 pub async fn remove_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
