@@ -226,6 +226,7 @@ pub async fn try_2fa_activate(
     user_id: &str,
     params: MnemonicConfirmation,
 ) -> Result<(), ServiceError> {
+    let db = &*DB;
     let otp_token = get_user_security_token_by_id(user_id)
         .await
         .map_err(|s| s.general(&req))?;
@@ -261,6 +262,7 @@ pub async fn try_2fa_reset(req: &HttpRequest, user_id: &str) -> Result<(), Servi
     /// try_2fa_add
     /// try_2fa_activate
     ///
+    ///
     return Err(ServiceError::bad_request(
         &req,
         format!("User not found."),
@@ -269,6 +271,7 @@ pub async fn try_2fa_reset(req: &HttpRequest, user_id: &str) -> Result<(), Servi
 }
 
 pub async fn try_2fa_remove(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
+    let db = &*DB;
     let settings = get_user_settings_by_id(user_id)
         .await
         .map_err(|s| s.general(&req))?;
