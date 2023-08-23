@@ -2,7 +2,7 @@
 use actix_web::http::StatusCode;
 use actix_web::{HttpRequest, HttpResponse, ResponseError};
 use log::error;
-use sea_orm::DbErr;
+use sea_orm::{ConnAcquireErr, DbErr};
 use serde::Serialize;
 use std::fmt;
 
@@ -112,10 +112,17 @@ impl ResponseError for ServiceError {
 impl From<DbErr> for ServiceError {
     fn from(value: DbErr) -> Self {
         let (status_code, message) = match value {
-            DbErr::ConnectionAcquire => (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Failed to acquire a database connection".to_string(),
-            ),
+            DbErr::ConnectionAcquire(err) => match err {
+                ConnAcquireErr::Timeout => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Failed to acquire a database connection due to a timeout.".to_string(),
+                ),
+                ConnAcquireErr::ConnectionClosed => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Failed to acquire a database connection because the connection was closed."
+                        .to_string(),
+                ),
+            },
             DbErr::TryIntoErr { source, .. } => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Failed to convert value: {}", source),
