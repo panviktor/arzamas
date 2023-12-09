@@ -293,7 +293,7 @@ async fn generate_2fa_secret(
     let mnemonic = Mnemonic::from_entropy(&secret, Language::English).unwrap();
     let mnemonic = mnemonic.phrase().to_string();
     let base32_secret = base32::encode(base32::Alphabet::RFC4648 { padding: false }, &secret);
-    let url = generate_totp_uri(&base32_secret, user_id, "Arzamas");
+    let url = generate_totp_uri(&base32_secret, user_id, "Arzamas"); //not impl yet
 
     let db = &*DB;
     let otp_token = get_user_security_token_by_id(user_id)
