@@ -1,8 +1,8 @@
 use crate::core::middleware::rate_limiter;
 use crate::modules::auth::middleware;
 use actix_web::{guard, web};
-mod controller;
-mod models;
+pub mod controller;
+pub mod models;
 mod service;
 
 pub fn init_user_routes(cfg: &mut web::ServiceConfig) {

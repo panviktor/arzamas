@@ -13,6 +13,24 @@ use crate::modules::user::service::{
     try_resend_verify_email, try_update_security_settings,
 };
 
+use utoipa::{IntoParams, ToSchema};
+
+/// Handler for getting information about the current user
+#[utoipa::path(
+    get,
+    path = "/api/user/about-me",
+    params(
+         ("content-type" = String, Header, description = "application/json")
+    ),
+    responses(
+        (status = 200, description = "User information retrieved successfully", body = AboutMeInformation),
+        (status = 401, description = "Unauthorized"),
+        (status = 429, description = "Too Many Requests"),
+    ),
+    security(
+        ("token" = [])
+    )
+)]
 pub async fn about_me(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
     let info = try_about_me(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(info))

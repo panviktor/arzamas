@@ -15,23 +15,23 @@ path = "src/main.rs"
 name = "bin"
 
 [dependencies]
-actix-web = "4.4.0"
-actix-http = "3.4.0"
+actix-web = "4.4.1"
+actix-http = "3.5.1"
 actix-files = "0.6.2"
 actix-service = "2.0.2"
-actix-cors = "0.6.4"
+actix-cors = "0.6.5"
 
 dotenv = "0.15.0"
 secrecy = { version = "0.8.0", features = ["serde"] }
 serde_json = "1.0.108"
 serde = { version = "1.0.193", features = ["derive"] }
 serde_derive = "1.0.193"
-jsonwebtoken = "9.1.0"
+jsonwebtoken = "9.2.0"
 
-futures = "0.3.29"
-tokio = { version = "1.34.0", features = ["macros", "rt-multi-thread"] }
+futures = "0.3.30"
+tokio = { version = "1.35.1", features = ["macros", "rt-multi-thread"] }
 
-tracing = { version = "0.1.4", features = ["log"] }
+tracing = { version = "0.1.40", features = ["log"] }
 tracing-actix-web = "0.7.9"
 tracing-bunyan-formatter = "0.3.9"
 tracing-log = "0.2.0"
@@ -39,7 +39,7 @@ tracing-subscriber = { version = "0.3.18", features = ["registry", "env-filter"]
 tracing-appender = "0.2.3"
 log = { version = "0.4.20", features = ["max_level_debug", "release_max_level_info"] }
 
-redis = { version = "0.23.3", features = ["tokio-comp", "tokio-native-tls-comp", "connection-manager"] }
+redis = { version = "0.24.0", features = ["tokio-comp", "tokio-native-tls-comp", "connection-manager"] }
 
 chrono = "0.4.31"
 hex = "0.4.3"
@@ -49,7 +49,7 @@ rust-argon2 = "2.0.0"
 lazy_static = "1.4.0"
 unicode-normalization = "0.1.22"
 getrandom = "0.2.11"
-time = "0.3.30"
+time = "0.3.31"
 async_once="0.2.6"
 tokio-async-std = "1.5.3"
 uuid = { version = "1.6.1", features = [ "v4" ] }
@@ -62,14 +62,18 @@ url = "2.4.1"
 entity = { path = "entity" }
 migration = { path = "migration" }
 
+utoipa = { version = "4.1.0", features = ["actix_extras", "chrono"] }
+utoipa-swagger-ui = { version = "5.0.0", features = ["actix-web"] }
+utoipa-rapidoc = { version = "2", features = ["actix-web"] }
+
 [dependencies.sea-orm]
-version = "0.12.6"
+version = "0.12.10"
 default-features = true
 features = ["mock", "default", "with-json", "macros", "sqlx-postgres", "runtime-actix-rustls", "chrono", "postgres-array"]
 
 [dev-dependencies]
-reqwest = { version = "0.11.22", features = ["json"] }
-once_cell = "1.18.0"
+reqwest = { version = "0.11.23", features = ["json"] }
+once_cell = "1.19.0"
 uuid = { version = "1.6.1", features = ["v4"] }
 serde_json = "1.0.108"
 

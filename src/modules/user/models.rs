@@ -1,4 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Struct for holding the form parameters with the new user form
 #[derive(Serialize, Deserialize)]
@@ -16,7 +17,7 @@ pub struct ChangeEmailParams {
     pub new_email_confirm: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct AboutMeInformation {
     pub name: String,
     pub email: String,

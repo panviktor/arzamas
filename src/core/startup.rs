@@ -1,3 +1,4 @@
+use crate::core::api::configure_documentation_services;
 use crate::core::db::DB;
 use crate::modules::{auth, general_handlers, notes, user};
 use actix_files::Files;
@@ -28,6 +29,7 @@ pub async fn run(listener: TcpListener) -> Result<Server, std::io::Error> {
             )
             .default_service(web::route().to(general_handlers::p404))
             // Register application-wide models data below 👇
+            .service(configure_documentation_services())
             .app_data(db.clone()) //  Register the database connection pool
     })
     .listen(listener)?

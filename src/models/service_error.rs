@@ -5,9 +5,10 @@ use log::error;
 use sea_orm::{ConnAcquireErr, DbErr};
 use serde::Serialize;
 use std::fmt;
+use utoipa::ToSchema;
 
 /// A generic error for the web server.
-#[derive(Debug)]
+#[derive(Debug, ToSchema)]
 pub struct ServiceError {
     pub code: StatusCode,
     pub path: String,
