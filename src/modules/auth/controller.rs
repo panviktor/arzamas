@@ -2,7 +2,6 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use entity::user::Model as User;
 use entity::user_security_settings::Model as SecuritySettings;
-use sea_orm::ColIdx;
 
 use crate::core::constants::core_constants;
 use crate::models::ServiceError;
@@ -269,7 +268,7 @@ async fn handle_login_result(
             Ok(HttpResponse::Ok().json(json))
         }
         (false, true) => {
-            set_app_only_expire_time(user_id, persistent, user_email, &login_ip, &user_agent)
+            set_app_only_expire_time(user_id, persistent, &login_ip, &user_agent)
                 .await
                 .map_err(|s| ServiceError::general(&req, s.message, false))?;
             let json = LoginResponse::OTPResponse {

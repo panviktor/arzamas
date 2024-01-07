@@ -177,7 +177,7 @@ pub async fn try_update_security_settings(
 ) -> Result<(), ServiceError> {
     return Err(ServiceError::bad_request(
         &req,
-        format!("User not found."),
+        "User not found.".to_string(),
         true,
     ));
 }

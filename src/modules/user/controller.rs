@@ -13,8 +13,6 @@ use crate::modules::user::service::{
     try_resend_verify_email, try_update_security_settings,
 };
 
-use utoipa::{IntoParams, ToSchema};
-
 /// Handler for getting information about the current user
 #[utoipa::path(
     get,

@@ -1,4 +1,3 @@
-use utoipa::ToSchema;
 pub use utoipa::{
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
     Modify, OpenApi,

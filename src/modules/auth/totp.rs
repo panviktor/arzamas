@@ -5,7 +5,6 @@ use entity::user_otp_token;
 use entity::user_security_settings;
 use redis::AsyncCommands;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
-use sha2::digest::Mac;
 use totp_rs::{Algorithm, Secret, TOTP};
 use uuid::Uuid;
 
@@ -21,7 +20,6 @@ use crate::modules::auth::session::{decode_token, generate_token};
 pub async fn set_app_only_expire_time(
     user_id: &str,
     persistent: bool,
-    email: &str,
     login_ip: &str,
     user_agent: &str,
 ) -> Result<(), ServerError> {
@@ -304,7 +302,6 @@ async fn validate_ip(
 ) -> Result<String, ServerError> {
     if let Some(otp_email_hash) = user_otp_token.otp_email_hash.clone() {
         if let Ok(decoded_data) = decode_token(&otp_email_hash) {
-            let db = &*DB;
             let token = decoded_data.claims;
             let hash = otp_email_hash.clone();
 
@@ -327,7 +324,6 @@ pub fn verify_totp(secret: &str, token: &str) -> Result<(), ServerError> {
     if let Ok(secret) = Secret::Encoded(secret.to_string()).to_bytes() {
         let totp = TOTP::new(Algorithm::SHA1, 6, 1, 30, secret)
             .map_err(|e| err_server!("Failed to create TOTP: {}", e))?;
-        let res = totp.check_current(token);
         if let Ok(res) = totp.check_current(token) {
             if res {
                 return Ok(());
