@@ -3,19 +3,34 @@ pub use utoipa::{
     Modify, OpenApi,
 };
 
-use crate::models::ServiceError;
-use crate::modules::user::controller::__path_about_me;
+use crate::models::many_response::ManyResponseNotes;
+use crate::models::service_error::ServiceErrorSerialized;
+use crate::modules::notes;
+use crate::modules::user;
 use crate::modules::user::models::AboutMeInformation;
+use entity::note::Model as Note;
 
 #[derive(OpenApi)]
 #[openapi(
+    info(
+        title = "Arzamas API",
+        version = "0.1.0",
+        description = "API for Arzamas services",
+        license(name = "MIT", url = "https://github.com/panviktor/arzamas/blob/main/LICENSE")
+    ),
     paths(
-        about_me
+        user::controllers::about_me,
+        notes::controllers::get_by_id,
+        notes::controllers::get_all_notes
     ),
     components(
         schemas(
-            ServiceError,
-            AboutMeInformation
+            ServiceErrorSerialized,
+            AboutMeInformation,
+        ),
+        schemas(
+            Note,
+            ManyResponseNotes
         )
     ),
     tags(

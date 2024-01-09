@@ -1,3 +1,8 @@
+use crate::core::db::DB;
+use crate::models::many_response::{ManyResponse, PageQuery};
+use crate::models::ServiceError;
+use crate::modules::generate_unique_id;
+use crate::modules::notes::models::{CreateNote, DTONote, FindNote};
 use actix_http::StatusCode;
 use actix_web::HttpRequest;
 use chrono::Utc;
@@ -7,31 +12,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
     QueryFilter, QueryOrder,
 };
-use serde::{Deserialize, Serialize};
-
-use crate::core::db::DB;
-use crate::models::many_response::{ManyResponse, PageQuery};
-use crate::models::ServiceError;
-use crate::modules::generate_unique_id;
-
-/// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize)]
-pub struct DTONote {
-    pub(crate) text: String,
-}
-
-/// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize)]
-pub struct FindNote {
-    pub(crate) id: String,
-}
-
-/// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize)]
-pub struct CreateNote {
-    pub(crate) id: String,
-    pub(crate) text: String,
-}
+use std::cmp::max;
 
 pub async fn try_create_note(
     req: HttpRequest,
@@ -84,7 +65,7 @@ pub async fn try_get_all_notes(
         if let Some(user) = user {
             // Set page number and items per page
             let page = info.page;
-            let per_page = info.per_page;
+            let per_page = max(info.per_page, 1);
 
             let paginator = user.find_related(Note).paginate(db, per_page);
 
@@ -119,12 +100,12 @@ pub async fn try_get_all_notes(
 pub async fn try_get_by_id_notes(
     req: HttpRequest,
     user_id: &str,
-    params: FindNote,
+    note: FindNote,
 ) -> Result<note::Model, ServiceError> {
     let db = &*DB;
 
     if let Some(note) = Note::find()
-        .filter(note::Column::NoteId.contains(&*params.id.to_string()))
+        .filter(note::Column::NoteId.contains(note.id.to_string()))
         .order_by_asc(note::Column::Id)
         .one(db)
         .await?
@@ -149,7 +130,7 @@ pub async fn try_delete_note(
     let db = &*DB;
 
     if let Some(note) = Note::find()
-        .filter(note::Column::NoteId.contains(&*params.id.to_string()))
+        .filter(note::Column::NoteId.contains(params.id.to_string()))
         .order_by_asc(note::Column::Id)
         .one(db)
         .await?
@@ -175,7 +156,7 @@ pub async fn try_update_note(
     let new_text = params.text.to_string();
 
     if let Some(note) = Note::find()
-        .filter(note::Column::NoteId.contains(&*params.id.to_string()))
+        .filter(note::Column::NoteId.contains(params.id.to_string()))
         .order_by_asc(note::Column::Id)
         .one(db)
         .await?

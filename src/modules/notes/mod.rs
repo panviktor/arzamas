@@ -1,4 +1,5 @@
-pub mod controller;
+pub mod controllers;
+pub(crate) mod models;
 mod service;
 
 use crate::core::middleware::rate_limiter;
@@ -16,17 +17,17 @@ pub fn init_notes_routes(cfg: &mut web::ServiceConfig) {
             .service(
                 web::resource("/create")
                     .wrap(rate_limiter::RateLimitServices { requests_count: 15 })
-                    .route(web::post().to(controller::create_note)),
+                    .route(web::post().to(controllers::create_note)),
             )
             .service(
-                web::resource("/get_all_notes").route(web::get().to(controller::get_all_notes)),
+                web::resource("/get_all_notes").route(web::get().to(controllers::get_all_notes)),
             )
-            .service(web::resource("/get_by_id").route(web::get().to(controller::get_by_id)))
-            .service(web::resource("/delete").route(web::delete().to(controller::delete)))
+            .service(web::resource("/get_by_id").route(web::get().to(controllers::get_by_id)))
+            .service(web::resource("/delete").route(web::delete().to(controllers::delete)))
             .service(
                 web::resource("/update")
                     .wrap(rate_limiter::RateLimitServices { requests_count: 10 })
-                    .route(web::put().to(controller::update)),
+                    .route(web::put().to(controllers::update)),
             ),
     );
 }

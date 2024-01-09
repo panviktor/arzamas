@@ -62,9 +62,9 @@ url = "2.4.1"
 entity = { path = "entity" }
 migration = { path = "migration" }
 
-utoipa = { version = "4.1.0", features = ["actix_extras", "chrono"] }
-utoipa-swagger-ui = { version = "5.0.0", features = ["actix-web"] }
-utoipa-rapidoc = { version = "2", features = ["actix-web"] }
+utoipa = { version = "4.2.0", features = ["actix_extras", "chrono"] }
+utoipa-swagger-ui = { version = "6.0.0", features = ["actix-web"] }
+utoipa-rapidoc = { version = "3", features = ["actix-web"] }
 
 [dependencies.sea-orm]
 version = "0.12.10"

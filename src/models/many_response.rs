@@ -1,7 +1,13 @@
+use entity::prelude::Note;
 use serde::{Deserialize, Serialize};
+use utoipa::{IntoParams, ToSchema};
 
 /// A paginated response for an entity
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, ToSchema)]
+#[aliases(
+        ManyResponseNotes = ManyResponse<Note>
+    )
+]
 pub struct ManyResponse<Model> {
     /// The page of data being returned
     pub data: Vec<Model>,
@@ -15,8 +21,11 @@ pub struct ManyResponse<Model> {
     pub per_page: u64,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, IntoParams)]
 pub struct PageQuery {
+    /// Page number
     pub page: u64,
+    /// Number of items per page"
+    #[param(minimum = 1)]
     pub per_page: u64,
 }

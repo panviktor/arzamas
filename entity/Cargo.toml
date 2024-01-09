@@ -6,8 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sea-orm = { version = "0.12.6" }
+sea-orm = { version = "0.12.10" }
 
-serde_json = "1.0.108"
-serde = { version = "1.0.193", features = ["derive"] }
-serde_derive = "1.0.193"
+serde_json = "1.0.111"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_derive = "1.0.195"
+utoipa = { version = "4.2.0", features = ["actix_extras", "chrono"] }

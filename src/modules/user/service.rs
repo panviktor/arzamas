@@ -36,7 +36,7 @@ pub async fn try_about_me(
 
     return Err(ServiceError::bad_request(
         &req,
-        format!("User not found."),
+        "User not found.".to_string(),
         true,
     ));
 }
@@ -49,7 +49,7 @@ pub async fn try_change_email(
     if &params.new_email != &params.new_email_confirm {
         return Err(ServiceError::bad_request(
             &req,
-            format!("Re-enter new email and confirm email.",),
+            "Re-enter new email and confirm email.".to_string(),
             true,
         ));
     }
@@ -141,7 +141,7 @@ pub async fn try_resend_verify_email(req: &HttpRequest, user_id: &str) -> Result
         return if user.email_validated {
             Err(ServiceError::bad_request(
                 &req,
-                format!("Email already activated."),
+                "Email already activated.".to_string(),
                 true,
             ))
         } else {
@@ -154,7 +154,7 @@ pub async fn try_resend_verify_email(req: &HttpRequest, user_id: &str) -> Result
 
     return Err(ServiceError::bad_request(
         &req,
-        format!("User not found."),
+        "User not found.".to_string(),
         true,
     ));
 }
@@ -171,10 +171,7 @@ pub async fn try_get_security_settings(
     Ok(settings)
 }
 
-pub async fn try_update_security_settings(
-    req: &HttpRequest,
-    user_id: &str,
-) -> Result<(), ServiceError> {
+pub async fn try_update_security_settings(req: &HttpRequest) -> Result<(), ServiceError> {
     return Err(ServiceError::bad_request(
         &req,
         "User not found.".to_string(),

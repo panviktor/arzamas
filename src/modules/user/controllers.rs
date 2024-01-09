@@ -92,7 +92,7 @@ pub async fn update_security_settings(
     req: HttpRequest,
     user: LoginUser,
 ) -> Result<HttpResponse, ServiceError> {
-    try_update_security_settings(&req, &user.id).await?;
+    try_update_security_settings(&req).await?;
     Ok(HttpResponse::Ok().json("get_security_settings"))
 }
 

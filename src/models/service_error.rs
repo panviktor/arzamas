@@ -8,7 +8,7 @@ use std::fmt;
 use utoipa::ToSchema;
 
 /// A generic error for the web server.
-#[derive(Debug, ToSchema)]
+#[derive(Debug)]
 pub struct ServiceError {
     pub code: StatusCode,
     pub path: String,
@@ -27,10 +27,13 @@ impl ServiceError {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ServiceErrorSerialized {
+    #[schema(default = String::default, example = "404 Not Found")]
     pub code: String,
+    #[schema(default = String::default, example = "path/item")]
     pub path: String,
+    #[schema(default = String::default, example = "Item not found")]
     pub message: String,
     pub show_message: bool,
 }

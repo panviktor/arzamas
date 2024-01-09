@@ -1,9 +1,9 @@
 use crate::models::many_response::PageQuery;
 use crate::models::ServiceError;
 use crate::modules::auth::middleware::LoginUser;
+use crate::modules::notes::models::{CreateNote, DTONote, FindNote};
 use crate::modules::notes::service::{
     try_create_note, try_delete_note, try_get_all_notes, try_get_by_id_notes, try_update_note,
-    CreateNote, DTONote, FindNote,
 };
 use actix_web::{web, HttpRequest, HttpResponse};
 
@@ -16,6 +16,23 @@ pub async fn create_note(
     Ok(HttpResponse::Ok().json("Note Create Successfully."))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/notes/get_all_notes",
+    params(
+        PageQuery,
+        ("content-type" = String, Header, description = "application/json")
+    ),
+    responses(
+        (status = 200, description = "Note information retrieved successfully", body = ManyResponseNotes),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Not found", body = ServiceErrorSerialized),
+        (status = 429, description = "Too Many Requests"),
+    ),
+    security(
+        ("token" = [])
+    )
+)]
 pub async fn get_all_notes(
     req: HttpRequest,
     info: web::Query<PageQuery>,
@@ -25,12 +42,29 @@ pub async fn get_all_notes(
     Ok(HttpResponse::Ok().json(result))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/notes/get_by_id",
+    params(
+        ("id" = i64, Query, description = "Unique identifier of the note"),
+        ("content-type" = String, Header, description = "application/json")
+    ),
+    responses(
+        (status = 200, description = "Note information retrieved successfully", body = Note),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Not found", body = ServiceErrorSerialized),
+        (status = 429, description = "Too Many Requests"),
+    ),
+    security(
+        ("token" = [])
+    )
+)]
 pub async fn get_by_id(
     req: HttpRequest,
     user: LoginUser,
-    params: web::Json<FindNote>,
+    query: web::Query<FindNote>,
 ) -> Result<HttpResponse, ServiceError> {
-    let note = try_get_by_id_notes(req, &user.id, params.0).await?;
+    let note = try_get_by_id_notes(req, &user.id, query.into_inner()).await?;
     Ok(HttpResponse::Ok().json(note))
 }
 
