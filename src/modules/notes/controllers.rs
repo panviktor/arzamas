@@ -1,7 +1,7 @@
 use crate::models::many_response::PageQuery;
 use crate::models::ServiceError;
 use crate::modules::auth::middleware::LoginUser;
-use crate::modules::notes::models::{CreateNote, DTONote, FindNote};
+use crate::modules::notes::models::{DTONote, FindNote};
 use crate::modules::notes::service::{
     try_create_note, try_delete_note, try_get_all_notes, try_get_by_id_notes, try_update_note,
 };
@@ -79,20 +79,53 @@ pub async fn get_by_id(
     Ok(HttpResponse::Ok().json(note))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/notes/delete",
+    params(
+        FindNote
+    ),
+    responses(
+        (status = 200, description = "Note was deleted"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Not found", body = ServiceErrorSerialized),
+        (status = 429, description = "Too Many Requests"),
+    ),
+    security(
+        ("token" = [])
+    )
+)]
 pub async fn delete(
     req: HttpRequest,
     user: LoginUser,
-    params: web::Json<FindNote>,
+    params: web::Query<FindNote>,
 ) -> Result<HttpResponse, ServiceError> {
     try_delete_note(req, &user.id, params.0).await?;
     Ok(HttpResponse::Ok().json("Note was deleted"))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/notes/update",
+    request_body = DTONote,
+    params(
+        FindNote
+    ),
+    responses(
+         (status = 200, description = "Note was updated"),
+         (status = 401, description = "Unauthorized"),
+         (status = 429, description = "Too Many Requests")
+    ),
+    security(
+        ("token" = [])
+    )
+)]
 pub async fn update(
     req: HttpRequest,
     user: LoginUser,
-    params: web::Json<CreateNote>,
+    note_id: web::Query<FindNote>,
+    body: web::Json<DTONote>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_update_note(req, &user.id, params.0).await?;
+    try_update_note(req, &user.id, &note_id.id, body.0).await?;
     Ok(HttpResponse::Ok().json("Note was updated"))
 }

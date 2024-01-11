@@ -25,7 +25,9 @@ use entity::note::Model as Note;
         user::controllers::about_me,
         notes::controllers::create_note,
         notes::controllers::get_by_id,
-        notes::controllers::get_all_notes
+        notes::controllers::get_all_notes,
+        notes::controllers::delete,
+        notes::controllers::update
     ),
     components(
         schemas(
@@ -35,7 +37,7 @@ use entity::note::Model as Note;
         schemas(
             DTONote,
             Note,
-            ManyResponseNotes
+            ManyResponseNotes,
         )
     ),
     tags(

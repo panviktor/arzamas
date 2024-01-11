@@ -1,5 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 /// Struct for holding the form parameters with the new user form
 #[derive(Serialize, Deserialize, ToSchema)]
@@ -8,14 +8,7 @@ pub struct DTONote {
 }
 
 /// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize, ToSchema, Debug)]
+#[derive(Serialize, Deserialize, IntoParams, Debug)]
 pub struct FindNote {
     pub(crate) id: String,
-}
-
-/// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize, ToSchema)]
-pub struct CreateNote {
-    pub(crate) id: String,
-    pub(crate) text: String,
 }

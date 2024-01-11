@@ -2,7 +2,7 @@ use crate::core::db::DB;
 use crate::models::many_response::{ManyResponse, PageQuery};
 use crate::models::ServiceError;
 use crate::modules::generate_unique_id;
-use crate::modules::notes::models::{CreateNote, DTONote, FindNote};
+use crate::modules::notes::models::{DTONote, FindNote};
 use actix_http::StatusCode;
 use actix_web::HttpRequest;
 use chrono::Utc;
@@ -150,13 +150,14 @@ pub async fn try_delete_note(
 pub async fn try_update_note(
     req: HttpRequest,
     user_id: &str,
-    params: CreateNote,
+    note_id: &str,
+    body: DTONote,
 ) -> Result<(), ServiceError> {
     let db = &*DB;
-    let new_text = params.text.to_string();
+    let new_text = body.text.to_string();
 
     if let Some(note) = Note::find()
-        .filter(note::Column::NoteId.contains(params.id.to_string()))
+        .filter(note::Column::NoteId.contains(note_id.to_string()))
         .order_by_asc(note::Column::Id)
         .one(db)
         .await?
