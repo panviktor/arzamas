@@ -17,9 +17,6 @@ use crate::modules::user::service::{
 #[utoipa::path(
     get,
     path = "/api/user/about-me",
-    params(
-         ("content-type" = String, Header, description = "application/json")
-    ),
     responses(
         (status = 200, description = "User information retrieved successfully", body = AboutMeInformation),
         (status = 401, description = "Unauthorized"),

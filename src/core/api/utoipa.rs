@@ -5,9 +5,12 @@ pub use utoipa::{
 
 use crate::models::many_response::ManyResponseNotes;
 use crate::models::service_error::ServiceErrorSerialized;
-use crate::modules::notes;
+
 use crate::modules::user;
 use crate::modules::user::models::AboutMeInformation;
+
+use crate::modules::notes;
+use crate::modules::notes::models::DTONote;
 use entity::note::Model as Note;
 
 #[derive(OpenApi)]
@@ -20,6 +23,7 @@ use entity::note::Model as Note;
     ),
     paths(
         user::controllers::about_me,
+        notes::controllers::create_note,
         notes::controllers::get_by_id,
         notes::controllers::get_all_notes
     ),
@@ -29,6 +33,7 @@ use entity::note::Model as Note;
             AboutMeInformation,
         ),
         schemas(
+            DTONote,
             Note,
             ManyResponseNotes
         )

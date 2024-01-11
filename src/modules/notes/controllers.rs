@@ -7,21 +7,33 @@ use crate::modules::notes::service::{
 };
 use actix_web::{web, HttpRequest, HttpResponse};
 
+#[utoipa::path(
+    post,
+    path = "/api/notes/create",
+    request_body = DTONote,
+    responses(
+         (status = 201, description = "Note created successfully"),
+         (status = 401, description = "Unauthorized"),
+         (status = 429, description = "Too Many Requests")
+    ),
+    security(
+        ("token" = [])
+    )
+)]
 pub async fn create_note(
     req: HttpRequest,
     user: LoginUser,
     params: web::Json<DTONote>,
 ) -> Result<HttpResponse, ServiceError> {
     try_create_note(req, &user.id, params.0).await?;
-    Ok(HttpResponse::Ok().json("Note Create Successfully."))
+    Ok(HttpResponse::Created().json("Note Create Successfully."))
 }
 
 #[utoipa::path(
     get,
     path = "/api/notes/get_all_notes",
     params(
-        PageQuery,
-        ("content-type" = String, Header, description = "application/json")
+        PageQuery
     ),
     responses(
         (status = 200, description = "Note information retrieved successfully", body = ManyResponseNotes),
@@ -46,8 +58,7 @@ pub async fn get_all_notes(
     get,
     path = "/api/notes/get_by_id",
     params(
-        ("id" = i64, Query, description = "Unique identifier of the note"),
-        ("content-type" = String, Header, description = "application/json")
+        ("id" = i64, Query, description = "Unique identifier of the note")
     ),
     responses(
         (status = 200, description = "Note information retrieved successfully", body = Note),

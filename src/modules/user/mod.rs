@@ -8,7 +8,6 @@ mod service;
 pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/user")
-            .guard(guard::Header("content-type", "application/json"))
             .wrap(middleware::AuthCheckService)
             .wrap(rate_limiter::RateLimitServices {
                 requests_count: 500,

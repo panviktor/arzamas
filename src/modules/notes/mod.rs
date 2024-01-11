@@ -9,7 +9,6 @@ use actix_web::{guard, web};
 pub fn init_notes_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/notes")
-            .guard(guard::Header("content-type", "application/json"))
             .wrap(auth::middleware::AuthCheckService)
             .wrap(rate_limiter::RateLimitServices {
                 requests_count: 500,

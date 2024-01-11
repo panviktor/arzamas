@@ -20,7 +20,6 @@ pub mod totp;
 pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/auth")
-            .guard(guard::Header("content-type", "application/json"))
             .wrap(rate_limiter::RateLimitServices {
                 requests_count: 200,
             })
