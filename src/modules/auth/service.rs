@@ -1,4 +1,4 @@
-use actix_web::HttpRequest;
+use actix_web::{HttpRequest, HttpResponse};
 use chrono::{DateTime, Utc};
 use entity::user::Model as User;
 use entity::user_otp_token::Model as SecurityToken;
@@ -8,16 +8,23 @@ use entity::{
 };
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
 
+use crate::core::constants::core_constants;
 use crate::core::db::DB;
 use crate::models::{ErrorCode, ServerError, ServiceError};
 use crate::modules::auth::credentials::{
-    generate_password_hash, validate_email_rules, validate_password_rules, validate_username_rules,
+    credential_validator_username_email, generate_password_hash, generate_user_id,
+    validate_email_rules, validate_password_rules, validate_username_rules,
 };
-use crate::modules::auth::email::send_password_reset_email;
+use crate::modules::auth::email::{
+    send_password_reset_email, send_validate_email, success_enter_email,
+};
 use crate::modules::auth::hash_token;
 use crate::modules::auth::models::{
-    ForgotPasswordParams, NewUserParams, ResetPasswordParams, UserInfo, VerifyToken,
+    CreatedUserDTO, ForgotPasswordParams, LoginParams, LoginResponse, NewUserParams, OTPCode,
+    ResetPasswordParams, UserInfo, VerifyToken,
 };
+use crate::modules::auth::session::{generate_session_token, get_ip_addr, get_user_agent};
+use crate::modules::auth::totp::{generate_email_code, set_app_only_expire_time, verify_otp_codes};
 use crate::{err_input, err_server};
 
 /// Get a single user from the DB, searching by username
@@ -415,4 +422,259 @@ pub async fn set_attempt_count(
         .await
         .map_err(|e| err_server!("Problem updating OTP token attempt count {}:{}", user_id, e))?;
     Ok(())
+}
+
+pub async fn try_create_user(
+    req: &HttpRequest,
+    params: NewUserParams,
+) -> Result<CreatedUserDTO, ServiceError> {
+    if let Err(e) = validate_password_rules(&params.password, &params.password_confirm) {
+        return Err(ServiceError::bad_request(
+            &req,
+            format!("Error creating user: {}", e),
+            true,
+        ));
+    }
+
+    if let Err(e) = validate_username_rules(&params.username) {
+        return Err(ServiceError::bad_request(
+            &req,
+            format!("Error creating user: {}", e),
+            true,
+        ));
+    }
+
+    if let Err(e) = validate_email_rules(&params.email) {
+        return Err(ServiceError::bad_request(
+            &req,
+            format!("Error creating user: {}", e),
+            true,
+        ));
+    }
+
+    // check user doesn't already exist
+    if get_user_by_username(&params.username)
+        .await
+        .map_err(|s| s.general(&req))?
+        .is_some()
+    {
+        return Err(ServiceError::bad_request(
+            &req,
+            &format!(
+                "Cannot create user: {} as that username is taken",
+                params.username
+            ),
+            true,
+        ));
+    }
+
+    if get_user_by_email(&params.email)
+        .await
+        .map_err(|s| s.general(&req))?
+        .is_some()
+    {
+        return Err(ServiceError::bad_request(
+            &req,
+            &format!("Cannot create user for email: {} as that email is already associated with an account.", params.email),
+            true,
+        ));
+    }
+
+    let mut user_error: Option<ServiceError> = None;
+    let mut saved_user: Option<User> = None;
+    let mut user_id: String;
+
+    for i in 0..10 {
+        user_id = generate_user_id().map_err(|s| s.general(&req))?;
+
+        match create_user_and_try_save(&user_id, &params, &req).await {
+            Ok(user) => {
+                saved_user = Some(user);
+                break;
+            }
+            Err(err) => {
+                log::warn!(
+                    "Problem creating user ID for new user {} (attempt {}/10): {}",
+                    user_id,
+                    i + 1,
+                    err
+                );
+                user_error = Some(err);
+            }
+        }
+    }
+
+    if let Some(e) = user_error {
+        return Err(ServiceError::general(
+            &req,
+            format!("Error generating user ID: {}", e),
+            false,
+        ));
+    }
+    let saved_user = saved_user.expect("Error unwrap saved user");
+
+    // Send a validation email
+    send_validate_email(&saved_user.user_id, &saved_user.email, false)
+        .await
+        .map_err(|s| s.general(&req))?;
+
+    Ok(user_created_response(&saved_user))
+}
+
+fn user_created_response(user: &User) -> CreatedUserDTO {
+    CreatedUserDTO {
+        username: user.username.to_string(),
+        creation_day: user.created_at,
+        user_email: user.email.to_string(),
+        description: format!(
+            "Greetings, {}!\n\n\
+        Your account was successfully created on {}.\n\
+        We have dispatched a verification email to: {}.\n\
+        Please follow the instructions in the email to verify your account. \
+        Note that the verification link will remain active for 24 hours only.\n\n\
+        Welcome to our community!\n",
+            user.username, user.created_at, user.email
+        ),
+    }
+}
+
+pub async fn try_login_user(
+    req: &HttpRequest,
+    params: LoginParams,
+) -> Result<HttpResponse, ServiceError> {
+    // Check the username is valid
+    if validate_username_rules(&params.identifier).is_err()
+        && validate_email_rules(&params.identifier).is_err()
+    {
+        return Err(ServiceError::bad_request(
+            &req,
+            "Invalid Username/Email",
+            true,
+        ));
+    }
+
+    // Check the password is valid
+    if let Err(e) = validate_password_rules(&params.password, &params.password) {
+        return Err(e.bad_request(&req));
+    }
+
+    let result = credential_validator_username_email(&params.identifier, &params.password)
+        .await
+        .map_err(|s| ServiceError::general(&req, s.message, true))?;
+
+    if let Some(user) = result {
+        if let Some(blocked_time) = user.login_blocked_until {
+            if blocked_time > Utc::now().naive_utc() {
+                return Err(ServiceError::unauthorized(
+                    &req,
+                    "Too many attempts, try again later!",
+                    true,
+                ));
+            }
+        }
+
+        let settings = get_user_settings_by_id(&user.user_id)
+            .await
+            .map_err(|s| ServiceError::general(&req, s.message, true))?;
+
+        return handle_login_result(&user.user_id, &user.email, settings, &req, &params).await;
+    }
+
+    Err(ServiceError::unauthorized(
+        &req,
+        "Invalid credentials!",
+        true,
+    ))
+}
+
+async fn handle_login_result(
+    user_id: &str,
+    user_email: &str,
+    security_settings: SecuritySettings,
+    req: &HttpRequest,
+    params: &LoginParams,
+) -> Result<HttpResponse, ServiceError> {
+    let login_ip = get_ip_addr(req).map_err(|s| ServiceError::general(req, s.message, false))?;
+    let user_agent = get_user_agent(&req);
+    let persistent = params.persist.unwrap_or(false);
+
+    return match (
+        security_settings.two_factor_email,
+        security_settings.two_factor_authenticator_app,
+    ) {
+        (true, true) => {
+            generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent)
+                .await
+                .map_err(|s| ServiceError::general(&req, s.message, false))?;
+            let json = LoginResponse::OTPResponse {
+                message: "The code has been sent to your email!\n
+                Enter your code from email and code from 2FA apps like Google Authenticator and Authy!
+                "
+                    .to_string(),
+                apps_code: true,
+                id: None,
+            };
+            Ok(HttpResponse::Ok().json(json))
+        }
+        (true, false) => {
+            generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent)
+                .await
+                .map_err(|s| ServiceError::general(&req, s.message, false))?;
+            let json = LoginResponse::OTPResponse {
+                message: "The code has been sent to your email!".to_string(),
+                apps_code: false,
+                id: None,
+            };
+            Ok(HttpResponse::Ok().json(json))
+        }
+        (false, true) => {
+            set_app_only_expire_time(user_id, persistent, &login_ip, &user_agent)
+                .await
+                .map_err(|s| ServiceError::general(&req, s.message, false))?;
+            let json = LoginResponse::OTPResponse {
+                message: "Enter your OTP code! For better security, use dual authorization in conjunction with email.".to_string(),
+                apps_code: true,
+                id: Some(user_id.to_string()),
+            };
+            Ok(HttpResponse::Ok().json(json))
+        }
+        (false, false) => {
+            let token = generate_session_token(user_id, persistent, &login_ip, &user_agent)
+                .await
+                .map_err(|s| ServiceError::general(&req, s.message, false))?;
+
+            if security_settings.email_on_success_enabled_at {
+                success_enter_email(user_email, &login_ip)
+                    .await
+                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
+            }
+
+            let response = LoginResponse::TokenResponse {
+                token,
+                token_type: core_constants::BEARER.to_string(),
+            };
+            Ok(HttpResponse::Ok().json(response))
+        }
+    };
+}
+
+pub async fn try_login_2fa(
+    req: &HttpRequest,
+    params: OTPCode,
+) -> Result<LoginResponse, ServiceError> {
+    let login_ip = get_ip_addr(&req).map_err(|s| ServiceError::general(&req, s.message, false))?;
+
+    let token = verify_otp_codes(
+        params.email_code.as_deref(),
+        params.app_code.as_deref(),
+        &*params.user_id,
+        &*login_ip,
+    )
+    .await
+    .map_err(|s| ServiceError::general(&req, s.message, true))?;
+
+    Ok(LoginResponse::TokenResponse {
+        token,
+        token_type: core_constants::BEARER.to_string(),
+    })
 }

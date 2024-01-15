@@ -1,13 +1,13 @@
 use crate::core::middleware::rate_limiter;
 /// Module that contains all the functions related to authentication.
-use actix_web::{guard, web};
+use actix_web::web;
 use hex::encode;
 use sha2::{Digest, Sha256};
 
 use crate::err_server;
 use crate::models::ServerError;
 
-mod controller;
+pub mod controllers;
 
 pub mod credentials;
 pub mod email;
@@ -28,34 +28,34 @@ pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
                     .wrap(rate_limiter::RateLimitServices {
                         requests_count: 100,
                     })
-                    .route(web::post().to(controller::create_user)),
+                    .route(web::post().to(controllers::create_user)),
             )
             .service(
                 web::resource("/verify_email")
                     .wrap(rate_limiter::RateLimitServices {
                         requests_count: 100,
                     })
-                    .route(web::post().to(controller::verify_email)),
+                    .route(web::post().to(controllers::verify_email)),
             )
             .service(
                 web::resource("/login")
                     .wrap(rate_limiter::RateLimitServices { requests_count: 50 })
-                    .route(web::post().to(controller::login)),
+                    .route(web::post().to(controllers::login)),
             )
             .service(
                 web::resource("/forgot-password")
                     .wrap(rate_limiter::RateLimitServices { requests_count: 25 })
-                    .route(web::post().to(controller::forgot_password)),
+                    .route(web::post().to(controllers::forgot_password)),
             )
             .service(
                 web::resource("/password-reset")
                     .wrap(rate_limiter::RateLimitServices { requests_count: 25 })
-                    .route(web::post().to(controller::password_reset)),
+                    .route(web::post().to(controllers::password_reset)),
             )
             .service(
                 web::resource("/login-2fa")
                     .wrap(rate_limiter::RateLimitServices { requests_count: 50 })
-                    .route(web::post().to(controller::login_2fa)),
+                    .route(web::post().to(controllers::login_2fa)),
             ),
     );
 }

@@ -1,6 +1,6 @@
 use crate::core::middleware::rate_limiter;
 use crate::modules::auth::middleware;
-use actix_web::{guard, web};
+use actix_web::web;
 pub mod controllers;
 pub mod models;
 mod service;

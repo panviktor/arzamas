@@ -3,8 +3,12 @@ pub use utoipa::{
     Modify, OpenApi,
 };
 
+use crate::modules::auth::models::NewUserParams;
+
 use crate::models::many_response::ManyResponseNotes;
 use crate::models::service_error::ServiceErrorSerialized;
+
+use crate::modules::auth;
 
 use crate::modules::user;
 use crate::modules::user::models::AboutMeInformation;
@@ -22,6 +26,7 @@ use entity::note::Model as Note;
         license(name = "MIT", url = "https://github.com/panviktor/arzamas/blob/main/LICENSE")
     ),
     paths(
+        auth::controllers::create_user,
         user::controllers::about_me,
         notes::controllers::create_note,
         notes::controllers::get_by_id,
@@ -33,6 +38,9 @@ use entity::note::Model as Note;
         schemas(
             ServiceErrorSerialized,
             AboutMeInformation,
+        ),
+        schemas(
+            NewUserParams
         ),
         schemas(
             DTONote,

@@ -1,8 +1,9 @@
 use chrono::NaiveDateTime;
 use serde_derive::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct NewUserParams {
     pub username: String,
     pub email: String,
@@ -78,7 +79,7 @@ pub struct UserToken {
     pub iat: i64,
     // expiration
     pub exp: i64,
-    // data
+    // user_id
     pub user_id: String,
     // session
     pub session_id: String,
@@ -88,4 +89,12 @@ pub struct UserToken {
     pub login_ip: String,
     // User-Agent
     pub user_agent: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CreatedUserDTO {
+    pub username: String,
+    pub creation_day: NaiveDateTime,
+    pub user_email: String,
+    pub description: String,
 }

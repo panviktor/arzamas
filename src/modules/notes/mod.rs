@@ -4,7 +4,7 @@ mod service;
 
 use crate::core::middleware::rate_limiter;
 use crate::modules::auth;
-use actix_web::{guard, web};
+use actix_web::web;
 
 pub fn init_notes_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(

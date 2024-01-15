@@ -7,6 +7,19 @@ use crate::modules::notes::service::{
 };
 use actix_web::{web, HttpRequest, HttpResponse};
 
+/// Creates a new note.
+///
+/// This function takes a `HttpRequest`, `LoginUser`, and `DTONote` as input
+/// and attempts to create a new note in the system.
+///
+/// # Arguments
+/// * `req` - The HTTP request information.
+/// * `user` - The logged-in user information.
+/// * `params` - The note data to be created.
+///
+/// # Returns
+/// This function returns a `Result` which is either an `HttpResponse` indicating
+/// successful creation of the note, or a `ServiceError` in case of failure.
 #[utoipa::path(
     post,
     path = "/api/notes/create",
