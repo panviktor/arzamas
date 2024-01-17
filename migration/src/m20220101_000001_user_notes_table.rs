@@ -1,5 +1,6 @@
-use entity::{note, user};
 use sea_orm_migration::prelude::*;
+
+use super::m20220101_000001_user_table::User;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -30,8 +31,8 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_note_assignee")
-                            .from(note::Entity, note::Column::UserId)
-                            .to(user::Entity, user::Column::UserId)
+                            .from(Note::Table, Note::UserId)
+                            .to(User::Table, User::UserId)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(Note::Text).string().not_null())

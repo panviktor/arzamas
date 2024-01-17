@@ -1,5 +1,6 @@
-use entity::{user, user_security_settings};
 use sea_orm_migration::prelude::*;
+
+use super::m20220101_000001_user_table::User;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -28,11 +29,8 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_security_settings_assignee")
-                            .from(
-                                user_security_settings::Entity,
-                                user_security_settings::Column::UserId,
-                            )
-                            .to(user::Entity, user::Column::UserId)
+                            .from(UserSecuritySettings::Table, UserSecuritySettings::UserId)
+                            .to(User::Table, User::UserId)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(
