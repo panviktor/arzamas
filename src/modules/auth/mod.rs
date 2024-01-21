@@ -31,7 +31,7 @@ pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
                     .route(web::post().to(controllers::create_user)),
             )
             .service(
-                web::resource("/verify_email")
+                web::resource("/verify-email")
                     .wrap(rate_limiter::RateLimitServices {
                         requests_count: 100,
                     })

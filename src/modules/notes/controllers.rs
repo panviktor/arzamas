@@ -42,6 +42,24 @@ pub async fn create_note(
     Ok(HttpResponse::Created().json("Note Create Successfully."))
 }
 
+/// Retrieves all notes.
+///
+/// This function is an API endpoint for fetching all notes available to the logged-in user.
+/// It takes an HTTP request, pagination query parameters, and the logged-in user's details as input.
+///
+/// The API responds with an HTTP response. If the notes are retrieved successfully,
+/// it returns a 200 status code with the notes data. If the retrieval fails,
+/// it returns an appropriate error message and status code, such as 401 for unauthorized access
+/// or 404 for not found.
+///
+/// # Arguments
+/// * `req` - The HTTP request information.
+/// * `info` - The pagination query parameters.
+/// * `user` - The logged-in user information.
+///
+/// # Returns
+/// This function returns a `Result` which is either an `HttpResponse` with the notes data,
+/// or a `ServiceError` in case of failure.
 #[utoipa::path(
     get,
     path = "/api/notes/get_all_notes",
@@ -67,6 +85,23 @@ pub async fn get_all_notes(
     Ok(HttpResponse::Ok().json(result))
 }
 
+/// Retrieves a note by its ID.
+///
+/// This function is an API endpoint for fetching a specific note by its unique identifier.
+/// It requires the note's ID, the HTTP request information, and the logged-in user's details.
+///
+/// The API responds with an HTTP response. If the note is found, it returns a 200 status code with
+/// the note data. If the note is not found or an error occurs, it returns an appropriate error
+/// message and status code.
+///
+/// # Arguments
+/// * `req` - The HTTP request information.
+/// * `user` - The logged-in user information.
+/// * `query` - The query parameters containing the note's ID.
+///
+/// # Returns
+/// This function returns a `Result` which is either an `HttpResponse` with the note data,
+/// or a `ServiceError` in case of failure.
 #[utoipa::path(
     get,
     path = "/api/notes/get_by_id",
@@ -92,6 +127,22 @@ pub async fn get_by_id(
     Ok(HttpResponse::Ok().json(note))
 }
 
+/// Deletes a note.
+///
+/// This function is an API endpoint for deleting a specific note identified by the provided parameters.
+/// It requires the note's identifying information, the HTTP request, and the logged-in user's details.
+///
+/// The API responds with an HTTP response. If the note is deleted successfully, it returns a 200 status
+/// code with a success message. If the deletion fails, it returns an appropriate error message and status code.
+///
+/// # Arguments
+/// * `req` - The HTTP request information.
+/// * `user` - The logged-in user information.
+/// * `params` - The query parameters identifying the note to be deleted.
+///
+/// # Returns
+/// This function returns a `Result` which is either an `HttpResponse` confirming the deletion,
+/// or a `ServiceError` in case of failure.
 #[utoipa::path(
     delete,
     path = "/api/notes/delete",
@@ -117,6 +168,23 @@ pub async fn delete(
     Ok(HttpResponse::Ok().json("Note was deleted"))
 }
 
+/// Updates a note.
+///
+/// This function is an API endpoint for updating an existing note.
+/// It takes the note's ID, new data for the note, the HTTP request, and the logged-in user's details.
+///
+/// The API responds with an HTTP response. If the update is successful, it returns a 200 status code
+/// with a success message. If the update fails, it returns an appropriate error message and status code.
+///
+/// # Arguments
+/// * `req` - The HTTP request information.
+/// * `user` - The logged-in user information.
+/// * `note_id` - The query parameters containing the ID of the note to be updated.
+/// * `body` - The new data for the note.
+///
+/// # Returns
+/// This function returns a `Result` which is either an `HttpResponse` confirming the update,
+/// or a `ServiceError` in case of failure.
 #[utoipa::path(
     put,
     path = "/api/notes/update",

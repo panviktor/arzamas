@@ -9,6 +9,10 @@ use crate::models::many_response::ManyResponseNotes;
 use crate::models::service_error::ServiceErrorSerialized;
 
 use crate::modules::auth;
+use crate::modules::auth::models::{
+    CreatedUserDTO, ForgotPasswordParams, LoginParams, LoginResponse, OTPCode, ResetPasswordParams,
+    VerifyEmailParams,
+};
 
 use crate::modules::user;
 use crate::modules::user::models::AboutMeInformation;
@@ -27,6 +31,11 @@ use entity::note::Model as Note;
     ),
     paths(
         auth::controllers::create_user,
+        auth::controllers::verify_email,
+        auth::controllers::login,
+        auth::controllers::login_2fa,
+        auth::controllers::forgot_password,
+        auth::controllers::password_reset,
         user::controllers::about_me,
         notes::controllers::create_note,
         notes::controllers::get_by_id,
@@ -38,6 +47,15 @@ use entity::note::Model as Note;
         schemas(
             ServiceErrorSerialized,
             AboutMeInformation,
+        ),
+        schemas(
+            CreatedUserDTO,
+            VerifyEmailParams,
+            LoginParams,
+            OTPCode,
+            ForgotPasswordParams,
+            ResetPasswordParams,
+            LoginResponse
         ),
         schemas(
             NewUserParams
@@ -70,3 +88,5 @@ impl Modify for SecurityAddon {
         );
     }
 }
+
+//CreatedUserDTO

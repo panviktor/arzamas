@@ -12,21 +12,21 @@ pub struct NewUserParams {
 }
 
 /// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct VerifyEmailParams {
     pub email: String,
     pub email_token: String,
 }
 
 /// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct LoginParams {
     pub identifier: String,
     pub password: String,
     pub persist: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub enum LoginResponse {
     OTPResponse {
         message: String,
@@ -39,7 +39,7 @@ pub enum LoginResponse {
     },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct OTPCode {
     pub user_id: String,
     pub email_code: Option<String>,
@@ -52,14 +52,14 @@ pub struct UserInfo {
 }
 
 /// Form params for the forgot password form
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct ForgotPasswordParams {
     pub(crate) username: String,
     pub(crate) email: String,
 }
 
 /// Parameters for the reset password form
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct ResetPasswordParams {
     pub(crate) user_id: String,
     pub(crate) token: String,
@@ -91,7 +91,7 @@ pub struct UserToken {
     pub user_agent: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct CreatedUserDTO {
     pub username: String,
     pub creation_day: NaiveDateTime,
