@@ -3,19 +3,21 @@ pub use utoipa::{
     Modify, OpenApi,
 };
 
-use crate::modules::auth::models::NewUserParams;
-
-use crate::models::many_response::ManyResponseNotes;
+use crate::models::many_response::{ManyResponseNotes, UniversalResponse};
 use crate::models::service_error::ServiceErrorSerialized;
 
 use crate::modules::auth;
 use crate::modules::auth::models::{
-    CreatedUserDTO, ForgotPasswordParams, LoginParams, LoginResponse, OTPCode, ResetPasswordParams,
-    VerifyEmailParams,
+    CreatedUserDTO, ForgotPasswordParams, LoginParams, LoginResponse, NewUserParams, OTPCode,
+    ResetPasswordParams, UserToken, VerifyEmailParams,
 };
 
 use crate::modules::user;
-use crate::modules::user::models::AboutMeInformation;
+use crate::modules::user::models::{
+    AboutMeInformation, AuthenticationAppInformation, ChangeEmailParams, ChangePasswordParams,
+    MnemonicConfirmation,
+};
+use entity::user_security_settings::Model as UserSecuritySettings;
 
 use crate::modules::notes;
 use crate::modules::notes::models::DTONote;
@@ -37,6 +39,21 @@ use entity::note::Model as Note;
         auth::controllers::forgot_password,
         auth::controllers::password_reset,
         user::controllers::about_me,
+        user::controllers::logout,
+        user::controllers::logout_all,
+        user::controllers::current_session,
+        user::controllers::all_sessions,
+        user::controllers::change_password,
+        user::controllers::change_email,
+        user::controllers::resend_verify_email,
+        user::controllers::get_security_settings,
+        user::controllers::update_security_settings,
+        user::controllers::add_email_2fa,
+        user::controllers::remove_email_2fa,
+        user::controllers::add_2fa,
+        user::controllers::activate_2fa,
+        user::controllers::reset_2fa,
+        user::controllers::remove_2fa,
         notes::controllers::create_note,
         notes::controllers::get_by_id,
         notes::controllers::get_all_notes,
@@ -46,9 +63,10 @@ use entity::note::Model as Note;
     components(
         schemas(
             ServiceErrorSerialized,
-            AboutMeInformation,
+            UniversalResponse
         ),
         schemas(
+            NewUserParams,
             CreatedUserDTO,
             VerifyEmailParams,
             LoginParams,
@@ -58,7 +76,13 @@ use entity::note::Model as Note;
             LoginResponse
         ),
         schemas(
-            NewUserParams
+            AboutMeInformation,
+            UserToken,
+            ChangePasswordParams,
+            ChangeEmailParams,
+            UserSecuritySettings,
+            MnemonicConfirmation,
+            AuthenticationAppInformation
         ),
         schemas(
             DTONote,

@@ -73,7 +73,7 @@ pub struct VerifyToken {
     pub otp_hash: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct UserToken {
     // issued at
     pub iat: i64,

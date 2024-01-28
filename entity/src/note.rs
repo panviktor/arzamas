@@ -2,11 +2,9 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-use utoipa::{ToResponse, ToSchema};
+use utoipa::ToSchema;
 
-#[derive(
-    Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize, ToSchema, ToResponse,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize, ToSchema)]
 #[sea_orm(table_name = "note")]
 #[schema(as = Note)]
 pub struct Model {
