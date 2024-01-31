@@ -34,3 +34,10 @@ pub struct AuthenticationAppInformation {
 pub struct MnemonicConfirmation {
     pub mnemonic: String,
 }
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct SecuritySettingsUpdate {
+    pub email_on_success_enter: Option<bool>,
+    pub email_on_failure_enter: Option<bool>,
+    pub close_sessions_on_change_password: Option<bool>,
+}

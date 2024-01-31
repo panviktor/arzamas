@@ -1,3 +1,4 @@
+use actix_web::web;
 use chrono::{Duration, Utc};
 
 use crate::core::config::get_config;
@@ -9,6 +10,7 @@ use lettre::{
     message::{header, SinglePart},
     AsyncTransport, Message as LettreMessage,
 };
+use sea_orm::DatabaseConnection;
 
 use crate::modules::auth::service::{
     add_email_token, add_password_reset_token, find_email_verify_token, verify_email_by,
@@ -51,7 +53,11 @@ pub async fn send_verification_email(to_email: &str, token: &str) -> Result<(), 
     }
 }
 
-pub async fn send_password_reset_email(user_id: &str, to_email: &str) -> Result<(), ServerError> {
+pub async fn send_password_reset_email(
+    user_id: &str,
+    to_email: &str,
+    db: &DatabaseConnection,
+) -> Result<(), ServerError> {
     let mut password_reset_token = "".to_string();
     let mut error: Option<ServerError> = None;
 
@@ -64,6 +70,7 @@ pub async fn send_password_reset_email(user_id: &str, to_email: &str) -> Result<
             user_id,
             &password_reset_token,
             Utc::now() + Duration::days(1),
+            db,
         )
         .await
         {
@@ -125,6 +132,7 @@ pub async fn send_validate_email(
     user_id: &str,
     email: &str,
     user_exists: bool,
+    db: &DatabaseConnection,
 ) -> Result<(), ServerError> {
     let mut insert_error: Option<ServerError> = None;
     let mut email_token = "".to_string();
@@ -137,6 +145,7 @@ pub async fn send_validate_email(
             &email_token,
             Utc::now() + Duration::days(1),
             user_exists,
+            db,
         )
         .await
         {
@@ -165,13 +174,18 @@ pub async fn send_validate_email(
     Ok(())
 }
 
-pub async fn verify_user_email(email: &str, token: &str) -> Result<(), ServerError> {
-    let verification = find_email_verify_token(email).await;
+pub async fn try_verify_user_email(
+    email: &str,
+    token: &str,
+    db: web::Data<DatabaseConnection>,
+) -> Result<(), ServerError> {
+    let db = db.get_ref();
+    let verification = find_email_verify_token(email, db).await;
     match verification {
         Ok(model) => {
             let now = Utc::now().naive_utc();
             if model.otp_hash == token && model.expiry > now {
-                return verify_email_by(&model.user_id).await;
+                return verify_email_by(&model.user_id, db).await;
             }
             Err(err_server!("Problem: expiry or invalid code from email!"))
         }
@@ -206,8 +220,7 @@ pub async fn send_totp_email_code(
         )
         .map_err(|e| err_server!("Problem send 2FA Verification email {}:{}", user_id, e))?;
 
-    let mailer = &MAILER;
-    match mailer.send(email).await {
+    match MAILER.send(email).await {
         Ok(_) => {
             tracing::debug!("Email sent successfully!");
             Ok(())

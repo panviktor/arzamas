@@ -1,16 +1,15 @@
-use crate::core::db::DB;
 use crate::models::many_response::{ManyResponse, PageQuery};
 use crate::models::ServiceError;
 use crate::modules::generate_unique_id;
 use crate::modules::notes::models::{DTONote, FindNote};
 use actix_http::StatusCode;
-use actix_web::HttpRequest;
+use actix_web::{web, HttpRequest};
 use chrono::Utc;
 use entity::prelude::Note;
 use entity::{note, user};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
-    QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
+    PaginatorTrait, QueryFilter, QueryOrder,
 };
 use std::cmp::max;
 
@@ -19,7 +18,11 @@ pub async fn try_create_note(
     user_id: &str,
     params: DTONote,
 ) -> Result<(), ServiceError> {
-    let db = &*DB;
+    let db = req
+        .app_data::<web::Data<DatabaseConnection>>()
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract database connection", true))?
+        .get_ref();
+
     let text = params.text.to_string();
     let id = generate_unique_id();
 
@@ -48,7 +51,11 @@ pub async fn try_get_all_notes(
     user_id: &str,
     info: PageQuery,
 ) -> Result<ManyResponse<note::Model>, ServiceError> {
-    let db = &*DB;
+    let db = req
+        .app_data::<web::Data<DatabaseConnection>>()
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract database connection", true))?
+        .get_ref();
+
     let to_find = user_id.to_string();
     let user = entity::prelude::User::find()
         .filter(user::Column::UserId.eq(to_find))
@@ -102,7 +109,10 @@ pub async fn try_get_by_id_notes(
     user_id: &str,
     note: FindNote,
 ) -> Result<note::Model, ServiceError> {
-    let db = &*DB;
+    let db = req
+        .app_data::<web::Data<DatabaseConnection>>()
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract database connection", true))?
+        .get_ref();
 
     if let Some(note) = Note::find()
         .filter(note::Column::NoteId.contains(note.id.to_string()))
@@ -127,7 +137,10 @@ pub async fn try_delete_note(
     user_id: &str,
     params: FindNote,
 ) -> Result<(), ServiceError> {
-    let db = &*DB;
+    let db = req
+        .app_data::<web::Data<DatabaseConnection>>()
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract database connection", true))?
+        .get_ref();
 
     if let Some(note) = Note::find()
         .filter(note::Column::NoteId.contains(params.id.to_string()))
@@ -153,7 +166,11 @@ pub async fn try_update_note(
     note_id: &str,
     body: DTONote,
 ) -> Result<(), ServiceError> {
-    let db = &*DB;
+    let db = req
+        .app_data::<web::Data<DatabaseConnection>>()
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract database connection", true))?
+        .get_ref();
+
     let new_text = body.text.to_string();
 
     if let Some(note) = Note::find()

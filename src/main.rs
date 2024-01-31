@@ -1,8 +1,9 @@
 use lib::core::config::get_config;
 use lib::core::startup::run;
 // use lib::core::telemetry::{get_subscriber, init_subscriber};
-use lib::core::db::init_db;
+use lib::core::db::{check_migration, create_db_pool};
 // use std::env;
+use lib::core::redis::create_redis_pool;
 use std::net::TcpListener;
 
 // const APPLICATION_NAME: &str = "Arzamas";
@@ -41,7 +42,21 @@ async fn main() -> std::io::Result<()> {
     println!("{}", address);
     let listener = TcpListener::bind(address)?;
 
+    let connection = create_db_pool().await;
+    check_migration(&connection).await;
+
+    let redis_pool = create_redis_pool().expect("Cannot create deadpool redis.");
+
     // Run the App 🚀
-    init_db().await;
-    run(listener).await?.await
+    match run(listener, connection, redis_pool).await {
+        Ok(server) => {
+            // If the server is successfully created, run it
+            server.await
+        }
+        Err(e) => {
+            // Handle any errors that occurred during server creation
+            println!("Failed to start the server: {}", e);
+            Err(e)
+        }
+    }
 }

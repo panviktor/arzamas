@@ -1,7 +1,8 @@
 use actix_http::header::HeaderValue;
 use actix_web::dev::ServiceRequest;
-use actix_web::HttpRequest;
+use actix_web::{web, HttpRequest};
 use chrono::{Duration, TimeZone, Utc};
+use deadpool_redis::Pool;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, TokenData, Validation};
 use redis::AsyncCommands;
 use secrecy::ExposeSecret;
@@ -13,7 +14,6 @@ use crate::core::config::APP_SETTINGS;
 use crate::core::constants::core_constants;
 use crate::core::constants::emojis::EMOJIS;
 
-use crate::core::redis::REDIS_CLIENT;
 use crate::err_server;
 use crate::models::{ServerError, ServiceError};
 use crate::modules::auth::models::UserToken;
@@ -64,12 +64,14 @@ pub async fn generate_session_token(
     persistent: bool,
     login_ip: &str,
     user_agent: &str,
+    redis_pool: &Pool,
 ) -> Result<String, ServerError> {
-    let expiry = match persistent {
-        false => Utc::now() + Duration::days(1),
-        true => Utc::now() + Duration::days(7),
-    };
-
+    let expiry = Utc::now()
+        + if persistent {
+            Duration::days(7)
+        } else {
+            Duration::days(1)
+        };
     let login_session = Uuid::new_v4().to_string();
     let token = generate_token(
         user,
@@ -77,15 +79,19 @@ pub async fn generate_session_token(
         login_ip,
         user_agent,
         expiry.timestamp_nanos(),
-    );
+    )
+    .map_err(|e| err_server!("Unable to generate session token: {}", e))?;
 
-    let token_to_redis =
-        token.map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
-    let mut client = REDIS_CLIENT.get_async_connection().await?;
-    client
-        .hset(user.to_string(), &login_session, &token_to_redis)
-        .await?;
-    Ok(token_to_redis)
+    let mut conn = redis_pool
+        .get()
+        .await
+        .map_err(|e| err_server!("{}", format!("Failed to get Redis connection: {}", e)))?;
+
+    conn.hset(user, &login_session, &token)
+        .await
+        .map_err(|e| err_server!("{}", format!("Failed to set value in Redis: {}", e)))?;
+
+    Ok(token)
 }
 
 pub fn decode_token(token: &str) -> jsonwebtoken::errors::Result<TokenData<UserToken>> {
@@ -125,12 +131,23 @@ fn extract_token(authed_header: &HeaderValue) -> Option<String> {
 }
 
 /// Get username from session token
-pub async fn validate_session(token_from_req: &str) -> Result<Option<String>, ServerError> {
+pub async fn validate_session(
+    token_from_req: &str,
+    redis_pool: &Pool,
+) -> Result<Option<String>, ServerError> {
     if let Ok(decoded_data) = decode_token(token_from_req) {
-        let mut con = REDIS_CLIENT.get_async_connection().await?;
+        // Get a connection from the pool
+        let mut conn = redis_pool
+            .get()
+            .await
+            .map_err(|e| err_server!("{}", format!("Failed to get Redis connection: {}", e)))?;
+
         let user = decoded_data.claims.user_id.to_string();
         let session_id = decoded_data.claims.session_id.to_string();
-        let token_from_redis: String = con.hget(user.to_owned(), session_id).await?;
+        let token_from_redis: String = conn
+            .hget(&user, &session_id)
+            .await
+            .map_err(|e| err_server!("{}", format!("Failed to get token from Redis: {}", e)))?;
 
         if token_from_redis == token_from_req {
             let now = Utc::now();
@@ -138,28 +155,48 @@ pub async fn validate_session(token_from_req: &str) -> Result<Option<String>, Se
             if datetime > now {
                 return Ok(Some(user));
             } else {
-                let token = decoded_data.claims;
-                con.hdel(&token.user_id, token.session_id).await?;
+                conn.hdel(&user, &session_id).await.map_err(|e| {
+                    err_server!(
+                        "{}",
+                        format!("Failed to delete expired token from Redis: {}", e)
+                    )
+                })?;
             }
         }
     }
     Ok(None)
 }
 
-async fn valid_sessions(tokens: Vec<String>) -> Result<Vec<UserToken>, ServerError> {
+async fn valid_sessions(
+    tokens: Vec<String>,
+    redis_pool: &Pool,
+) -> Result<Vec<UserToken>, ServerError> {
     let now = Utc::now();
     let mut valid_tokens: Vec<UserToken> = vec![];
-    let mut con = REDIS_CLIENT.get_async_connection().await?;
+    // Get a connection from the pool
+    let mut conn = redis_pool
+        .get()
+        .await
+        .map_err(|e| err_server!("{}", format!("Failed to get Redis connection: {}", e)))?;
 
-    for token in tokens.iter() {
-        if let Ok(decoded_data) = decode_token(token) {
+    for token_str in tokens.iter() {
+        if let Ok(decoded_data) = decode_token(token_str) {
             let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
             if datetime > now {
                 let token = decoded_data.claims;
                 valid_tokens.push(token)
             } else {
-                let token = decoded_data.claims;
-                con.hdel(&token.user_id, token.session_id).await?;
+                conn.hdel(
+                    &decoded_data.claims.user_id,
+                    &decoded_data.claims.session_id,
+                )
+                .await
+                .map_err(|e| {
+                    err_server!(
+                        "{}",
+                        format!("Failed to delete expired token from Redis: {}", e)
+                    )
+                })?;
             }
         }
     }
@@ -170,24 +207,56 @@ pub async fn try_active_sessions(
     req: &HttpRequest,
     user: &str,
 ) -> Result<Vec<UserToken>, ServiceError> {
-    let mut client = REDIS_CLIENT.get_async_connection().await?;
-    let tokens: HashMap<String, String> = client.hgetall(user.to_string()).await?;
-    let tokens = tokens.values().cloned().collect();
+    let redis_pool = req
+        .app_data::<web::Data<Pool>>()
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract Redis pool", true))?;
 
-    valid_sessions(tokens).await.map_err(|e| e.general(&(req)))
+    let mut client = redis_pool.get().await.map_err(|e| {
+        ServiceError::general(
+            &req,
+            format!("Failed to get Redis connection: {}", e),
+            false,
+        )
+    })?;
+
+    let tokens: HashMap<String, String> = client.hgetall(user.to_string()).await?;
+    let token_values = tokens.values().cloned().collect();
+    // Validate the tokens
+    valid_sessions(token_values, &redis_pool)
+        .await
+        .map_err(|e| ServiceError::general(req, e.to_string(), false))
 }
 
 pub async fn try_current_active_session(req: &HttpRequest) -> Result<UserToken, ServiceError> {
+    let redis_pool = req
+        .app_data::<web::Data<Pool>>() // Make sure Pool is the type of your Redis connection pool
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract Redis pool", true))?;
+
     if let Some(token) = get_session_token_http_request(req) {
         if let Ok(decoded_data) = decode_token(&token) {
             let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
             let now = Utc::now();
 
             if datetime > now {
-                let mut con = REDIS_CLIENT.get_async_connection().await?;
+                // Get a Redis connection from the pool
+                let mut con = redis_pool.get().await.map_err(|e| {
+                    ServiceError::general(
+                        req,
+                        format!("Failed to get Redis connection: {}", e),
+                        true,
+                    )
+                })?;
+
                 let user = decoded_data.claims.user_id.to_string();
                 let session_id = decoded_data.claims.session_id.to_string();
-                let token_from_redis: String = con.hget(user.to_owned(), session_id).await?;
+
+                let token_from_redis: String = con.hget(&user, &session_id).await.map_err(|e| {
+                    ServiceError::general(
+                        req,
+                        format!("Failed to fetch token from Redis: {}", e),
+                        false,
+                    )
+                })?;
 
                 if token_from_redis == token {
                     return Ok(decoded_data.claims);
@@ -196,28 +265,52 @@ pub async fn try_current_active_session(req: &HttpRequest) -> Result<UserToken, 
         }
     }
     Err(ServiceError::not_found(
-        &req,
+        req,
         "Error get session token http request".to_string(),
         false,
     ))
 }
 
-pub async fn try_remove_all_sessions_token(user: &str) -> Result<bool, ServiceError> {
-    let mut con = REDIS_CLIENT.get_async_connection().await?;
+pub async fn try_remove_all_sessions_token(
+    req: &HttpRequest,
+    user: &str,
+) -> Result<bool, ServiceError> {
+    let redis_pool = req
+        .app_data::<web::Data<Pool>>() // Make sure Pool is the type of your Redis connection pool
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract Redis pool", true))?;
+
+    let mut con = redis_pool.get().await.unwrap();
+    // Delete all session tokens associated with the user
     con.del(user.to_string()).await?;
     Ok(true)
 }
 
 pub async fn try_remove_active_session_token(req: &HttpRequest) -> Result<bool, ServiceError> {
+    let redis_pool = req
+        .app_data::<web::Data<Pool>>() // Make sure Pool is the type of your Redis connection pool
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract Redis pool", true))?;
+
     if let Some(token) = get_session_token_http_request(req) {
         if let Ok(decoded_data) = decode_token(&token) {
-            let mut con = REDIS_CLIENT.get_async_connection().await?;
+            // Get a Redis connection from the pool
+            let mut con = redis_pool.get().await.unwrap();
+
             let user = decoded_data.claims.user_id.to_string();
             let session_id = decoded_data.claims.session_id.to_string();
-            con.hdel(user, session_id).await?;
+
+            // Remove the specific session token for the user
+            con.hdel(&user, &session_id).await.map_err(|e| {
+                ServiceError::general(
+                    req,
+                    format!("Failed to remove session token from Redis: {}", e),
+                    false,
+                )
+            })?;
+
             return Ok(true);
         }
     }
+
     Err(ServiceError::not_found(
         &req,
         "Error logout from current session".to_string(),
@@ -242,19 +335,46 @@ pub fn get_user_agent(req: &HttpRequest) -> String {
 }
 
 //System func for administration bd
-pub async fn delete_all_expired_user_tokens(user: &str) -> Result<bool, ServiceError> {
+pub async fn delete_all_expired_user_tokens(
+    req: HttpRequest,
+    user: &str,
+) -> Result<bool, ServiceError> {
+    let redis_pool = req
+        .app_data::<web::Data<Pool>>()
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract Redis pool", true))?;
+
     let now = Utc::now();
-    let mut con = REDIS_CLIENT.get_async_connection().await?;
-    let tokens: HashMap<String, String> = con.hgetall(user.to_string()).await?;
-    let tokens: Vec<String> = tokens.values().cloned().collect();
-    for token in tokens.iter() {
+    let mut con = redis_pool.get().await.map_err(|e| {
+        ServiceError::general(&req, format!("Failed to get Redis connection: {}", e), true)
+    })?;
+
+    let tokens: HashMap<String, String> = con.hgetall(user.to_string()).await.map_err(|e| {
+        ServiceError::general(
+            &req,
+            format!("Failed to fetch tokens from Redis: {}", e),
+            true,
+        )
+    })?;
+
+    for token in tokens.values() {
         if let Ok(decoded_data) = decode_token(token) {
             let datetime = Utc.timestamp_nanos(decoded_data.claims.exp);
             if datetime < now {
-                let token = decoded_data.claims;
-                con.hdel(&token.user_id, token.session_id).await?;
+                con.hdel(
+                    &decoded_data.claims.user_id,
+                    &decoded_data.claims.session_id,
+                )
+                .await
+                .map_err(|e| {
+                    ServiceError::general(
+                        &req,
+                        format!("Failed to delete expired token from Redis: {}", e),
+                        true,
+                    )
+                })?;
             }
         }
     }
+
     Ok(true)
 }

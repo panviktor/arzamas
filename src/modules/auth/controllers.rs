@@ -1,7 +1,8 @@
 use crate::models::ServiceError;
 use actix_web::{web, HttpRequest, HttpResponse};
+use sea_orm::DatabaseConnection;
 
-use crate::modules::auth::email::verify_user_email;
+use crate::modules::auth::email::try_verify_user_email;
 use crate::modules::auth::models::{
     ForgotPasswordParams, LoginParams, NewUserParams, OTPCode, ResetPasswordParams,
     VerifyEmailParams,
@@ -48,8 +49,9 @@ use crate::modules::auth::service::{
 pub async fn create_user(
     req: HttpRequest,
     params: web::Json<NewUserParams>,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    let saved_user = try_create_user(&req, params.0).await?;
+    let saved_user = try_create_user(&req, params.0, db).await?;
     Ok(HttpResponse::Created().json(saved_user))
 }
 
@@ -92,8 +94,9 @@ pub async fn create_user(
 pub async fn verify_email(
     req: HttpRequest,
     params: web::Json<VerifyEmailParams>,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    verify_user_email(&params.email, &params.email_token)
+    try_verify_user_email(&params.email, &params.email_token, db)
         .await
         .map_err(|s| s.general(&req))?;
     Ok(HttpResponse::Ok().finish())
@@ -141,8 +144,9 @@ pub async fn verify_email(
 pub async fn login(
     req: HttpRequest,
     params: web::Json<LoginParams>,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_login_user(&req, params.0).await
+    try_login_user(&req, params.0, db).await
 }
 
 /// Logs in a user with 2-Factor Authentication (2FA).
@@ -180,8 +184,9 @@ pub async fn login(
 pub async fn login_2fa(
     req: HttpRequest,
     params: web::Json<OTPCode>,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    let json_response = try_login_2fa(&req, params.0).await?;
+    let json_response = try_login_2fa(&req, params.0, db).await?;
     Ok(HttpResponse::Ok().json(json_response))
 }
 
@@ -220,8 +225,9 @@ pub async fn login_2fa(
 pub async fn forgot_password(
     req: HttpRequest,
     params: web::Json<ForgotPasswordParams>,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_send_restore_email(&req, params.0).await?;
+    try_send_restore_email(&req, params.0, db).await?;
     Ok(HttpResponse::Ok().json("A password reset request has been sent."))
 }
 
@@ -270,7 +276,8 @@ pub async fn forgot_password(
 pub async fn password_reset(
     req: HttpRequest,
     params: web::Json<ResetPasswordParams>,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_reset_password(&req, params.0).await?;
+    try_reset_password(&req, params.0, db).await?;
     Ok(HttpResponse::Ok().json("Password successfully reset."))
 }

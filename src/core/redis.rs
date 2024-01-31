@@ -1,29 +1,22 @@
 use crate::core::config::get_config;
 use crate::models::{ErrorCode, ServerError, ServiceError};
 use actix_web::http::StatusCode;
-use lazy_static::lazy_static;
-use redis::{Client, RedisError};
+use deadpool_redis::{CreatePoolError, Pool, PoolError, Runtime};
+use redis::RedisError;
 use secrecy::ExposeSecret;
 
-lazy_static! {
-    pub static ref REDIS_CLIENT: Client = {
-        let config = get_config().expect("Failed to read configuration.");
-
-        let redis_host_name = config.redis_settings.host;
-        let redis_port_address = config.redis_settings.port;
-        let redis_password = config.redis_settings.password.expose_secret();
-
-        let con_info = redis::ConnectionInfo {
-            addr: redis::ConnectionAddr::Tcp(redis_host_name, redis_port_address),
-            redis: redis::RedisConnectionInfo {
-                db: 0,
-                username: None,
-                password: Some(redis_password.to_string()),
-            },
-        };
-
-        Client::open(con_info).expect("Invalid connection URL")
-    };
+pub fn create_redis_pool() -> Result<Pool, CreatePoolError> {
+    let config = get_config().expect("Failed to read configuration.");
+    let redis_url = format!(
+        "redis://:{}@{}:{}/{}",
+        config.redis_settings.password.expose_secret(),
+        config.redis_settings.host,
+        config.redis_settings.port,
+        0 // Assuming database index is 0
+    );
+    let cfg = deadpool_redis::Config::from_url(&redis_url);
+    let pool = cfg.create_pool(Some(Runtime::Tokio1))?;
+    Ok(pool)
 }
 
 impl From<RedisError> for ServiceError {
@@ -42,6 +35,16 @@ impl From<RedisError> for ServerError {
         ServerError {
             code: ErrorCode::ServerError,
             message: value.to_string(),
+            show_message: true,
+        }
+    }
+}
+
+impl From<PoolError> for ServerError {
+    fn from(error: PoolError) -> Self {
+        ServerError {
+            code: ErrorCode::ServerError,
+            message: error.to_string(),
             show_message: true,
         }
     }

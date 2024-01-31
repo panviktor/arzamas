@@ -1,8 +1,9 @@
 use actix_http::body::BoxBody;
 use actix_service::{Service, Transform};
 use actix_web::dev::{ServiceRequest, ServiceResponse};
-use actix_web::{Error, HttpResponse};
+use actix_web::{web, Error, HttpResponse};
 use chrono::{Timelike, Utc};
+use deadpool_redis::Pool;
 use futures::future::{ok, Ready};
 use std::cell::RefCell;
 use std::future::Future;
@@ -11,7 +12,6 @@ use std::rc::Rc;
 use std::task::{Context, Poll};
 
 use crate::core::constants::core_constants::RATE_LIMIT_KEY_PREFIX;
-use crate::core::redis::REDIS_CLIENT;
 use crate::err_server;
 use crate::models::ServerError;
 
@@ -58,27 +58,45 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let srv = self.service.clone();
-        let requests_count = self.requests_count.clone();
+        let requests_count = self.requests_count;
 
         Box::pin(async move {
+            let redis_pool = match req.app_data::<web::Data<Pool>>() {
+                Some(pool) => pool,
+                None => {
+                    return Ok(req.into_response(
+                        HttpResponse::InternalServerError()
+                            .json("RateLimit Redis pool not found!!"),
+                    ));
+                }
+            };
+
+            // Handle IP address retrieval and validate the session
             match get_ip_addr(&req) {
-                Ok(address) => match validate_session(address, requests_count).await {
-                    Ok(value) => {
-                        if value {
-                            let ok = srv.call(req).await?;
-                            return Ok(ok);
+                Ok(address) => {
+                    match validate_session(address, requests_count, redis_pool).await {
+                        Ok(value) => {
+                            if value {
+                                // If the session is valid, call the next service
+                                srv.call(req).await
+                            } else {
+                                // If the session is not valid, respond with Too Many Requests
+                                Ok(req.into_response(HttpResponse::TooManyRequests().finish()))
+                            }
+                        }
+                        Err(error) => {
+                            // Log the error and respond with Internal Server Error
+                            eprintln!("Session validation error: {}", error);
+                            Ok(req.into_response(HttpResponse::InternalServerError().finish()))
                         }
                     }
-                    Err(error) => {
-                        println!("{}", error)
-                    }
-                },
+                }
                 Err(error) => {
-                    println!("{}", error)
+                    // Log the IP address retrieval error and respond with Internal Server Error
+                    eprintln!("IP address retrieval error: {}", error);
+                    Ok(req.into_response(HttpResponse::InternalServerError().finish()))
                 }
             }
-
-            Ok(req.into_response(HttpResponse::TooManyRequests().finish()))
         })
     }
 }
@@ -86,8 +104,9 @@ where
 pub async fn validate_session(
     ip_address: String,
     requests_count: u64,
+    redis_pool: &Pool,
 ) -> Result<bool, ServerError> {
-    let mut redis_connection = REDIS_CLIENT.get_async_connection().await?;
+    let mut conn = redis_pool.get().await.map_err(ServerError::from)?;
     let current_minute = Utc::now().minute();
     let rate_limit_key = format!(
         "{}:{}:{}",
@@ -98,7 +117,7 @@ pub async fn validate_session(
         .atomic()
         .incr(&rate_limit_key, 1)
         .expire(rate_limit_key, 60)
-        .query_async(&mut redis_connection)
+        .query_async(&mut conn)
         .await?;
 
     if requests_count > count {

@@ -6,6 +6,7 @@ use entity::user::Model as User;
 use lazy_static::lazy_static;
 use rand::{distributions::Alphanumeric, Rng};
 use regex::Regex;
+use sea_orm::DatabaseConnection;
 use unicode_normalization::UnicodeNormalization;
 
 lazy_static! {
@@ -54,10 +55,11 @@ pub fn credential_validator(user: &User, password: &str) -> Result<bool, ServerE
 pub async fn credential_validator_username_email(
     identifier: &str,
     password: &str,
+    db: &DatabaseConnection,
 ) -> Result<Option<User>, ServerError> {
     let user = match EMAIL_REGEX.is_match(identifier) {
-        true => get_user_by_email(identifier).await,
-        false => get_user_by_username(identifier).await,
+        true => get_user_by_email(identifier, db).await,
+        false => get_user_by_username(identifier, db).await,
     };
 
     if let Ok(user) = user {
@@ -89,7 +91,7 @@ pub fn validate_password_rules(password: &str, password_confirm: &str) -> Result
     Ok(())
 }
 
-/// Check that an username meets username requirements
+/// Check that a username meets username requirements
 pub fn validate_username_rules(username: &str) -> Result<(), ServerError> {
     if username.len() <= 0 {
         return Err(err_input!("Username cannot be empty."));

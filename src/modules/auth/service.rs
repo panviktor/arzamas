@@ -1,15 +1,17 @@
-use actix_web::{HttpRequest, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::{DateTime, Utc};
+use deadpool_redis::Pool;
 use entity::user::Model as User;
 use entity::user_otp_token::Model as SecurityToken;
 use entity::user_security_settings::Model as SecuritySettings;
 use entity::{
     user, user_confirmation, user_otp_token, user_restore_password, user_security_settings,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter, Set,
+};
 
 use crate::core::constants::core_constants;
-use crate::core::db::DB;
 use crate::models::{ErrorCode, ServerError, ServiceError};
 use crate::modules::auth::credentials::{
     credential_validator_username_email, generate_password_hash, generate_user_id,
@@ -28,8 +30,10 @@ use crate::modules::auth::totp::{generate_email_code, set_app_only_expire_time, 
 use crate::{err_input, err_server};
 
 /// Get a single user from the DB, searching by username
-pub async fn get_user_by_username(username: &str) -> Result<Option<User>, ServerError> {
-    let db = &*DB;
+pub async fn get_user_by_username(
+    username: &str,
+    db: &DatabaseConnection,
+) -> Result<Option<User>, ServerError> {
     let to_find = username.to_string();
     let user = entity::prelude::User::find()
         .filter(user::Column::Username.eq(&*to_find))
@@ -49,8 +53,10 @@ pub async fn get_user_by_username(username: &str) -> Result<Option<User>, Server
 }
 
 /// Get a single user from the DB, searching by username
-pub async fn get_user_by_email(email: &str) -> Result<Option<User>, ServerError> {
-    let db = &*DB;
+pub async fn get_user_by_email(
+    email: &str,
+    db: &DatabaseConnection,
+) -> Result<Option<User>, ServerError> {
     let to_find = email.to_string();
     let user = entity::prelude::User::find()
         .filter(user::Column::Email.eq(&*to_find))
@@ -70,8 +76,10 @@ pub async fn get_user_by_email(email: &str) -> Result<Option<User>, ServerError>
 }
 
 /// Get a user security settings
-pub async fn get_user_settings_by_id(user_id: &str) -> Result<SecuritySettings, ServerError> {
-    let db = &*DB;
+pub async fn get_user_settings_by_id(
+    user_id: &str,
+    db: &DatabaseConnection,
+) -> Result<SecuritySettings, ServerError> {
     let setting_result = entity::prelude::UserSecuritySettings::find()
         .filter(user_security_settings::Column::UserId.eq(user_id))
         .one(db)
@@ -91,8 +99,10 @@ pub async fn get_user_settings_by_id(user_id: &str) -> Result<SecuritySettings, 
 }
 
 /// Get a user security token
-pub async fn get_user_security_token_by_id(user_id: &str) -> Result<SecurityToken, ServerError> {
-    let db = &*DB;
+pub async fn get_user_security_token_by_id(
+    user_id: &str,
+    db: &DatabaseConnection,
+) -> Result<SecurityToken, ServerError> {
     let token_result = entity::prelude::UserOtpToken::find()
         .filter(user_otp_token::Column::UserId.eq(user_id))
         .one(db)
@@ -118,8 +128,10 @@ pub async fn get_user_security_token_by_id(user_id: &str) -> Result<SecurityToke
 }
 
 /// Get a single user from the DB, searching by username
-pub async fn get_user_by_id(id: &str) -> Result<Option<User>, ServerError> {
-    let db = &*DB;
+pub async fn get_user_by_id(
+    id: &str,
+    db: &DatabaseConnection,
+) -> Result<Option<User>, ServerError> {
     let to_find = id.to_string();
     let user = entity::prelude::User::find()
         .filter(user::Column::UserId.eq(&*to_find))
@@ -142,8 +154,8 @@ pub async fn create_user_and_try_save(
     user_id: &String,
     params: &NewUserParams,
     req: &HttpRequest,
+    db: &DatabaseConnection,
 ) -> Result<User, ServiceError> {
-    let db = &*DB;
     let hash = generate_password_hash(&params.password).map_err(|s| s.general(&req))?;
 
     let user = user::ActiveModel {
@@ -167,7 +179,9 @@ pub async fn create_user_and_try_save(
 pub async fn try_send_restore_email(
     req: &HttpRequest,
     params: ForgotPasswordParams,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<(), ServiceError> {
+    let db = db.get_ref();
     if let Err(e) = validate_username_rules(&params.username) {
         return Err(e.bad_request(&req));
     }
@@ -176,13 +190,13 @@ pub async fn try_send_restore_email(
         return Err(e.bad_request(&req));
     }
 
-    match get_user_by_username(&params.username)
+    match get_user_by_username(&params.username, db)
         .await
         .map_err(|s| s.general(&req))?
     {
         Some(user) => {
             if user.email == params.email {
-                send_password_reset_email(&user.user_id, &user.email)
+                send_password_reset_email(&user.user_id, &user.email, db)
                     .await
                     .map_err(|s| ServiceError::general(&req, s.message, false))?;
             }
@@ -195,8 +209,10 @@ pub async fn try_send_restore_email(
 pub async fn try_reset_password(
     req: &HttpRequest,
     params: ResetPasswordParams,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<(), ServiceError> {
-    let user = verify_password_reset_token(&params.token)
+    let db = db.get_ref();
+    let user = verify_password_reset_token(&params.token, db)
         .await
         .map_err(|s| s.general(req))?;
 
@@ -214,13 +230,12 @@ pub async fn try_reset_password(
         ));
     }
 
-    if let Some(user) = get_user_by_id(&params.user_id)
+    if let Some(user) = get_user_by_id(&params.user_id, db)
         .await
         .map_err(|s| s.general(&req))?
     {
         let hash = generate_password_hash(&params.password).map_err(|s| s.general(&req))?;
 
-        let db = &*DB;
         let mut active: user::ActiveModel = user.into();
         active.pass_hash = Set(hash.to_owned());
         active.updated_at = Set(Utc::now().naive_utc());
@@ -238,9 +253,9 @@ pub async fn add_password_reset_token(
     user_id: &str,
     token: &str,
     expiry: DateTime<Utc>,
+    db: &DatabaseConnection,
 ) -> Result<(), ServerError> {
     let hashed_token = hash_token(token);
-    let db = &*DB;
     if let Some(user) = user_restore_password::Entity::find()
         .filter(user_restore_password::Column::UserId.contains(user_id))
         .one(db)
@@ -270,8 +285,10 @@ pub async fn add_password_reset_token(
     Ok(())
 }
 
-async fn verify_password_reset_token(token: &str) -> Result<UserInfo, ServerError> {
-    let db = &*DB;
+async fn verify_password_reset_token(
+    token: &str,
+    db: &DatabaseConnection,
+) -> Result<UserInfo, ServerError> {
     let hashed_token = hash_token(token);
     let user = user_restore_password::Entity::find()
         .filter(user_restore_password::Column::OtpHash.eq(hashed_token))
@@ -307,8 +324,8 @@ pub async fn add_email_token(
     token: &str,
     expiry: DateTime<Utc>,
     user_exists: bool,
+    db: &DatabaseConnection,
 ) -> Result<(), ServerError> {
-    let db = &*DB;
     // Uniqueness is taken care of by an index in the DB
     if !user_exists {
         let confirmation = user_confirmation::ActiveModel {
@@ -343,8 +360,10 @@ pub async fn add_email_token(
     Ok(())
 }
 
-pub async fn find_email_verify_token(email: &str) -> Result<VerifyToken, ServerError> {
-    let db = &*DB;
+pub async fn find_email_verify_token(
+    email: &str,
+    db: &DatabaseConnection,
+) -> Result<VerifyToken, ServerError> {
     let confirmation = user_confirmation::Entity::find()
         .filter(user_confirmation::Column::Email.contains(email))
         .one(db)
@@ -367,8 +386,7 @@ pub async fn find_email_verify_token(email: &str) -> Result<VerifyToken, ServerE
     }
 }
 
-pub async fn verify_email_by(user_id: &str) -> Result<(), ServerError> {
-    let db = &*DB;
+pub async fn verify_email_by(user_id: &str, db: &DatabaseConnection) -> Result<(), ServerError> {
     let user = user::Entity::find()
         .filter(user::Column::UserId.contains(user_id))
         .one(db)
@@ -394,12 +412,15 @@ pub async fn verify_email_by(user_id: &str) -> Result<(), ServerError> {
     Ok(())
 }
 
-pub async fn block_user_until(user_id: &str, expiry: DateTime<Utc>) -> Result<(), ServerError> {
-    if let Some(user) = get_user_by_id(user_id)
+pub async fn block_user_until(
+    user_id: &str,
+    expiry: DateTime<Utc>,
+    db: &DatabaseConnection,
+) -> Result<(), ServerError> {
+    if let Some(user) = get_user_by_id(user_id, db)
         .await
         .map_err(|e| err_server!("Problem finding user {}:{}", user_id, e))?
     {
-        let db = &*DB;
         let mut active: user::ActiveModel = user.into();
         active.login_blocked_until = Set(Some(expiry.naive_utc()));
         active
@@ -414,8 +435,8 @@ pub async fn set_attempt_count(
     attempt_count: i32,
     user_id: &str,
     mut new_user: user_otp_token::ActiveModel,
+    db: &DatabaseConnection,
 ) -> Result<(), ServerError> {
-    let db = &*DB;
     new_user.attempt_count = Set(attempt_count);
     new_user
         .update(db)
@@ -427,7 +448,10 @@ pub async fn set_attempt_count(
 pub async fn try_create_user(
     req: &HttpRequest,
     params: NewUserParams,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<CreatedUserDTO, ServiceError> {
+    let db = db.get_ref();
+
     if let Err(e) = validate_password_rules(&params.password, &params.password_confirm) {
         return Err(ServiceError::bad_request(
             &req,
@@ -453,7 +477,7 @@ pub async fn try_create_user(
     }
 
     // check user doesn't already exist
-    if get_user_by_username(&params.username)
+    if get_user_by_username(&params.username, db)
         .await
         .map_err(|s| s.general(&req))?
         .is_some()
@@ -468,7 +492,7 @@ pub async fn try_create_user(
         ));
     }
 
-    if get_user_by_email(&params.email)
+    if get_user_by_email(&params.email, db)
         .await
         .map_err(|s| s.general(&req))?
         .is_some()
@@ -487,7 +511,7 @@ pub async fn try_create_user(
     for i in 0..10 {
         user_id = generate_user_id().map_err(|s| s.general(&req))?;
 
-        match create_user_and_try_save(&user_id, &params, &req).await {
+        match create_user_and_try_save(&user_id, &params, &req, db).await {
             Ok(user) => {
                 saved_user = Some(user);
                 break;
@@ -506,7 +530,7 @@ pub async fn try_create_user(
 
     if let Some(e) = user_error {
         return Err(ServiceError::general(
-            &req,
+            req,
             format!("Error generating user ID: {}", e),
             false,
         ));
@@ -514,7 +538,7 @@ pub async fn try_create_user(
     let saved_user = saved_user.expect("Error unwrap saved user");
 
     // Send a validation email
-    send_validate_email(&saved_user.user_id, &saved_user.email, false)
+    send_validate_email(&saved_user.user_id, &saved_user.email, false, db)
         .await
         .map_err(|s| s.general(&req))?;
 
@@ -541,7 +565,9 @@ fn user_created_response(user: &User) -> CreatedUserDTO {
 pub async fn try_login_user(
     req: &HttpRequest,
     params: LoginParams,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
+    let db = db.get_ref();
     // Check the username is valid
     if validate_username_rules(&params.identifier).is_err()
         && validate_email_rules(&params.identifier).is_err()
@@ -558,7 +584,7 @@ pub async fn try_login_user(
         return Err(e.bad_request(&req));
     }
 
-    let result = credential_validator_username_email(&params.identifier, &params.password)
+    let result = credential_validator_username_email(&params.identifier, &params.password, db)
         .await
         .map_err(|s| ServiceError::general(&req, s.message, true))?;
 
@@ -573,11 +599,11 @@ pub async fn try_login_user(
             }
         }
 
-        let settings = get_user_settings_by_id(&user.user_id)
+        let settings = get_user_settings_by_id(&user.user_id, db)
             .await
             .map_err(|s| ServiceError::general(&req, s.message, true))?;
 
-        return handle_login_result(&user.user_id, &user.email, settings, &req, &params).await;
+        return handle_login_result(&user.user_id, &user.email, settings, &req, &params, db).await;
     }
 
     Err(ServiceError::unauthorized(
@@ -593,17 +619,22 @@ async fn handle_login_result(
     security_settings: SecuritySettings,
     req: &HttpRequest,
     params: &LoginParams,
+    db: &DatabaseConnection,
 ) -> Result<HttpResponse, ServiceError> {
     let login_ip = get_ip_addr(req).map_err(|s| ServiceError::general(req, s.message, false))?;
     let user_agent = get_user_agent(&req);
     let persistent = params.persist.unwrap_or(false);
+
+    let redis_pool = req
+        .app_data::<web::Data<Pool>>() // Make sure Pool is the type of your Redis connection pool
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract Redis pool", true))?;
 
     return match (
         security_settings.two_factor_email,
         security_settings.two_factor_authenticator_app,
     ) {
         (true, true) => {
-            generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent)
+            generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent, db)
                 .await
                 .map_err(|s| ServiceError::general(&req, s.message, false))?;
             let json = LoginResponse::OTPResponse {
@@ -617,7 +648,7 @@ async fn handle_login_result(
             Ok(HttpResponse::Ok().json(json))
         }
         (true, false) => {
-            generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent)
+            generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent, db)
                 .await
                 .map_err(|s| ServiceError::general(&req, s.message, false))?;
             let json = LoginResponse::OTPResponse {
@@ -628,7 +659,7 @@ async fn handle_login_result(
             Ok(HttpResponse::Ok().json(json))
         }
         (false, true) => {
-            set_app_only_expire_time(user_id, persistent, &login_ip, &user_agent)
+            set_app_only_expire_time(user_id, persistent, &login_ip, &user_agent, db)
                 .await
                 .map_err(|s| ServiceError::general(&req, s.message, false))?;
             let json = LoginResponse::OTPResponse {
@@ -639,9 +670,10 @@ async fn handle_login_result(
             Ok(HttpResponse::Ok().json(json))
         }
         (false, false) => {
-            let token = generate_session_token(user_id, persistent, &login_ip, &user_agent)
-                .await
-                .map_err(|s| ServiceError::general(&req, s.message, false))?;
+            let token =
+                generate_session_token(user_id, persistent, &login_ip, &user_agent, redis_pool)
+                    .await
+                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
 
             if security_settings.email_on_success_enabled_at {
                 success_enter_email(user_email, &login_ip)
@@ -661,14 +693,22 @@ async fn handle_login_result(
 pub async fn try_login_2fa(
     req: &HttpRequest,
     params: OTPCode,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<LoginResponse, ServiceError> {
     let login_ip = get_ip_addr(&req).map_err(|s| ServiceError::general(&req, s.message, false))?;
+    let db = db.get_ref();
+
+    let redis_pool = req
+        .app_data::<web::Data<Pool>>() // Make sure Pool is the type of your Redis connection pool
+        .ok_or_else(|| ServiceError::general(&req, "Failed to extract Redis pool", true))?;
 
     let token = verify_otp_codes(
         params.email_code.as_deref(),
         params.app_code.as_deref(),
         &*params.user_id,
         &*login_ip,
+        db,
+        redis_pool,
     )
     .await
     .map_err(|s| ServiceError::general(&req, s.message, true))?;

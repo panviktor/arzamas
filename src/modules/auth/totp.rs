@@ -1,10 +1,11 @@
-use crate::core::db::DB;
-use crate::core::redis::REDIS_CLIENT;
 use chrono::{Duration, Utc};
+use deadpool_redis::Pool;
 use entity::user_otp_token;
 use entity::user_security_settings;
 use redis::AsyncCommands;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter, Set,
+};
 use totp_rs::{Algorithm, Secret, TOTP};
 use uuid::Uuid;
 
@@ -22,6 +23,7 @@ pub async fn set_app_only_expire_time(
     persistent: bool,
     login_ip: &str,
     user_agent: &str,
+    db: &DatabaseConnection,
 ) -> Result<(), ServerError> {
     let expiry = match persistent {
         false => Utc::now() + Duration::days(1),
@@ -40,7 +42,6 @@ pub async fn set_app_only_expire_time(
     )
     .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
 
-    let db = &*DB;
     if let Some(user) = user_otp_token::Entity::find()
         .filter(user_otp_token::Column::UserId.contains(user_id))
         .one(db)
@@ -66,6 +67,7 @@ pub async fn generate_email_code(
     email: &str,
     login_ip: &str,
     user_agent: &str,
+    db: &DatabaseConnection,
 ) -> Result<(), ServerError> {
     let expiry = match persistent {
         false => Utc::now() + Duration::days(1),
@@ -88,7 +90,6 @@ pub async fn generate_email_code(
     )
     .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
 
-    let db = &*DB;
     if let Some(user) = user_otp_token::Entity::find()
         .filter(user_otp_token::Column::UserId.contains(user_id))
         .one(db)
@@ -115,9 +116,9 @@ pub async fn verify_otp_codes(
     app_code: Option<&str>,
     user_id: &str,
     login_ip: &str,
+    db: &DatabaseConnection,
+    redis_pool: &Pool,
 ) -> Result<String, ServerError> {
-    let db = &*DB;
-
     let user_settings = user_security_settings::Entity::find()
         .filter(user_security_settings::Column::UserId.contains(user_id))
         .one(db)
@@ -160,14 +161,14 @@ pub async fn verify_otp_codes(
                 ));
             }
 
-            let user_otp_token = validate_email_otp(user_otp_token, email_code).await?;
-            let user_otp_token = validate_app_code(user_otp_token, app_code, user_id).await?;
-            let token = validate_ip(user_otp_token, login_ip).await?;
+            let user_otp_token = validate_email_otp(user_otp_token, email_code, db).await?;
+            let user_otp_token = validate_app_code(user_otp_token, app_code, user_id, db).await?;
+            let token = validate_ip(user_otp_token, login_ip, &redis_pool).await?;
             Ok(token)
         }
         (true, false) => {
-            let user_otp_token = validate_email_otp(user_otp_token, email_code).await?;
-            let token = validate_ip(user_otp_token, login_ip).await?;
+            let user_otp_token = validate_email_otp(user_otp_token, email_code, db).await?;
+            let token = validate_ip(user_otp_token, login_ip, &redis_pool).await?;
             Ok(token)
         }
         (false, true) => {
@@ -177,8 +178,8 @@ pub async fn verify_otp_codes(
                     user_id
                 ));
             }
-            let user_otp_token = validate_app_code(user_otp_token, app_code, user_id).await?;
-            let token = validate_ip(user_otp_token, login_ip).await?;
+            let user_otp_token = validate_app_code(user_otp_token, app_code, user_id, db).await?;
+            let token = validate_ip(user_otp_token, login_ip, &redis_pool).await?;
             Ok(token)
         }
         (false, false) => Err(err_server!("Neither email code nor app code is enabled")),
@@ -188,6 +189,7 @@ pub async fn verify_otp_codes(
 async fn validate_email_otp(
     user_otp_token: user_otp_token::Model,
     email_code: Option<&str>,
+    db: &DatabaseConnection,
 ) -> Result<user_otp_token::Model, ServerError> {
     if email_code.is_none() {
         return Err(err_server!(
@@ -203,9 +205,13 @@ async fn validate_email_otp(
 
     if let Some(expiry) = user_otp_token.expiry {
         if expiry < Utc::now().naive_utc() {
-            block_user_until(&user_otp_token.user_id, Utc::now() + Duration::minutes(15)).await?;
+            block_user_until(
+                &user_otp_token.user_id,
+                Utc::now() + Duration::minutes(15),
+                db,
+            )
+            .await?;
             let user_id = user_otp_token.user_id.clone();
-            let db = &*DB;
 
             user_otp_token
                 .delete(db)
@@ -225,7 +231,7 @@ async fn validate_email_otp(
             let new_count = user_otp_token.attempt_count + 1;
             let user_id = user_otp_token.user_id.clone();
             let new_user: user_otp_token::ActiveModel = user_otp_token.into();
-            set_attempt_count(new_count, &user_id, new_user).await?;
+            set_attempt_count(new_count, &user_id, new_user, db).await?;
 
             return Err(err_server!("Invalid OTP Code, try again"));
         } else {
@@ -240,6 +246,7 @@ async fn validate_app_code(
     user_otp_token: user_otp_token::Model,
     app_code: Option<&str>,
     user_id: &str,
+    db: &DatabaseConnection,
 ) -> Result<user_otp_token::Model, ServerError> {
     return match app_code {
         None => {
@@ -253,10 +260,13 @@ async fn validate_app_code(
 
             return if let Some(expiry) = user_otp_token.expiry {
                 if expiry < Utc::now().naive_utc() {
-                    block_user_until(&user_otp_token.user_id, Utc::now() + Duration::minutes(15))
-                        .await?;
+                    block_user_until(
+                        &user_otp_token.user_id,
+                        Utc::now() + Duration::minutes(15),
+                        db,
+                    )
+                    .await?;
                     let user_id = user_otp_token.user_id.clone();
-                    let db = &*DB;
 
                     user_otp_token.delete(db).await.map_err(|e| {
                         err_server!("Problem delete OTP token for user {}: {}", user_id, e)
@@ -265,13 +275,13 @@ async fn validate_app_code(
                     return Err(err_server!("Invalid date for OTP code, try login again!!"));
                 }
 
-                return if let Ok(_) = generate_app_code(user_id, code).await {
+                return if let Ok(_) = generate_app_code(user_id, code, db).await {
                     Ok(user_otp_token)
                 } else {
                     let new_count = user_otp_token.attempt_count + 1;
                     let user_id = user_otp_token.user_id.clone();
                     let new_user: user_otp_token::ActiveModel = user_otp_token.into();
-                    set_attempt_count(new_count, &user_id, new_user).await?;
+                    set_attempt_count(new_count, &user_id, new_user, db).await?;
 
                     Err(err_server!("Invalid OTP Code, try again, need new login!"))
                 };
@@ -282,8 +292,12 @@ async fn validate_app_code(
     };
 }
 
-async fn generate_app_code(user_id: &str, code: &str) -> Result<(), ServerError> {
-    let otp_token = get_user_security_token_by_id(user_id).await?;
+async fn generate_app_code(
+    user_id: &str,
+    code: &str,
+    db: &DatabaseConnection,
+) -> Result<(), ServerError> {
+    let otp_token = get_user_security_token_by_id(user_id, db).await?;
     if let Some(saved_hash) = otp_token.otp_app_hash {
         ///
         ///
@@ -299,19 +313,22 @@ async fn generate_app_code(user_id: &str, code: &str) -> Result<(), ServerError>
 async fn validate_ip(
     user_otp_token: user_otp_token::Model,
     ip: &str,
+    redis_pool: &Pool,
 ) -> Result<String, ServerError> {
-    if let Some(otp_email_hash) = user_otp_token.otp_email_hash.clone() {
+    if let Some(otp_email_hash) = user_otp_token.otp_email_hash.as_ref() {
         if let Ok(decoded_data) = decode_token(&otp_email_hash) {
             let token = decoded_data.claims;
-            let hash = otp_email_hash.clone();
+            let mut conn = redis_pool
+                .get()
+                .await
+                .map_err(|e| err_server!("{}", format!("Failed to get Redis connection: {}", e)))?;
 
-            let mut client = REDIS_CLIENT.get_async_connection().await?;
-            client
-                .hset(token.user_id.clone(), token.session_id, &hash)
-                .await?;
+            conn.hset(token.user_id, token.session_id, otp_email_hash)
+                .await
+                .map_err(|e| err_server!("{}", format!("Failed to set value in Redis: {}", e)))?;
 
             return if token.login_ip == ip {
-                Ok(hash)
+                Ok(otp_email_hash.to_string())
             } else {
                 Err(err_server!("Your IP has changed"))
             };

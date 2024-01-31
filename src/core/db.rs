@@ -1,4 +1,3 @@
-use lazy_static::lazy_static;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::DatabaseConnection;
 use sea_orm::{ConnectOptions, Database};
@@ -8,25 +7,8 @@ use tracing::debug;
 
 use crate::core::config::get_config;
 
-lazy_static! {
-    pub static ref DB: DatabaseConnection = {
-        async_std::task::block_on(async {
-            let config = get_config().expect("Failed to read configuration.");
-            let opt = ConnectOptions::new(
-                config
-                    .database
-                    .connection_string()
-                    .expose_secret()
-                    .to_string(),
-            );
-            Database::connect(opt).await.unwrap()
-        })
-    };
-}
-
-pub async fn init_db() {
+pub async fn check_migration(db: &DatabaseConnection) {
     debug!("Checking DB connection...");
-    let db = &*DB;
     let migration = env::var("MIGRATION").unwrap_or_else(|_| "".to_string());
 
     // ❗ If enabled, automatically migrate the database to the latest version when the application starts up.
@@ -35,4 +17,18 @@ pub async fn init_db() {
             panic!("Failed to run migration.");
         }
     }
+}
+
+pub async fn create_db_pool() -> DatabaseConnection {
+    let config = get_config().expect("Failed to read configuration.");
+    let opt = ConnectOptions::new(
+        config
+            .database
+            .connection_string()
+            .expose_secret()
+            .to_string(),
+    );
+    Database::connect(opt)
+        .await
+        .expect("Failed to create database connection pool")
 }

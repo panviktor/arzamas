@@ -15,7 +15,7 @@ use crate::modules::auth::models::{
 use crate::modules::user;
 use crate::modules::user::models::{
     AboutMeInformation, AuthenticationAppInformation, ChangeEmailParams, ChangePasswordParams,
-    MnemonicConfirmation,
+    MnemonicConfirmation, SecuritySettingsUpdate,
 };
 use entity::user_security_settings::Model as UserSecuritySettings;
 
@@ -81,6 +81,7 @@ use entity::note::Model as Note;
             ChangePasswordParams,
             ChangeEmailParams,
             UserSecuritySettings,
+            SecuritySettingsUpdate,
             MnemonicConfirmation,
             AuthenticationAppInformation
         ),

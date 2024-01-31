@@ -1,14 +1,13 @@
-use actix_web::HttpRequest;
+use actix_web::{web, HttpRequest};
 use base32;
 use bip39::{Language, Mnemonic};
 use chrono::Utc;
 use entity::user;
 use entity::user_security_settings;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, IntoActiveModel};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, IntoActiveModel};
 use url::Url;
 
-use crate::core::db::DB;
 use crate::models::ServiceError;
 use crate::modules::auth::credentials::{
     credential_validator, generate_password_hash, validate_email_rules, validate_password_rules,
@@ -19,14 +18,19 @@ use crate::modules::auth::service::{
 };
 use crate::modules::user::models::{
     AboutMeInformation, AuthenticationAppInformation, ChangeEmailParams, ChangePasswordParams,
-    MnemonicConfirmation,
+    MnemonicConfirmation, SecuritySettingsUpdate,
 };
 
 pub async fn try_about_me(
     req: &HttpRequest,
     user_id: &str,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<AboutMeInformation, ServiceError> {
-    if let Some(user) = get_user_by_id(user_id).await.map_err(|s| s.general(&req))? {
+    let db = db.get_ref();
+    if let Some(user) = get_user_by_id(user_id, db)
+        .await
+        .map_err(|s| s.general(&req))?
+    {
         return Ok(AboutMeInformation {
             name: user.username,
             email: user.email,
@@ -45,7 +49,9 @@ pub async fn try_change_email(
     req: &HttpRequest,
     user_id: &str,
     params: ChangeEmailParams,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<(), ServiceError> {
+    let db = db.get_ref();
     if &params.new_email != &params.new_email_confirm {
         return Err(ServiceError::bad_request(
             &req,
@@ -63,7 +69,10 @@ pub async fn try_change_email(
         ));
     }
 
-    if let Some(user) = get_user_by_id(user_id).await.map_err(|s| s.general(&req))? {
+    if let Some(user) = get_user_by_id(user_id, db)
+        .await
+        .map_err(|s| s.general(&req))?
+    {
         if !credential_validator(&user, &params.current_password).map_err(|e| e.general(&req))? {
             return Err(ServiceError::bad_request(
                 &req,
@@ -72,7 +81,7 @@ pub async fn try_change_email(
             ));
         }
 
-        if let Some(email_user) = get_user_by_email(&params.new_email)
+        if let Some(email_user) = get_user_by_email(&params.new_email, db)
             .await
             .map_err(|s| s.general(&req))?
         {
@@ -85,11 +94,10 @@ pub async fn try_change_email(
             }
         } else {
             // Send a validation email
-            send_validate_email(&user.user_id, &params.new_email, true)
+            send_validate_email(&user.user_id, &params.new_email, true, db)
                 .await
                 .map_err(|s| s.general(&req))?;
 
-            let db = &*DB;
             let mut active: user::ActiveModel = user.into();
             active.email = Set(params.new_email.to_owned());
             active.updated_at = Set(Utc::now().naive_utc());
@@ -108,12 +116,17 @@ pub async fn try_change_password(
     req: &HttpRequest,
     user_id: &str,
     params: ChangePasswordParams,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<(), ServiceError> {
+    let db = db.get_ref();
     // Check the password is valid
     if let Err(e) = validate_password_rules(&params.new_password, &params.new_password_confirm) {
         return Err(ServiceError::bad_request(&req, format!("{}", e), true));
     }
-    if let Some(user) = get_user_by_id(user_id).await.map_err(|s| s.general(&req))? {
+    if let Some(user) = get_user_by_id(user_id, db)
+        .await
+        .map_err(|s| s.general(&req))?
+    {
         if !credential_validator(&user, &params.current_password).map_err(|e| e.general(&req))? {
             return Err(ServiceError::bad_request(
                 &req,
@@ -122,13 +135,13 @@ pub async fn try_change_password(
             ));
         }
 
-        let db = &*DB;
         let hash = generate_password_hash(&params.new_password).map_err(|s| s.general(&req))?;
         let mut active: user::ActiveModel = user.into();
         active.pass_hash = Set(hash.to_owned());
         active.updated_at = Set(Utc::now().naive_utc());
         active.update(db).await?;
 
+        // NEED IMPLEMENT
         // Add optional invalidate all user session
         // based on user preferences
         // Send to email alert
@@ -136,8 +149,16 @@ pub async fn try_change_password(
     Ok(())
 }
 
-pub async fn try_resend_verify_email(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
-    if let Some(user) = get_user_by_id(user_id).await.map_err(|s| s.general(&req))? {
+pub async fn try_resend_verify_email(
+    req: &HttpRequest,
+    user_id: &str,
+    db: web::Data<DatabaseConnection>,
+) -> Result<(), ServiceError> {
+    let db = db.get_ref();
+    if let Some(user) = get_user_by_id(user_id, db)
+        .await
+        .map_err(|s| s.general(&req))?
+    {
         return if user.email_validated {
             Err(ServiceError::bad_request(
                 &req,
@@ -145,7 +166,7 @@ pub async fn try_resend_verify_email(req: &HttpRequest, user_id: &str) -> Result
                 true,
             ))
         } else {
-            send_validate_email(&user.user_id, &user.email, true)
+            send_validate_email(&user.user_id, &user.email, true, db)
                 .await
                 .map_err(|s| s.general(&req))?;
             Ok(())
@@ -164,14 +185,30 @@ pub async fn try_resend_verify_email(req: &HttpRequest, user_id: &str) -> Result
 pub async fn try_get_security_settings(
     req: &HttpRequest,
     user_id: &str,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<user_security_settings::Model, ServiceError> {
-    let settings = get_user_settings_by_id(user_id)
+    let db = db.get_ref();
+    get_security_settings(req, user_id, db).await
+}
+
+pub async fn get_security_settings(
+    req: &HttpRequest,
+    user_id: &str,
+    db: &DatabaseConnection,
+) -> Result<user_security_settings::Model, ServiceError> {
+    let settings = get_user_settings_by_id(user_id, db)
         .await
         .map_err(|s| s.general(&req))?;
     Ok(settings)
 }
 
-pub async fn try_update_security_settings(req: &HttpRequest) -> Result<(), ServiceError> {
+pub async fn try_update_security_settings(
+    req: &HttpRequest,
+    user_id: &str,
+    params: SecuritySettingsUpdate,
+    db: web::Data<DatabaseConnection>,
+) -> Result<(), ServiceError> {
+    let db = db.get_ref();
     return Err(ServiceError::bad_request(
         &req,
         "User not found.".to_string(),
@@ -181,34 +218,47 @@ pub async fn try_update_security_settings(req: &HttpRequest) -> Result<(), Servi
 
 // 2FA
 
-pub async fn try_add_email_2fa(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
-    toggle_email(req, user_id, true).await
+pub async fn try_add_email_2fa(
+    req: &HttpRequest,
+    user_id: &str,
+    db: web::Data<DatabaseConnection>,
+) -> Result<(), ServiceError> {
+    let db = db.get_ref();
+    toggle_email(req, user_id, true, db).await
 }
 
-pub async fn try_remove_email_2fa(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
-    toggle_email(req, user_id, false).await
+pub async fn try_remove_email_2fa(
+    req: &HttpRequest,
+    user_id: &str,
+    db: web::Data<DatabaseConnection>,
+) -> Result<(), ServiceError> {
+    let db = db.get_ref();
+    toggle_email(req, user_id, false, db).await
 }
 
 pub async fn try_2fa_add(
     req: &HttpRequest,
     user_id: &str,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<AuthenticationAppInformation, ServiceError> {
-    generate_2fa_secret(req, user_id).await
+    let db = db.get_ref();
+    generate_2fa_secret(req, user_id, db).await
 }
 
 pub async fn try_2fa_activate(
     req: &HttpRequest,
     user_id: &str,
     params: MnemonicConfirmation,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<(), ServiceError> {
-    let db = &*DB;
-    let otp_token = get_user_security_token_by_id(user_id)
+    let db = db.get_ref();
+    let otp_token = get_user_security_token_by_id(user_id, db)
         .await
         .map_err(|s| s.general(&req))?;
 
     if let Some(mnemonic) = otp_token.otp_app_mnemonic {
         return if mnemonic == params.mnemonic {
-            let settings = get_user_settings_by_id(user_id)
+            let settings = get_user_settings_by_id(user_id, db)
                 .await
                 .map_err(|s| s.general(&req))?;
             let mut settings = settings.into_active_model();
@@ -235,13 +285,19 @@ pub async fn try_2fa_activate(
 pub async fn try_2fa_reset(
     req: &HttpRequest,
     user_id: &str,
+    db: web::Data<DatabaseConnection>,
 ) -> Result<AuthenticationAppInformation, ServiceError> {
-    generate_2fa_secret(req, user_id).await
+    let db = db.get_ref();
+    generate_2fa_secret(req, user_id, db).await
 }
 
-pub async fn try_2fa_remove(req: &HttpRequest, user_id: &str) -> Result<(), ServiceError> {
-    let db = &*DB;
-    let settings = get_user_settings_by_id(user_id)
+pub async fn try_2fa_remove(
+    req: &HttpRequest,
+    user_id: &str,
+    db: web::Data<DatabaseConnection>,
+) -> Result<(), ServiceError> {
+    let db = db.get_ref();
+    let settings = get_user_settings_by_id(user_id, db)
         .await
         .map_err(|s| s.general(&req))?;
     let mut settings = settings.into_active_model();
@@ -254,10 +310,9 @@ async fn toggle_email(
     req: &HttpRequest,
     user_id: &str,
     two_factor: bool,
+    db: &DatabaseConnection,
 ) -> Result<(), ServiceError> {
-    let settings = try_get_security_settings(req, user_id).await?;
-    let db = &*DB;
-
+    let settings = get_security_settings(req, user_id, db).await?;
     let mut settings = settings.into_active_model();
     settings.two_factor_email = Set(two_factor);
     settings.update(db).await?;
@@ -284,6 +339,7 @@ pub fn generate_totp_uri(secret: &str, user_id: &str, issuer: &str) -> String {
 async fn generate_2fa_secret(
     req: &HttpRequest,
     user_id: &str,
+    db: &DatabaseConnection,
 ) -> Result<AuthenticationAppInformation, ServiceError> {
     let mut secret = [0u8; 32];
     getrandom::getrandom(&mut secret).expect("Failed to fill bytes with randomness");
@@ -292,8 +348,7 @@ async fn generate_2fa_secret(
     let base32_secret = base32::encode(base32::Alphabet::RFC4648 { padding: false }, &secret);
     let url = generate_totp_uri(&base32_secret, user_id, "Arzamas"); //not impl yet
 
-    let db = &*DB;
-    let otp_token = get_user_security_token_by_id(user_id)
+    let otp_token = get_user_security_token_by_id(user_id, db)
         .await
         .map_err(|s| s.general(&req))?;
 

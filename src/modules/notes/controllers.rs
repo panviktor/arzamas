@@ -6,6 +6,7 @@ use crate::modules::notes::service::{
     try_create_note, try_delete_note, try_get_all_notes, try_get_by_id_notes, try_update_note,
 };
 use actix_web::{web, HttpRequest, HttpResponse};
+use sea_orm::DatabaseConnection;
 
 /// Creates a new note.
 ///
@@ -48,7 +49,7 @@ pub async fn create_note(
 /// It takes an HTTP request, pagination query parameters, and the logged-in user's details as input.
 ///
 /// The API responds with an HTTP response. If the notes are retrieved successfully,
-/// it returns a 200 status code with the notes data. If the retrieval fails,
+/// it returns a 200 status code with the notes' data. If the retrieval fails,
 /// it returns an appropriate error message and status code, such as 401 for unauthorized access
 /// or 404 for not found.
 ///

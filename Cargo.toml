@@ -40,6 +40,7 @@ tracing-appender = "0.2.3"
 log = { version = "0.4.20", features = ["max_level_debug", "release_max_level_info"] }
 
 redis = { version = "0.24.0", features = ["tokio-comp", "tokio-native-tls-comp", "connection-manager"] }
+deadpool-redis = "0.14.0"
 
 chrono = "0.4.31"
 hex = "0.4.3"
@@ -65,6 +66,7 @@ migration = { path = "migration" }
 utoipa = { version = "4.2.0", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "6.0.0", features = ["actix-web"] }
 utoipa-rapidoc = { version = "3", features = ["actix-web"] }
+
 
 [dependencies.sea-orm]
 version = "0.12.10"
