@@ -50,7 +50,7 @@ rust-argon2 = "2.0.0"
 lazy_static = "1.4.0"
 unicode-normalization = "0.1.22"
 getrandom = "0.2.11"
-time = "0.3.31"
+time = { version = "0.3.31", features = ["local-offset"] }
 async_once="0.2.6"
 tokio-async-std = "1.5.3"
 uuid = { version = "1.6.1", features = [ "v4" ] }

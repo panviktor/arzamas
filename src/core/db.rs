@@ -1,3 +1,4 @@
+use actix_web::{web, HttpRequest};
 use migration::{Migrator, MigratorTrait};
 use sea_orm::DatabaseConnection;
 use sea_orm::{ConnectOptions, Database};
@@ -6,6 +7,7 @@ use std::env;
 use tracing::debug;
 
 use crate::core::config::get_config;
+use crate::models::ServiceError;
 
 pub async fn check_migration(db: &DatabaseConnection) {
     debug!("Checking DB connection...");
@@ -31,4 +33,10 @@ pub async fn create_db_pool() -> DatabaseConnection {
     Database::connect(opt)
         .await
         .expect("Failed to create database connection pool")
+}
+
+pub fn extract_db_connection(req: &HttpRequest) -> Result<&DatabaseConnection, ServiceError> {
+    req.app_data::<web::Data<DatabaseConnection>>()
+        .ok_or_else(|| ServiceError::general(req, "Failed to extract database connection", true))
+        .map(|data| data.get_ref())
 }

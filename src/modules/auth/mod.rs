@@ -16,6 +16,7 @@ pub mod models;
 pub mod service;
 pub mod session;
 pub mod totp;
+pub(crate) mod utils;
 
 pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(

@@ -1,10 +1,4 @@
-use actix_web::web;
 use chrono::{Duration, Utc};
-
-use crate::core::config::get_config;
-use crate::core::email::MAILER;
-use crate::err_server;
-use crate::models::ServerError;
 
 use lettre::{
     message::{header, SinglePart},
@@ -12,7 +6,11 @@ use lettre::{
 };
 use sea_orm::DatabaseConnection;
 
-use crate::modules::auth::service::{
+use crate::core::config::get_config;
+use crate::core::email::MAILER;
+use crate::err_server;
+use crate::models::ServerError;
+use crate::modules::auth::utils::{
     add_email_token, add_password_reset_token, find_email_verify_token, verify_email_by,
 };
 
@@ -174,12 +172,11 @@ pub async fn send_validate_email(
     Ok(())
 }
 
-pub async fn try_verify_user_email(
+pub async fn verify_user_email(
     email: &str,
     token: &str,
-    db: web::Data<DatabaseConnection>,
+    db: &DatabaseConnection,
 ) -> Result<(), ServerError> {
-    let db = db.get_ref();
     let verification = find_email_verify_token(email, db).await;
     match verification {
         Ok(model) => {

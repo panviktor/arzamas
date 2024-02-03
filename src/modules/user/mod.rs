@@ -4,6 +4,7 @@ use actix_web::web;
 pub mod controllers;
 pub mod models;
 mod service;
+mod utils;
 
 pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(

@@ -1,14 +1,14 @@
+use crate::models::many_response::UniversalResponse;
 use crate::models::ServiceError;
 use actix_web::{web, HttpRequest, HttpResponse};
-use sea_orm::DatabaseConnection;
 
-use crate::modules::auth::email::try_verify_user_email;
 use crate::modules::auth::models::{
     ForgotPasswordParams, LoginParams, NewUserParams, OTPCode, ResetPasswordParams,
     VerifyEmailParams,
 };
 use crate::modules::auth::service::{
     try_create_user, try_login_2fa, try_login_user, try_reset_password, try_send_restore_email,
+    try_verify_user_email,
 };
 
 /// Creates a new user.
@@ -49,9 +49,8 @@ use crate::modules::auth::service::{
 pub async fn create_user(
     req: HttpRequest,
     params: web::Json<NewUserParams>,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    let saved_user = try_create_user(&req, params.0, db).await?;
+    let saved_user = try_create_user(&req, params.0).await?;
     Ok(HttpResponse::Created().json(saved_user))
 }
 
@@ -66,7 +65,7 @@ pub async fn create_user(
 /// * `params` - The parameters for email verification, wrapped in `web::Json` for automatic deserialization from the request body.
 ///
 /// # Responses
-/// * `200 OK` - Returned if the email is verified successfully.
+/// * `200 OK` - Returned if the email is verified successfully. The response body contains a `UniversalResponse` with a detailed success message.
 /// * `400 Bad Request` - Returned if the input data for email verification is invalid.
 /// * `429 Too Many Requests` - Returned if the request is rate-limited due to too many requests.
 /// * `500 Internal Server Error` - Returned if an unexpected error occurs during the verification process.
@@ -85,7 +84,7 @@ pub async fn create_user(
     path = "/api/auth/verify-email",
     request_body = VerifyEmailParams,
     responses(
-         (status = 200, description = "Email verified successfully"),
+         (status = 200, description = "Email verified successfully", body = UniversalResponse),
          (status = 400, description = "Verification data invalid"),
          (status = 429, description = "Too Many Requests"),
          (status = 500, description = "Internal Server Error")
@@ -94,12 +93,10 @@ pub async fn create_user(
 pub async fn verify_email(
     req: HttpRequest,
     params: web::Json<VerifyEmailParams>,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_verify_user_email(&params.email, &params.email_token, db)
-        .await
-        .map_err(|s| s.general(&req))?;
-    Ok(HttpResponse::Ok().finish())
+    try_verify_user_email(&req, &params.email, &params.email_token).await?;
+    let response = UniversalResponse::new("Email verified successfully".to_string(), None, true);
+    Ok(HttpResponse::Ok().json(response))
 }
 
 /// Logs in a user.
@@ -144,9 +141,8 @@ pub async fn verify_email(
 pub async fn login(
     req: HttpRequest,
     params: web::Json<LoginParams>,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_login_user(&req, params.0, db).await
+    try_login_user(&req, params.0).await
 }
 
 /// Logs in a user with 2-Factor Authentication (2FA).
@@ -184,9 +180,8 @@ pub async fn login(
 pub async fn login_2fa(
     req: HttpRequest,
     params: web::Json<OTPCode>,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    let json_response = try_login_2fa(&req, params.0, db).await?;
+    let json_response = try_login_2fa(&req, params.0).await?;
     Ok(HttpResponse::Ok().json(json_response))
 }
 
@@ -202,7 +197,8 @@ pub async fn login_2fa(
 /// * `params` - The username and email of the user, wrapped in `web::Json` for automatic deserialization from the request body.
 ///
 /// # Responses
-/// * `200 OK` - Returned if a password reset request is successfully initiated. The response body includes a confirmation message.
+/// * `200 OK` - Returned if a password reset request is successfully initiated.
+/// The response body contains a `UniversalResponse` with a detailed success message.
 /// * `400 Bad Request` - Returned if the provided data (username or email) is invalid.
 /// * `429 Too Many Requests` - Returned if the request is rate-limited due to too many attempts.
 /// * `500 Internal Server Error` - Returned if an unexpected error occurs during the process.
@@ -216,7 +212,7 @@ pub async fn login_2fa(
     path = "/api/auth/forgot-password",
     request_body = ForgotPasswordParams,
     responses(
-         (status = 200, description = "User created successfully"),
+         (status = 200, description = "User login successfully", body = UniversalResponse),
          (status = 400, description = "User data invalid"),
          (status = 429, description = "Too Many Requests"),
          (status = 500, description = "Internal Server Error")
@@ -225,10 +221,14 @@ pub async fn login_2fa(
 pub async fn forgot_password(
     req: HttpRequest,
     params: web::Json<ForgotPasswordParams>,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_send_restore_email(&req, params.0, db).await?;
-    Ok(HttpResponse::Ok().json("A password reset request has been sent."))
+    try_send_restore_email(&req, params.0).await?;
+    let response = UniversalResponse::new(
+        "A password reset request has been sent.".to_string(),
+        None,
+        true,
+    );
+    Ok(HttpResponse::Ok().json(response))
 }
 
 /// Handles the password reset process for a user.
@@ -247,6 +247,7 @@ pub async fn forgot_password(
 ///
 /// # Responses
 /// * `200 OK` - Returned if the password is successfully reset. The response body includes a confirmation message.
+/// The response body contains a `UniversalResponse` with a detailed success message.
 /// * `400 Bad Request` - Returned if the reset token is invalid, if the user ID does not match the token's user,
 ///   or if the new password does not meet the required criteria.
 /// * `429 Too Many Requests` - Returned if the request is rate-limited.
@@ -267,7 +268,7 @@ pub async fn forgot_password(
     path = "/api/auth/password-reset",
     request_body = ResetPasswordParams,
     responses(
-         (status = 200, description = "User created successfully"),
+         (status = 200, description = "Password successfully reset.", body = UniversalResponse),
          (status = 400, description = "User data invalid"),
          (status = 429, description = "Too Many Requests"),
          (status = 500, description = "Internal Server Error")
@@ -276,8 +277,8 @@ pub async fn forgot_password(
 pub async fn password_reset(
     req: HttpRequest,
     params: web::Json<ResetPasswordParams>,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_reset_password(&req, params.0, db).await?;
-    Ok(HttpResponse::Ok().json("Password successfully reset."))
+    try_reset_password(&req, params.0).await?;
+    let response = UniversalResponse::new("Password successfully reset.".to_string(), None, true);
+    Ok(HttpResponse::Ok().json(response))
 }

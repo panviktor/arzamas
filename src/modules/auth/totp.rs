@@ -13,10 +13,10 @@ use crate::err_server;
 use crate::models::ServerError;
 use crate::modules::auth::email::send_totp_email_code;
 use crate::modules::auth::hash_token;
-use crate::modules::auth::service::{
+use crate::modules::auth::session::{decode_token, generate_token};
+use crate::modules::auth::utils::{
     block_user_until, get_user_security_token_by_id, set_attempt_count,
 };
-use crate::modules::auth::session::{decode_token, generate_token};
 
 pub async fn set_app_only_expire_time(
     user_id: &str,
@@ -30,6 +30,10 @@ pub async fn set_app_only_expire_time(
         true => Utc::now() + Duration::days(7),
     };
 
+    let expiry_timestamp_nanos = expiry
+        .timestamp_nanos_opt()
+        .ok_or_else(|| err_server!("Failed to get nanosecond timestamp"))?;
+
     let code_expiration = Utc::now() + Duration::minutes(3);
     let login_session = Uuid::new_v4().to_string();
 
@@ -38,7 +42,7 @@ pub async fn set_app_only_expire_time(
         &login_session,
         login_ip,
         user_agent,
-        expiry.timestamp_nanos(),
+        expiry_timestamp_nanos,
     )
     .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
 
@@ -74,6 +78,10 @@ pub async fn generate_email_code(
         true => Utc::now() + Duration::days(7),
     };
 
+    let expiry_timestamp_nanos = expiry
+        .timestamp_nanos_opt()
+        .ok_or_else(|| err_server!("Failed to get nanosecond timestamp"))?;
+
     let code_expiration = Utc::now() + Duration::minutes(5);
     let login_session = Uuid::new_v4().to_string();
 
@@ -86,7 +94,7 @@ pub async fn generate_email_code(
         &login_session,
         login_ip,
         user_agent,
-        expiry.timestamp_nanos(),
+        expiry_timestamp_nanos,
     )
     .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
 

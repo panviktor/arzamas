@@ -1,456 +1,38 @@
 use actix_web::{web, HttpRequest, HttpResponse};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use deadpool_redis::Pool;
+
+use entity::user;
 use entity::user::Model as User;
-use entity::user_otp_token::Model as SecurityToken;
-use entity::user_security_settings::Model as SecuritySettings;
-use entity::{
-    user, user_confirmation, user_otp_token, user_restore_password, user_security_settings,
-};
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter, Set,
-};
+use sea_orm::{ActiveModelTrait, Set};
 
 use crate::core::constants::core_constants;
-use crate::models::{ErrorCode, ServerError, ServiceError};
+use crate::core::db::extract_db_connection;
+use crate::models::ServiceError;
 use crate::modules::auth::credentials::{
     credential_validator_username_email, generate_password_hash, generate_user_id,
     validate_email_rules, validate_password_rules, validate_username_rules,
 };
 use crate::modules::auth::email::{
-    send_password_reset_email, send_validate_email, success_enter_email,
+    send_password_reset_email, send_validate_email, verify_user_email,
 };
-use crate::modules::auth::hash_token;
 use crate::modules::auth::models::{
     CreatedUserDTO, ForgotPasswordParams, LoginParams, LoginResponse, NewUserParams, OTPCode,
-    ResetPasswordParams, UserInfo, VerifyToken,
+    ResetPasswordParams,
 };
-use crate::modules::auth::session::{generate_session_token, get_ip_addr, get_user_agent};
-use crate::modules::auth::totp::{generate_email_code, set_app_only_expire_time, verify_otp_codes};
-use crate::{err_input, err_server};
+use crate::modules::auth::session::get_ip_addr;
+use crate::modules::auth::totp::verify_otp_codes;
+use crate::modules::auth::utils::{
+    create_user_and_try_save, get_user_by_email, get_user_by_id, get_user_by_username,
+    get_user_settings_by_id, handle_login_result, user_created_response,
+    verify_password_reset_token,
+};
 
-/// Get a single user from the DB, searching by username
-pub async fn get_user_by_username(
-    username: &str,
-    db: &DatabaseConnection,
-) -> Result<Option<User>, ServerError> {
-    let to_find = username.to_string();
-    let user = entity::prelude::User::find()
-        .filter(user::Column::Username.eq(&*to_find))
-        .one(db)
-        .await
-        .map_err(|e| err_server!("Problem querying database for user {}: {}", username, e));
-
-    if let Ok(user) = user {
-        return match user {
-            Some(user) => Ok(Option::from(user)),
-            None => Ok(None),
-        };
-    }
-    Err(err_server!(
-        "Problem querying database for user: cant unwrap ORM"
-    ))
-}
-
-/// Get a single user from the DB, searching by username
-pub async fn get_user_by_email(
-    email: &str,
-    db: &DatabaseConnection,
-) -> Result<Option<User>, ServerError> {
-    let to_find = email.to_string();
-    let user = entity::prelude::User::find()
-        .filter(user::Column::Email.eq(&*to_find))
-        .one(db)
-        .await
-        .map_err(|e| err_server!("Problem querying database for user {}: {}", email, e));
-
-    if let Ok(user) = user {
-        return match user {
-            Some(user) => Ok(Option::from(user)),
-            None => Ok(None),
-        };
-    }
-    Err(err_server!(
-        "Problem querying database for user: can't unwrap ORM"
-    ))
-}
-
-/// Get a user security settings
-pub async fn get_user_settings_by_id(
-    user_id: &str,
-    db: &DatabaseConnection,
-) -> Result<SecuritySettings, ServerError> {
-    let setting_result = entity::prelude::UserSecuritySettings::find()
-        .filter(user_security_settings::Column::UserId.eq(user_id))
-        .one(db)
-        .await;
-
-    match setting_result {
-        Ok(Some(setting)) => Ok(setting),
-        Ok(None) => Err(err_server!(
-            "Problem querying database for user settings: can't unwrap ORM"
-        )),
-        Err(e) => Err(err_server!(
-            "Problem querying database for user {}: {}",
-            user_id,
-            e
-        )),
-    }
-}
-
-/// Get a user security token
-pub async fn get_user_security_token_by_id(
-    user_id: &str,
-    db: &DatabaseConnection,
-) -> Result<SecurityToken, ServerError> {
-    let token_result = entity::prelude::UserOtpToken::find()
-        .filter(user_otp_token::Column::UserId.eq(user_id))
-        .one(db)
-        .await;
-    return match token_result {
-        Ok(Some(token)) => Ok(token),
-        Ok(None) => {
-            let token = user_otp_token::ActiveModel {
-                user_id: Set(user_id.to_string()),
-                ..Default::default()
-            }
-            .insert(db)
-            .await
-            .map_err(|e| err_server!("Problem create OTP token {}:{}", user_id, e))?;
-            Ok(token)
-        }
-        Err(e) => Err(err_server!(
-            "Problem querying database for user {}: {}",
-            user_id,
-            e
-        )),
-    };
-}
-
-/// Get a single user from the DB, searching by username
-pub async fn get_user_by_id(
-    id: &str,
-    db: &DatabaseConnection,
-) -> Result<Option<User>, ServerError> {
-    let to_find = id.to_string();
-    let user = entity::prelude::User::find()
-        .filter(user::Column::UserId.eq(&*to_find))
-        .one(db)
-        .await
-        .map_err(|e| err_server!("Problem querying database for user {}: {}", id, e));
-
-    if let Ok(user) = user {
-        return match user {
-            Some(user) => Ok(Option::from(user)),
-            None => Ok(None),
-        };
-    }
-    Err(err_server!(
-        "Problem querying database for user: can't unwrap ORM"
-    ))
-}
-
-pub async fn create_user_and_try_save(
-    user_id: &String,
-    params: &NewUserParams,
-    req: &HttpRequest,
-    db: &DatabaseConnection,
-) -> Result<User, ServiceError> {
-    let hash = generate_password_hash(&params.password).map_err(|s| s.general(&req))?;
-
-    let user = user::ActiveModel {
-        user_id: Set(user_id.to_string()),
-        email: Set(params.email.to_string()),
-        username: Set(params.username.to_string()),
-        pass_hash: Set(hash.to_string()),
-        created_at: Set(Utc::now().naive_utc()),
-        updated_at: Set(Utc::now().naive_utc()),
-        ..Default::default()
-    };
-    let user = user.insert(db).await?;
-    let settings = user_security_settings::ActiveModel {
-        user_id: Set(user_id.to_string()),
-        ..Default::default()
-    };
-    settings.insert(db).await?;
-    Ok(user)
-}
-
-pub async fn try_send_restore_email(
-    req: &HttpRequest,
-    params: ForgotPasswordParams,
-    db: web::Data<DatabaseConnection>,
-) -> Result<(), ServiceError> {
-    let db = db.get_ref();
-    if let Err(e) = validate_username_rules(&params.username) {
-        return Err(e.bad_request(&req));
-    }
-    // Check the password is valid
-    if let Err(e) = validate_email_rules(&params.email) {
-        return Err(e.bad_request(&req));
-    }
-
-    match get_user_by_username(&params.username, db)
-        .await
-        .map_err(|s| s.general(&req))?
-    {
-        Some(user) => {
-            if user.email == params.email {
-                send_password_reset_email(&user.user_id, &user.email, db)
-                    .await
-                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
-            }
-        }
-        None => {}
-    };
-    Ok(())
-}
-
-pub async fn try_reset_password(
-    req: &HttpRequest,
-    params: ResetPasswordParams,
-    db: web::Data<DatabaseConnection>,
-) -> Result<(), ServiceError> {
-    let db = db.get_ref();
-    let user = verify_password_reset_token(&params.token, db)
-        .await
-        .map_err(|s| s.general(req))?;
-
-    // Check the new password is valid
-    if let Err(e) = validate_password_rules(&params.password, &params.password_confirm) {
-        return Err(e.bad_request(&req));
-    }
-
-    // check user matches the one from the token
-    if user.user_id != params.user_id {
-        return Err(ServiceError::bad_request(
-            &req,
-            "User/token mismatch.",
-            true,
-        ));
-    }
-
-    if let Some(user) = get_user_by_id(&params.user_id, db)
-        .await
-        .map_err(|s| s.general(&req))?
-    {
-        let hash = generate_password_hash(&params.password).map_err(|s| s.general(&req))?;
-
-        let mut active: user::ActiveModel = user.into();
-        active.pass_hash = Set(hash.to_owned());
-        active.updated_at = Set(Utc::now().naive_utc());
-        active.update(db).await?;
-
-        // Add optional invalidate all user session
-        // based on user preferences
-        // Send to email alert
-    }
-
-    Ok(())
-}
-
-pub async fn add_password_reset_token(
-    user_id: &str,
-    token: &str,
-    expiry: DateTime<Utc>,
-    db: &DatabaseConnection,
-) -> Result<(), ServerError> {
-    let hashed_token = hash_token(token);
-    if let Some(user) = user_restore_password::Entity::find()
-        .filter(user_restore_password::Column::UserId.contains(user_id))
-        .one(db)
-        .await
-        .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))?
-    {
-        let mut active: user_restore_password::ActiveModel = user.into();
-        active.otp_hash = Set(hashed_token.to_string());
-        active.expiry = Set(expiry.naive_utc());
-        active
-            .update(db)
-            .await
-            .map_err(|e| err_server!("Problem updating restore token {}:{}", user_id, e))?;
-    } else {
-        let new_restore = user_restore_password::ActiveModel {
-            user_id: Set(user_id.to_string()),
-            otp_hash: Set(hashed_token.to_string()),
-            expiry: Set(expiry.naive_utc()),
-            ..Default::default()
-        };
-        new_restore
-            .insert(db)
-            .await
-            .map_err(|e| err_server!("Problem adding restore token {}:{}", user_id, e))?;
-    }
-
-    Ok(())
-}
-
-async fn verify_password_reset_token(
-    token: &str,
-    db: &DatabaseConnection,
-) -> Result<UserInfo, ServerError> {
-    let hashed_token = hash_token(token);
-    let user = user_restore_password::Entity::find()
-        .filter(user_restore_password::Column::OtpHash.eq(hashed_token))
-        .one(db)
-        .await
-        .map_err(|e| err_server!("Problem finding password reset token {}: {}", token, e))?
-        .ok_or(err_input!("Token not found."))?;
-
-    let user_id = user.user_id.clone();
-    let user_expiry = user.expiry;
-
-    user.delete(db)
-        .await
-        .map_err(|e| err_server!("Problem delete password reset token {}: {}", token, e))?;
-
-    let now = Utc::now().naive_utc();
-
-    return if user_expiry > now {
-        Ok(UserInfo { user_id })
-    } else {
-        Err(ServerError {
-            code: ErrorCode::ServerError,
-            message: "Token to restore password not found or expiry".to_string(),
-            show_message: false,
-        })
-    };
-}
-
-/// Add an email token to the DB
-pub async fn add_email_token(
-    user_id: &str,
-    email: &str,
-    token: &str,
-    expiry: DateTime<Utc>,
-    user_exists: bool,
-    db: &DatabaseConnection,
-) -> Result<(), ServerError> {
-    // Uniqueness is taken care of by an index in the DB
-    if !user_exists {
-        let confirmation = user_confirmation::ActiveModel {
-            user_id: Set(user_id.to_string()),
-            email: Set(email.to_string()),
-            otp_hash: Set(token.to_string()),
-            expiry: Set(expiry.naive_utc()),
-            ..Default::default()
-        };
-
-        confirmation
-            .insert(db)
-            .await
-            .map_err(|e| err_server!("Problem adding email token {}:{}", user_id, e))?;
-    } else {
-        if let Some(user) = user_confirmation::Entity::find()
-            .filter(user_confirmation::Column::UserId.contains(user_id))
-            .one(db)
-            .await
-            .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))?
-        {
-            let mut active: user_confirmation::ActiveModel = user.into();
-            active.email = Set(email.to_string());
-            active.otp_hash = Set(token.to_string());
-            active.expiry = Set(expiry.naive_utc());
-            active
-                .update(db)
-                .await
-                .map_err(|e| err_server!("Problem updating active_user {}:{}", user_id, e))?;
-        }
-    }
-    Ok(())
-}
-
-pub async fn find_email_verify_token(
-    email: &str,
-    db: &DatabaseConnection,
-) -> Result<VerifyToken, ServerError> {
-    let confirmation = user_confirmation::Entity::find()
-        .filter(user_confirmation::Column::Email.contains(email))
-        .one(db)
-        .await
-        .map_err(|e| err_server!("Problem finding email and token {}:{}", email, e))?;
-    match confirmation {
-        None => Err(err_server!("Problem finding email and token {}", email)),
-        Some(model) => {
-            let token = VerifyToken {
-                expiry: model.expiry.clone(),
-                user_id: model.user_id.clone(),
-                otp_hash: model.otp_hash.clone(),
-            };
-            model
-                .delete(db)
-                .await
-                .map_err(|e| err_server!("Problem delete token with email: {}:{}", email, e))?;
-            Ok(token)
-        }
-    }
-}
-
-pub async fn verify_email_by(user_id: &str, db: &DatabaseConnection) -> Result<(), ServerError> {
-    let user = user::Entity::find()
-        .filter(user::Column::UserId.contains(user_id))
-        .one(db)
-        .await
-        .map_err(|e| err_server!("Problem finding user id {}:{}", user_id, e))?;
-
-    if user.is_none() {
-        return Err(err_server!("Problem finding user id {}", user_id));
-    }
-
-    let user = user.unwrap();
-    if user.email_validated {
-        return Ok(());
-    }
-
-    let mut item_active_model: user::ActiveModel = user.into();
-    item_active_model.email_validated = Set(true);
-
-    item_active_model
-        .update(db)
-        .await
-        .map_err(|e| err_server!("Problem updating user {}:{}", user_id, e))?;
-    Ok(())
-}
-
-pub async fn block_user_until(
-    user_id: &str,
-    expiry: DateTime<Utc>,
-    db: &DatabaseConnection,
-) -> Result<(), ServerError> {
-    if let Some(user) = get_user_by_id(user_id, db)
-        .await
-        .map_err(|e| err_server!("Problem finding user {}:{}", user_id, e))?
-    {
-        let mut active: user::ActiveModel = user.into();
-        active.login_blocked_until = Set(Some(expiry.naive_utc()));
-        active
-            .update(db)
-            .await
-            .map_err(|e| err_server!("Problem updating user {}:{}", user_id, e))?;
-    }
-    Ok(())
-}
-
-pub async fn set_attempt_count(
-    attempt_count: i32,
-    user_id: &str,
-    mut new_user: user_otp_token::ActiveModel,
-    db: &DatabaseConnection,
-) -> Result<(), ServerError> {
-    new_user.attempt_count = Set(attempt_count);
-    new_user
-        .update(db)
-        .await
-        .map_err(|e| err_server!("Problem updating OTP token attempt count {}:{}", user_id, e))?;
-    Ok(())
-}
-
-pub async fn try_create_user(
+pub(crate) async fn try_create_user(
     req: &HttpRequest,
     params: NewUserParams,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<CreatedUserDTO, ServiceError> {
-    let db = db.get_ref();
+    let db = extract_db_connection(req)?;
 
     if let Err(e) = validate_password_rules(&params.password, &params.password_confirm) {
         return Err(ServiceError::bad_request(
@@ -511,7 +93,7 @@ pub async fn try_create_user(
     for i in 0..10 {
         user_id = generate_user_id().map_err(|s| s.general(&req))?;
 
-        match create_user_and_try_save(&user_id, &params, &req, db).await {
+        match create_user_and_try_save(&req, &user_id, &params).await {
             Ok(user) => {
                 saved_user = Some(user);
                 break;
@@ -545,29 +127,82 @@ pub async fn try_create_user(
     Ok(user_created_response(&saved_user))
 }
 
-fn user_created_response(user: &User) -> CreatedUserDTO {
-    CreatedUserDTO {
-        username: user.username.to_string(),
-        creation_day: user.created_at,
-        user_email: user.email.to_string(),
-        description: format!(
-            "Greetings, {}!\n\n\
-        Your account was successfully created on {}.\n\
-        We have dispatched a verification email to: {}.\n\
-        Please follow the instructions in the email to verify your account. \
-        Note that the verification link will remain active for 24 hours only.\n\n\
-        Welcome to our community!\n",
-            user.username, user.created_at, user.email
-        ),
+pub async fn try_send_restore_email(
+    req: &HttpRequest,
+    params: ForgotPasswordParams,
+) -> Result<(), ServiceError> {
+    let db = extract_db_connection(req)?;
+    if let Err(e) = validate_username_rules(&params.username) {
+        return Err(e.bad_request(&req));
     }
+    // Check the password is valid
+    if let Err(e) = validate_email_rules(&params.email) {
+        return Err(e.bad_request(&req));
+    }
+
+    match get_user_by_username(&params.username, db)
+        .await
+        .map_err(|s| s.general(&req))?
+    {
+        Some(user) => {
+            if user.email == params.email {
+                send_password_reset_email(&user.user_id, &user.email, db)
+                    .await
+                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
+            }
+        }
+        None => {}
+    };
+    Ok(())
+}
+
+pub async fn try_reset_password(
+    req: &HttpRequest,
+    params: ResetPasswordParams,
+) -> Result<(), ServiceError> {
+    let db = extract_db_connection(req)?;
+    let user = verify_password_reset_token(&params.token, db)
+        .await
+        .map_err(|s| s.general(req))?;
+
+    // Check the new password is valid
+    if let Err(e) = validate_password_rules(&params.password, &params.password_confirm) {
+        return Err(e.bad_request(&req));
+    }
+
+    // check user matches the one from the token
+    if user.user_id != params.user_id {
+        return Err(ServiceError::bad_request(
+            &req,
+            "User/token mismatch.",
+            true,
+        ));
+    }
+
+    if let Some(user) = get_user_by_id(&params.user_id, db)
+        .await
+        .map_err(|s| s.general(&req))?
+    {
+        let hash = generate_password_hash(&params.password).map_err(|s| s.general(&req))?;
+
+        let mut active: user::ActiveModel = user.into();
+        active.pass_hash = Set(hash.to_owned());
+        active.updated_at = Set(Utc::now().naive_utc());
+        active.update(db).await?;
+
+        // Add optional invalidate all user session
+        // based on user preferences
+        // Send to email alert
+    }
+
+    Ok(())
 }
 
 pub async fn try_login_user(
     req: &HttpRequest,
     params: LoginParams,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    let db = db.get_ref();
+    let db = extract_db_connection(req)?;
     // Check the username is valid
     if validate_username_rules(&params.identifier).is_err()
         && validate_email_rules(&params.identifier).is_err()
@@ -613,90 +248,12 @@ pub async fn try_login_user(
     ))
 }
 
-async fn handle_login_result(
-    user_id: &str,
-    user_email: &str,
-    security_settings: SecuritySettings,
-    req: &HttpRequest,
-    params: &LoginParams,
-    db: &DatabaseConnection,
-) -> Result<HttpResponse, ServiceError> {
-    let login_ip = get_ip_addr(req).map_err(|s| ServiceError::general(req, s.message, false))?;
-    let user_agent = get_user_agent(&req);
-    let persistent = params.persist.unwrap_or(false);
-
-    let redis_pool = req
-        .app_data::<web::Data<Pool>>() // Make sure Pool is the type of your Redis connection pool
-        .ok_or_else(|| ServiceError::general(&req, "Failed to extract Redis pool", true))?;
-
-    return match (
-        security_settings.two_factor_email,
-        security_settings.two_factor_authenticator_app,
-    ) {
-        (true, true) => {
-            generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent, db)
-                .await
-                .map_err(|s| ServiceError::general(&req, s.message, false))?;
-            let json = LoginResponse::OTPResponse {
-                message: "The code has been sent to your email!\n
-                Enter your code from email and code from 2FA apps like Google Authenticator and Authy!
-                "
-                    .to_string(),
-                apps_code: true,
-                id: None,
-            };
-            Ok(HttpResponse::Ok().json(json))
-        }
-        (true, false) => {
-            generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent, db)
-                .await
-                .map_err(|s| ServiceError::general(&req, s.message, false))?;
-            let json = LoginResponse::OTPResponse {
-                message: "The code has been sent to your email!".to_string(),
-                apps_code: false,
-                id: None,
-            };
-            Ok(HttpResponse::Ok().json(json))
-        }
-        (false, true) => {
-            set_app_only_expire_time(user_id, persistent, &login_ip, &user_agent, db)
-                .await
-                .map_err(|s| ServiceError::general(&req, s.message, false))?;
-            let json = LoginResponse::OTPResponse {
-                message: "Enter your OTP code! For better security, use dual authorization in conjunction with email.".to_string(),
-                apps_code: true,
-                id: Some(user_id.to_string()),
-            };
-            Ok(HttpResponse::Ok().json(json))
-        }
-        (false, false) => {
-            let token =
-                generate_session_token(user_id, persistent, &login_ip, &user_agent, redis_pool)
-                    .await
-                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
-
-            if security_settings.email_on_success_enabled_at {
-                success_enter_email(user_email, &login_ip)
-                    .await
-                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
-            }
-
-            let response = LoginResponse::TokenResponse {
-                token,
-                token_type: core_constants::BEARER.to_string(),
-            };
-            Ok(HttpResponse::Ok().json(response))
-        }
-    };
-}
-
 pub async fn try_login_2fa(
     req: &HttpRequest,
     params: OTPCode,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<LoginResponse, ServiceError> {
     let login_ip = get_ip_addr(&req).map_err(|s| ServiceError::general(&req, s.message, false))?;
-    let db = db.get_ref();
+    let db = extract_db_connection(req)?;
 
     let redis_pool = req
         .app_data::<web::Data<Pool>>() // Make sure Pool is the type of your Redis connection pool
@@ -717,4 +274,15 @@ pub async fn try_login_2fa(
         token,
         token_type: core_constants::BEARER.to_string(),
     })
+}
+
+pub async fn try_verify_user_email(
+    req: &HttpRequest,
+    email: &str,
+    token: &str,
+) -> Result<(), ServiceError> {
+    let db = extract_db_connection(req)?;
+    verify_user_email(email, token, db)
+        .await
+        .map_err(|s| s.general(&req))
 }

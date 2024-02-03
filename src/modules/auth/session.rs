@@ -36,7 +36,9 @@ pub fn generate_token(
     user_agent: &str,
     exp: i64,
 ) -> Result<String, ServerError> {
-    let now = Utc::now().timestamp_nanos();
+    let now = Utc::now()
+        .timestamp_nanos_opt()
+        .ok_or_else(|| err_server!("Failed to get nanosecond timestamp for issued at time"))?;
 
     let payload = UserToken {
         iat: now,
@@ -73,12 +75,17 @@ pub async fn generate_session_token(
             Duration::days(1)
         };
     let login_session = Uuid::new_v4().to_string();
+
+    let expiry_timestamp_nanos = expiry
+        .timestamp_nanos_opt()
+        .ok_or_else(|| err_server!("Failed to get nanosecond timestamp"))?;
+
     let token = generate_token(
         user,
         &login_session,
         login_ip,
         user_agent,
-        expiry.timestamp_nanos(),
+        expiry_timestamp_nanos,
     )
     .map_err(|e| err_server!("Unable to generate session token: {}", e))?;
 

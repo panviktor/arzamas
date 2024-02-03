@@ -1,5 +1,5 @@
 use crate::models::ServerError;
-use crate::modules::auth::service::{get_user_by_email, get_user_by_username};
+use crate::modules::auth::utils::{get_user_by_email, get_user_by_username};
 use crate::{err_input, err_server};
 use argon2::{hash_encoded, verify_encoded, Config};
 use entity::user::Model as User;

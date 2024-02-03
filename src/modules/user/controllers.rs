@@ -9,7 +9,6 @@ use crate::modules::user::models::{
     ChangeEmailParams, ChangePasswordParams, MnemonicConfirmation, SecuritySettingsUpdate,
 };
 use actix_web::{web, HttpRequest, HttpResponse};
-use sea_orm::DatabaseConnection;
 
 use crate::modules::user::service::{
     try_2fa_activate, try_2fa_add, try_2fa_remove, try_2fa_reset, try_about_me, try_add_email_2fa,
@@ -52,12 +51,8 @@ use crate::modules::user::service::{
         ("token" = [])
     )
 )]
-pub async fn about_me(
-    req: HttpRequest,
-    user: LoginUser,
-    db: web::Data<DatabaseConnection>,
-) -> Result<HttpResponse, ServiceError> {
-    let info = try_about_me(&req, &user.id, db).await?;
+pub async fn about_me(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
+    let info = try_about_me(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(info))
 }
 
@@ -302,9 +297,8 @@ pub async fn change_password(
     req: HttpRequest,
     user: LoginUser,
     params: web::Json<ChangePasswordParams>,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_change_password(&req, &user.id, params.0, db).await?;
+    try_change_password(&req, &user.id, params.0).await?;
     let response = UniversalResponse::new("Password Changed Successfully".to_string(), None, true);
     Ok(HttpResponse::Ok().json(response))
 }
@@ -360,9 +354,8 @@ pub async fn change_email(
     req: HttpRequest,
     user: LoginUser,
     params: web::Json<ChangeEmailParams>,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_change_email(&req, &user.id, params.0, db).await?;
+    try_change_email(&req, &user.id, params.0).await?;
     let response = UniversalResponse::new("Email Changed Successfully".to_string(), None, true);
     Ok(HttpResponse::Ok().json(response))
 }
@@ -405,9 +398,8 @@ pub async fn change_email(
 pub async fn resend_verify_email(
     req: HttpRequest,
     user: LoginUser,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_resend_verify_email(&req, &user.id, db).await?;
+    try_resend_verify_email(&req, &user.id).await?;
     let response =
         UniversalResponse::new("Email Verify Resend Successfully".to_string(), None, true);
     Ok(HttpResponse::Ok().json(response))
@@ -462,9 +454,8 @@ pub async fn resend_verify_email(
 pub async fn get_security_settings(
     req: HttpRequest,
     user: LoginUser,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    let info = try_get_security_settings(&req, &user.id, db).await?;
+    let info = try_get_security_settings(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(info))
 }
 
@@ -486,9 +477,8 @@ pub async fn update_security_settings(
     req: HttpRequest,
     user: LoginUser,
     params: web::Json<SecuritySettingsUpdate>,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_update_security_settings(&req, &user.id, params.0, db).await?;
+    try_update_security_settings(&req, &user.id, params.0).await?;
     Ok(HttpResponse::Ok().json("get_security_settings"))
 }
 
@@ -531,9 +521,8 @@ pub async fn update_security_settings(
 pub async fn add_email_2fa(
     req: HttpRequest,
     user: LoginUser,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_add_email_2fa(&req, &user.id, db).await?;
+    try_add_email_2fa(&req, &user.id).await?;
     let response = UniversalResponse::new(
         "Sending an authorization code by email is activated.".to_string(),
         None,
@@ -581,9 +570,8 @@ pub async fn add_email_2fa(
 pub async fn remove_email_2fa(
     req: HttpRequest,
     user: LoginUser,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_remove_email_2fa(&req, &user.id, db).await?;
+    try_remove_email_2fa(&req, &user.id).await?;
     let response = UniversalResponse::new(
         "Sending an authorization code by email is disabled.".to_string(),
         None,
@@ -631,12 +619,8 @@ pub async fn remove_email_2fa(
         ("token" = [])
     )
 )]
-pub async fn add_2fa(
-    req: HttpRequest,
-    user: LoginUser,
-    db: web::Data<DatabaseConnection>,
-) -> Result<HttpResponse, ServiceError> {
-    let json = try_2fa_add(&req, &user.id, db).await?;
+pub async fn add_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
+    let json = try_2fa_add(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(json))
 }
 
@@ -681,9 +665,8 @@ pub async fn activate_2fa(
     req: HttpRequest,
     user: LoginUser,
     params: web::Json<MnemonicConfirmation>,
-    db: web::Data<DatabaseConnection>,
 ) -> Result<HttpResponse, ServiceError> {
-    try_2fa_activate(&req, &user.id, params.0, db).await?;
+    try_2fa_activate(&req, &user.id, params.0).await?;
     let response = UniversalResponse::new(
         "2FA Successfully Activated".to_string(),
         Some(
@@ -735,12 +718,8 @@ pub async fn activate_2fa(
         ("token" = [])
     )
 )]
-pub async fn reset_2fa(
-    req: HttpRequest,
-    user: LoginUser,
-    db: web::Data<DatabaseConnection>,
-) -> Result<HttpResponse, ServiceError> {
-    let json = try_2fa_reset(&req, &user.id, db).await?;
+pub async fn reset_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
+    let json = try_2fa_reset(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(json))
 }
 
@@ -780,12 +759,8 @@ pub async fn reset_2fa(
         ("token" = [])
     )
 )]
-pub async fn remove_2fa(
-    req: HttpRequest,
-    user: LoginUser,
-    db: web::Data<DatabaseConnection>,
-) -> Result<HttpResponse, ServiceError> {
-    try_2fa_remove(&req, &user.id, db).await?;
+pub async fn remove_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
+    try_2fa_remove(&req, &user.id).await?;
     let response = UniversalResponse::new(
         "2FA Successfully Removed".to_string(),
         Some("Please keep in mind that disabling two-factor authentication (2FA) reduces the security of your account.\
