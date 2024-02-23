@@ -73,7 +73,9 @@ pub async fn try_change_email(
         .await
         .map_err(|s| s.general(&req))?
     {
-        if !credential_validator(&user, &params.current_password).map_err(|e| e.general(&req))? {
+        if !credential_validator(&user.pass_hash, &params.current_password)
+            .map_err(|e| e.general(&req))?
+        {
             return Err(ServiceError::bad_request(
                 &req,
                 "Invalid current password",
@@ -127,7 +129,9 @@ pub async fn try_change_password(
         .await
         .map_err(|s| s.general(&req))?
     {
-        if !credential_validator(&user, &params.current_password).map_err(|e| e.general(&req))? {
+        if !credential_validator(&user.pass_hash, &params.current_password)
+            .map_err(|e| e.general(&req))?
+        {
             return Err(ServiceError::bad_request(
                 &req,
                 "Invalid current password",

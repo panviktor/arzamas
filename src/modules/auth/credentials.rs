@@ -1,7 +1,10 @@
 use crate::models::ServerError;
 use crate::modules::auth::utils::{get_user_by_email, get_user_by_username};
 use crate::{err_input, err_server};
-use argon2::{hash_encoded, verify_encoded, Config};
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    Argon2,
+};
 use entity::user::Model as User;
 use lazy_static::lazy_static;
 use rand::{distributions::Alphanumeric, Rng};
@@ -23,11 +26,15 @@ fn normalize_string(s: &str) -> String {
 
 /// Generate a password hash from the supplied password, using a random salt
 pub fn generate_password_hash(password: &str) -> Result<String, ServerError> {
-    let config = Config::default();
-    let mut salt = [0u8; 32];
-    getrandom::getrandom(&mut salt).map_err(|e| err_server!("Error generating salt: {}", e))?;
-    hash_encoded(normalize_string(password).as_bytes(), &salt, &config)
-        .map_err(|e| err_server!("Error generating hash: {}", e))
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let normalize_password = normalize_string(password);
+    let password_hash = argon2.hash_password(normalize_password.as_bytes(), &salt);
+
+    match password_hash {
+        Ok(hash) => Ok(hash.to_string()),
+        Err(e) => Err(err_server!("Error generating hash: {}", e)),
+    }
 }
 
 /// Generate a random user ID
@@ -44,11 +51,23 @@ pub fn generate_user_id() -> Result<String, ServerError> {
 }
 
 /// Check if the username + password pair are valid
-pub fn credential_validator(user: &User, password: &str) -> Result<bool, ServerError> {
-    Ok(
-        verify_encoded(&user.pass_hash, normalize_string(password).as_bytes())
-            .map_err(|e| err_server!("Error verifying hash: {}", e))?,
-    )
+pub fn credential_validator(password_hash: &str, password: &str) -> Result<bool, ServerError> {
+    // Normalize the input password
+    let normalize_password = normalize_string(password);
+
+    // Parse the stored password hash
+    let parsed_hash = match PasswordHash::new(password_hash) {
+        Ok(hash) => hash,
+        Err(_) => return Err(err_server!("Invalid hash format.")),
+    };
+    // Create an instance of the Argon2 algorithm
+    let argon2 = Argon2::default();
+
+    // Verify the password against the stored hash
+    match argon2.verify_password(normalize_password.as_bytes(), &parsed_hash) {
+        Ok(()) => Ok(true),  // Password matches
+        Err(_) => Ok(false), // Password does not match or other error
+    }
 }
 
 /// Check if the username + password pair are valid
@@ -64,7 +83,7 @@ pub async fn credential_validator_username_email(
 
     if let Ok(user) = user {
         if let Some(user) = user {
-            return match credential_validator(&user, &password)? {
+            return match credential_validator(&user.pass_hash, &password)? {
                 true => Ok(Some(user)),
                 false => {
                     tracing::warn!("User doesn't exist: {}", identifier);
