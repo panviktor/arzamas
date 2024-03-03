@@ -1,5 +1,5 @@
 use crate::models::many_response::UniversalResponse;
-use crate::models::ServiceError;
+use crate::application::error::service_error::ServiceError;
 use crate::modules::auth::middleware::LoginUser;
 use crate::modules::auth::session::{
     try_active_sessions, try_current_active_session, try_remove_active_session_token,
@@ -40,16 +40,16 @@ use crate::modules::user::service::{
 /// The endpoint is secured with a token-based authentication system. The client must include a valid token in the request header to access this endpoint.
 ///
 #[utoipa::path(
-    get,
-    path = "/api/user/about-me",
-    responses(
-        (status = 200, description = "User information retrieved successfully", body = AboutMeInformation),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+get,
+path = "/api/user/about-me",
+responses(
+(status = 200, description = "User information retrieved successfully", body = AboutMeInformation),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn about_me(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
     let info = try_about_me(&req, &user.id).await?;
@@ -81,16 +81,16 @@ pub async fn about_me(req: HttpRequest, user: LoginUser) -> Result<HttpResponse,
 /// The endpoint is secured with token-based authentication. A valid token is required in the request header for the logout to proceed.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/user/logout",
-    responses(
-        (status = 200, description = "Logout from current session", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/logout",
+responses(
+(status = 200, description = "Logout from current session", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn logout(req: HttpRequest) -> Result<HttpResponse, ServiceError> {
     try_remove_active_session_token(&req).await?;
@@ -126,16 +126,16 @@ pub async fn logout(req: HttpRequest) -> Result<HttpResponse, ServiceError> {
 /// The endpoint requires token-based authentication. A valid token must be included in the request header for the logout to be effective.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/user/logout-all",
-    responses(
-        (status = 200, description = "Logout from all sessions", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/logout-all",
+responses(
+(status = 200, description = "Logout from all sessions", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn logout_all(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
     try_remove_all_sessions_token(&req, &user.id).await?;
@@ -180,16 +180,16 @@ pub async fn logout_all(req: HttpRequest, user: LoginUser) -> Result<HttpRespons
 /// - `user_agent`: String - The user agent of the browser or client used during login.
 ///
 #[utoipa::path(
-    get,
-    path = "/api/user/current-session",
-    responses(
-        (status = 200, description = "User session information retrieved successfully", body = UserToken),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+get,
+path = "/api/user/current-session",
+responses(
+(status = 200, description = "User session information retrieved successfully", body = UserToken),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn current_session(req: HttpRequest) -> Result<HttpResponse, ServiceError> {
     let session = try_current_active_session(&req).await?;
@@ -230,16 +230,16 @@ pub async fn current_session(req: HttpRequest) -> Result<HttpResponse, ServiceEr
 /// - `user_agent`: String - The user agent of the browser or client used during login.
 ///
 #[utoipa::path(
-    get,
-    path = "/api/user/all-sessions",
-    responses(
-        (status = 200, description = "User sessions information retrieved successfully", body = [UserToken]),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+get,
+path = "/api/user/all-sessions",
+responses(
+(status = 200, description = "User sessions information retrieved successfully", body = [UserToken]),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn all_sessions(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
     let sessions = try_active_sessions(&req, &user.id).await?;
@@ -281,17 +281,17 @@ pub async fn all_sessions(req: HttpRequest, user: LoginUser) -> Result<HttpRespo
 /// - `new_password_confirm`: String - Confirmation of the new password for verification purposes.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/user/change-password",
-    request_body = ChangePasswordParams,
-    responses(
-        (status = 200, description = "Password Changed Successfully", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/change-password",
+request_body = ChangePasswordParams,
+responses(
+(status = 200, description = "Password Changed Successfully", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn change_password(
     req: HttpRequest,
@@ -338,17 +338,17 @@ pub async fn change_password(
 /// - `new_email_confirm`: String - Confirmation of the new email for verification purposes.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/user/change-email",
-    request_body = ChangeEmailParams,
-    responses(
-        (status = 200, description = "Email Changed Successfully", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/change-email",
+request_body = ChangeEmailParams,
+responses(
+(status = 200, description = "Email Changed Successfully", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn change_email(
     req: HttpRequest,
@@ -384,16 +384,16 @@ pub async fn change_email(
 /// The endpoint requires token-based authentication. A valid token must be included in the request header for the operation.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/user/resend-verify-email",
-    responses(
-        (status = 200, description = "Email Verify Resend Successfully", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/resend-verify-email",
+responses(
+(status = 200, description = "Email Verify Resend Successfully", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn resend_verify_email(
     req: HttpRequest,
@@ -440,16 +440,16 @@ pub async fn resend_verify_email(
 /// Note: Sensitive fields like the primary key and TOTP secret are not included in the response for security reasons.
 ///
 #[utoipa::path(
-    get,
-    path = "/api/user/security-settings",
-    responses(
-        (status = 200, description = "Security settings retrieved successfully", body = UserSecuritySettings),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+get,
+path = "/api/user/security-settings",
+responses(
+(status = 200, description = "Security settings retrieved successfully", body = UserSecuritySettings),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn get_security_settings(
     req: HttpRequest,
@@ -461,17 +461,17 @@ pub async fn get_security_settings(
 
 //need implement
 #[utoipa::path(
-    post,
-    path = "/api/user/security-settings",
-    request_body = SecuritySettingsUpdate,
-    responses(
-        (status = 200, description = "User information retrieved successfully", body = UpdateSecuritySettingsResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/security-settings",
+request_body = SecuritySettingsUpdate,
+responses(
+(status = 200, description = "User information retrieved successfully", body = UpdateSecuritySettingsResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn update_security_settings(
     req: HttpRequest,
@@ -507,16 +507,16 @@ pub async fn update_security_settings(
 /// The endpoint requires token-based authentication. A valid token must be included in the request header for the operation.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/user/2fa-add-email",
-    responses(
-        (status = 200, description = "Sending an authorization code by email is activated", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/2fa-add-email",
+responses(
+(status = 200, description = "Sending an authorization code by email is activated", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn add_email_2fa(
     req: HttpRequest,
@@ -556,16 +556,16 @@ pub async fn add_email_2fa(
 /// The endpoint requires token-based authentication. A valid token must be included in the request header for the operation.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/user/2fa-remove-email",
-    responses(
-        (status = 200, description = "Sending an authorization code by email is disabled", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/2fa-remove-email",
+responses(
+(status = 200, description = "Sending an authorization code by email is disabled", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn remove_email_2fa(
     req: HttpRequest,
@@ -608,16 +608,16 @@ pub async fn remove_email_2fa(
 /// - `base32_secret`: String - A base32-encoded secret key for setting up the authentication app.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/user/2fa-add",
-    responses(
-    (status = 200, description = "2FA setup information provided successfully", body = AuthenticationAppInformation),
-    (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/2fa-add",
+responses(
+(status = 200, description = "2FA setup information provided successfully", body = AuthenticationAppInformation),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn add_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
     let json = try_2fa_add(&req, &user.id).await?;
@@ -649,17 +649,17 @@ pub async fn add_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, 
 /// The endpoint requires token-based authentication. A valid token must be included in the request header to activate 2FA.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/user/2fa-activate",
-    request_body = MnemonicConfirmation,
-    responses(
-        (status = 200, description = "2FA Successfully Activated", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/2fa-activate",
+request_body = MnemonicConfirmation,
+responses(
+(status = 200, description = "2FA Successfully Activated", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn activate_2fa(
     req: HttpRequest,
@@ -674,7 +674,7 @@ pub async fn activate_2fa(
              This additional layer of security will help protect your account and ensure that only authorized individuals can access it.\
              Remember to keep your 2FA device or app safe and secure.".to_string()
         ),
-        true
+        true,
     );
     Ok(HttpResponse::Ok().json(response))
 }
@@ -707,16 +707,16 @@ pub async fn activate_2fa(
 /// - `base32_secret`: String - A new base32-encoded secret key for setting up the authentication app.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/user/2fa-reset",
-    responses(
-        (status = 200, description = "2FA reset information provided successfully", body = AuthenticationAppInformation),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/2fa-reset",
+responses(
+(status = 200, description = "2FA reset information provided successfully", body = AuthenticationAppInformation),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn reset_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
     let json = try_2fa_reset(&req, &user.id).await?;
@@ -748,16 +748,16 @@ pub async fn reset_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse
 /// The endpoint requires token-based authentication. A valid token must be included in the request header for the operation.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/user/2fa-remove",
-    responses(
-        (status = 200, description = "2FA Successfully Removed", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/user/2fa-remove",
+responses(
+(status = 200, description = "2FA Successfully Removed", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn remove_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
     try_2fa_remove(&req, &user.id).await?;

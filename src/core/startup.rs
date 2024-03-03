@@ -1,5 +1,8 @@
-use crate::core::api::configure_documentation_services;
-use crate::modules::{auth, general_handlers, notes, user};
+use crate::infrastructure::app_state::app_state::AppState;
+use crate::infrastructure::repository::note::seaorm_note_repository::SeaOrmNoteRepository;
+use crate::infrastructure::web::api::configure_documentation_services;
+use crate::infrastructure::web::notes;
+use crate::modules::{auth, general_handlers, user};
 use actix_files::Files;
 use actix_web::dev::Server;
 use actix_web::middleware::NormalizePath;
@@ -14,8 +17,13 @@ pub async fn run(
     database: DatabaseConnection,
     redis_pool: Pool,
 ) -> Result<Server, std::io::Error> {
-    let database = web::Data::new(database);
+    let old_database = web::Data::new(database.clone());
     let redis_pool_data = web::Data::new(redis_pool);
+
+    let app_state = web::Data::new(AppState {
+        note_service: SeaOrmNoteRepository::new(database),
+    });
+
     let server = HttpServer::new(move || {
         App::new()
             .wrap(NormalizePath::trim())
@@ -35,8 +43,9 @@ pub async fn run(
             // Register application-wide models data below 👇
             .service(configure_documentation_services())
             //  Register the database connection pool
-            .app_data(database.clone())
             .app_data(redis_pool_data.clone())
+            .app_data(old_database.clone())
+            .app_data(app_state.clone())
     })
     .listen(listener)?
     .run();

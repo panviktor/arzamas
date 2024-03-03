@@ -105,6 +105,7 @@ impl fmt::Display for ServiceError {
 }
 
 //  This allows Actix to directly turn the server error
+///FIXME: - remove this code after full hex refactoring ????
 impl ResponseError for ServiceError {
     fn error_response(&self) -> HttpResponse {
         error!("Path: {} | Message: {}", self.path, self.message);
@@ -113,6 +114,8 @@ impl ResponseError for ServiceError {
     }
 }
 
+
+///FIXME: - remove this code after full hex refactoring
 impl From<DbErr> for ServiceError {
     fn from(value: DbErr) -> Self {
         let (status_code, message) = match value {

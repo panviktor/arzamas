@@ -1,6 +1,5 @@
 pub mod auth;
 pub mod general_handlers;
-pub mod notes;
 pub mod user;
 
 use chrono::Utc;
@@ -8,7 +7,7 @@ use hex::encode;
 use sha2::{Digest, Sha512};
 use uuid::Uuid;
 
-fn generate_unique_id() -> String {
+pub(crate) fn generate_unique_id() -> String {
     // Generate a new UUID
     let uuid = Uuid::new_v4().to_string();
     // Get the current date and time in UTC

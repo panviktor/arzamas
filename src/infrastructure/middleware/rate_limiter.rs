@@ -13,16 +13,16 @@ use std::task::{Context, Poll};
 
 use crate::core::constants::core_constants::RATE_LIMIT_KEY_PREFIX;
 use crate::err_server;
-use crate::models::ServerError;
+use crate::models::server_error::ServerError;
 
 pub struct RateLimitServices {
     pub requests_count: u64,
 }
 
 impl<S> Transform<S, ServiceRequest> for RateLimitServices
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
-    S::Future: 'static,
+    where
+        S: Service<ServiceRequest, Response=ServiceResponse<BoxBody>, Error=Error> + 'static,
+        S::Future: 'static,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -44,13 +44,13 @@ pub struct RateLimitMiddleware<S> {
 }
 
 impl<S> Service<ServiceRequest> for RateLimitMiddleware<S>
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
-    S::Future: 'static,
+    where
+        S: Service<ServiceRequest, Response=ServiceResponse<BoxBody>, Error=Error> + 'static,
+        S::Future: 'static,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Future = Pin<Box<dyn Future<Output=Result<Self::Response, Self::Error>>>>;
 
     fn poll_ready(&self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)

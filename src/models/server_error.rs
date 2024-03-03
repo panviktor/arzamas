@@ -1,9 +1,9 @@
 /// A module containing an error for a backend error.
 /// This error will be either transformed or dropped before being shown to the user.
-use crate::models::ServiceError;
 use actix_web::http::StatusCode;
 use actix_web::HttpRequest;
 use std::fmt;
+use crate::application::error::service_error::ServiceError;
 
 #[derive(Debug, Clone)]
 pub enum ErrorCode {

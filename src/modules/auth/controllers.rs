@@ -1,5 +1,5 @@
 use crate::models::many_response::UniversalResponse;
-use crate::models::ServiceError;
+use crate::application::error::service_error::ServiceError;
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::modules::auth::models::{
@@ -36,15 +36,15 @@ use crate::modules::auth::service::{
 /// rate-limiting issues, or internal server errors.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/auth/create",
-    request_body = NewUserParams,
-    responses(
-         (status = 201, description = "User created successfully", body = CreatedUserDTO),
-         (status = 400, description = "User data invalid"),
-         (status = 429, description = "Too Many Requests"),
-         (status = 500, description = "Internal Server Error")
-    )
+post,
+path = "/api/auth/create",
+request_body = NewUserParams,
+responses(
+(status = 201, description = "User created successfully", body = CreatedUserDTO),
+(status = 400, description = "User data invalid"),
+(status = 429, description = "Too Many Requests"),
+(status = 500, description = "Internal Server Error")
+)
 )]
 pub async fn create_user(
     req: HttpRequest,
@@ -80,15 +80,15 @@ pub async fn create_user(
 /// including validation failures, rate-limiting issues, or internal server errors.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/auth/verify-email",
-    request_body = VerifyEmailParams,
-    responses(
-         (status = 200, description = "Email verified successfully", body = UniversalResponse),
-         (status = 400, description = "Verification data invalid"),
-         (status = 429, description = "Too Many Requests"),
-         (status = 500, description = "Internal Server Error")
-    )
+post,
+path = "/api/auth/verify-email",
+request_body = VerifyEmailParams,
+responses(
+(status = 200, description = "Email verified successfully", body = UniversalResponse),
+(status = 400, description = "Verification data invalid"),
+(status = 429, description = "Too Many Requests"),
+(status = 500, description = "Internal Server Error")
+)
 )]
 pub async fn verify_email(
     req: HttpRequest,
@@ -127,16 +127,16 @@ pub async fn verify_email(
 /// including validation failures, rate-limiting issues, or internal server errors.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/auth/login",
-    request_body = LoginParams,
-    responses(
-         (status = 200, description = "User login successfully", body = LoginResponse),
-         (status = 400, description = "User data invalid"),
-         (status = 401, description = "Unauthorized", body = ServiceErrorSerialized),
-         (status = 429, description = "Too Many Requests"),
-         (status = 500, description = "Internal Server Error")
-    )
+post,
+path = "/api/auth/login",
+request_body = LoginParams,
+responses(
+(status = 200, description = "User login successfully", body = LoginResponse),
+(status = 400, description = "User data invalid"),
+(status = 401, description = "Unauthorized", body = ServiceErrorSerialized),
+(status = 429, description = "Too Many Requests"),
+(status = 500, description = "Internal Server Error")
+)
 )]
 pub async fn login(
     req: HttpRequest,
@@ -167,15 +167,15 @@ pub async fn login(
 /// including cases such as invalid OTP codes, rate-limiting, or internal server errors.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/auth/login-2fa",
-    request_body = OTPCode,
-    responses(
-         (status = 200, description = "User login successfully", body = LoginResponse),
-         (status = 400, description = "User data invalid"),
-         (status = 429, description = "Too Many Requests"),
-         (status = 500, description = "Internal Server Error")
-    )
+post,
+path = "/api/auth/login-2fa",
+request_body = OTPCode,
+responses(
+(status = 200, description = "User login successfully", body = LoginResponse),
+(status = 400, description = "User data invalid"),
+(status = 429, description = "Too Many Requests"),
+(status = 500, description = "Internal Server Error")
+)
 )]
 pub async fn login_2fa(
     req: HttpRequest,
@@ -208,15 +208,15 @@ pub async fn login_2fa(
 /// including validation failures, issues in sending the reset email, or internal server errors.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/auth/forgot-password",
-    request_body = ForgotPasswordParams,
-    responses(
-         (status = 200, description = "User login successfully", body = UniversalResponse),
-         (status = 400, description = "User data invalid"),
-         (status = 429, description = "Too Many Requests"),
-         (status = 500, description = "Internal Server Error")
-    )
+post,
+path = "/api/auth/forgot-password",
+request_body = ForgotPasswordParams,
+responses(
+(status = 200, description = "User login successfully", body = UniversalResponse),
+(status = 400, description = "User data invalid"),
+(status = 429, description = "Too Many Requests"),
+(status = 500, description = "Internal Server Error")
+)
 )]
 pub async fn forgot_password(
     req: HttpRequest,
@@ -264,15 +264,15 @@ pub async fn forgot_password(
 /// - `password_confirm`: String - The confirmation of the new password.
 ///
 #[utoipa::path(
-    post,
-    path = "/api/auth/password-reset",
-    request_body = ResetPasswordParams,
-    responses(
-         (status = 200, description = "Password successfully reset.", body = UniversalResponse),
-         (status = 400, description = "User data invalid"),
-         (status = 429, description = "Too Many Requests"),
-         (status = 500, description = "Internal Server Error")
-    )
+post,
+path = "/api/auth/password-reset",
+request_body = ResetPasswordParams,
+responses(
+(status = 200, description = "Password successfully reset.", body = UniversalResponse),
+(status = 400, description = "User data invalid"),
+(status = 429, description = "Too Many Requests"),
+(status = 500, description = "Internal Server Error")
+)
 )]
 pub async fn password_reset(
     req: HttpRequest,

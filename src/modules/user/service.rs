@@ -1,4 +1,4 @@
-use crate::core::db::extract_db_connection;
+use crate::infrastructure::persistence::db::extract_db_connection;
 use actix_web::{web, HttpRequest};
 use chrono::Utc;
 use entity::user;
@@ -6,7 +6,7 @@ use entity::user_security_settings;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, IntoActiveModel};
 
-use crate::models::ServiceError;
+use crate::application::error::service_error::ServiceError;
 use crate::modules::auth::credentials::{
     credential_validator, generate_password_hash, validate_email_rules, validate_password_rules,
 };

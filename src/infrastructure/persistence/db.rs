@@ -7,7 +7,7 @@ use std::env;
 use tracing::debug;
 
 use crate::core::config::get_config;
-use crate::models::ServiceError;
+use crate::application::error::service_error::ServiceError;
 
 pub async fn check_migration(db: &DatabaseConnection) {
     debug!("Checking DB connection...");

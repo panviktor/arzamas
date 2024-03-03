@@ -15,7 +15,8 @@ use crate::core::constants::core_constants;
 use crate::core::constants::emojis::EMOJIS;
 
 use crate::err_server;
-use crate::models::{ServerError, ServiceError};
+use crate::models::ServerError;
+use crate::application::error::service_error::ServiceError;
 use crate::modules::auth::models::UserToken;
 
 fn generate_random_name() -> String {
@@ -55,7 +56,7 @@ pub fn generate_token(
         &payload,
         &EncodingKey::from_secret(APP_SETTINGS.jwt_secret.expose_secret().as_ref()),
     )
-    .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
+        .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
 
     Ok(result)
 }
@@ -70,10 +71,10 @@ pub async fn generate_session_token(
 ) -> Result<String, ServerError> {
     let expiry = Utc::now()
         + if persistent {
-            Duration::days(7)
-        } else {
-            Duration::days(1)
-        };
+        Duration::days(7)
+    } else {
+        Duration::days(1)
+    };
     let login_session = Uuid::new_v4().to_string();
 
     let expiry_timestamp_nanos = expiry
@@ -87,7 +88,7 @@ pub async fn generate_session_token(
         user_agent,
         expiry_timestamp_nanos,
     )
-    .map_err(|e| err_server!("Unable to generate session token: {}", e))?;
+        .map_err(|e| err_server!("Unable to generate session token: {}", e))?;
 
     let mut conn = redis_pool
         .get()
@@ -197,13 +198,13 @@ async fn valid_sessions(
                     &decoded_data.claims.user_id,
                     &decoded_data.claims.session_id,
                 )
-                .await
-                .map_err(|e| {
-                    err_server!(
+                    .await
+                    .map_err(|e| {
+                        err_server!(
                         "{}",
                         format!("Failed to delete expired token from Redis: {}", e)
                     )
-                })?;
+                    })?;
             }
         }
     }
@@ -371,14 +372,14 @@ pub async fn delete_all_expired_user_tokens(
                     &decoded_data.claims.user_id,
                     &decoded_data.claims.session_id,
                 )
-                .await
-                .map_err(|e| {
-                    ServiceError::general(
-                        &req,
-                        format!("Failed to delete expired token from Redis: {}", e),
-                        true,
-                    )
-                })?;
+                    .await
+                    .map_err(|e| {
+                        ServiceError::general(
+                            &req,
+                            format!("Failed to delete expired token from Redis: {}", e),
+                            true,
+                        )
+                    })?;
             }
         }
     }

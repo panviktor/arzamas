@@ -1,4 +1,4 @@
-use crate::core::middleware::rate_limiter;
+use crate::infrastructure::middleware::rate_limiter;
 /// Module that contains all the functions related to authentication.
 use actix_web::web;
 use hex::encode;

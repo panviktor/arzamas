@@ -1,4 +1,4 @@
-use crate::models::ServiceError;
+use crate::application::error::service_error::ServiceError;
 use crate::modules::auth::utils::{get_user_security_token_by_id, get_user_settings_by_id};
 use crate::modules::user::models::AuthenticationAppInformation;
 use actix_web::HttpRequest;

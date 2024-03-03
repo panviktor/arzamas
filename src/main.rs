@@ -1,9 +1,9 @@
 use lib::core::config::get_config;
 use lib::core::startup::run;
-// use lib::core::telemetry::{get_subscriber, init_subscriber};
-use lib::core::db::{check_migration, create_db_pool};
+// use lib::application::telemetry::{get_subscriber, init_subscriber};
+use lib::infrastructure::persistence::db::{check_migration, create_db_pool};
 // use std::env;
-use lib::core::redis::create_redis_pool;
+use lib::infrastructure::cache::redis::create_redis_pool;
 use std::net::TcpListener;
 
 // const APPLICATION_NAME: &str = "Arzamas";

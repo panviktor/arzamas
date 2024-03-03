@@ -1,10 +1,10 @@
-use crate::models::many_response::{PageQuery, UniversalResponse};
-use crate::models::ServiceError;
-use crate::modules::auth::middleware::LoginUser;
-use crate::modules::notes::models::{DTONote, FindNote};
-use crate::modules::notes::service::{
+use crate::application::services::note::service::{
     try_create_note, try_delete_note, try_get_all_notes, try_get_by_id_notes, try_update_note,
 };
+use crate::infrastructure::web::notes::dto_models::{DTONote, FindNote};
+use crate::models::many_response::{PageQuery, UniversalResponse};
+use crate::application::error::service_error::ServiceError;
+use crate::modules::auth::middleware::LoginUser;
 use actix_web::{web, HttpRequest, HttpResponse};
 
 /// Creates a new note.
@@ -21,17 +21,17 @@ use actix_web::{web, HttpRequest, HttpResponse};
 /// This function returns a `Result` which is either an `HttpResponse` indicating
 /// successful creation of the note, or a `ServiceError` in case of failure.
 #[utoipa::path(
-    post,
-    path = "/api/notes/create",
-    request_body = DTONote,
-    responses(
-         (status = 201, description = "Note created successfully", body = UniversalResponse),
-         (status = 401, description = "Unauthorized"),
-         (status = 429, description = "Too Many Requests")
-    ),
-    security(
-        ("token" = [])
-    )
+post,
+path = "/api/note/create",
+request_body = DTONote,
+responses(
+(status = 201, description = "Note created successfully", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests")
+),
+security(
+("token" = [])
+)
 )]
 pub async fn create_note(
     req: HttpRequest,
@@ -40,16 +40,16 @@ pub async fn create_note(
 ) -> Result<HttpResponse, ServiceError> {
     try_create_note(&req, &user.id, params.0).await?;
     let response = UniversalResponse::new("Note Create Successfully.".to_string(), None, true);
-    Ok(HttpResponse::Ok().json(response))
+    Ok(HttpResponse::Created().json(response))
 }
 
-/// Retrieves all notes.
+/// Retrieves all note.
 ///
-/// This function is an API endpoint for fetching all notes available to the logged-in user.
+/// This function is an API endpoint for fetching all note available to the logged-in user.
 /// It takes an HTTP request, pagination query parameters, and the logged-in user's details as input.
 ///
-/// The API responds with an HTTP response. If the notes are retrieved successfully,
-/// it returns a 200 status code with the notes' data. If the retrieval fails,
+/// The API responds with an HTTP response. If the note are retrieved successfully,
+/// it returns a 200 status code with the note' data. If the retrieval fails,
 /// it returns an appropriate error message and status code, such as 401 for unauthorized access
 /// or 404 for not found.
 ///
@@ -59,23 +59,23 @@ pub async fn create_note(
 /// * `user` - The logged-in user information.
 ///
 /// # Returns
-/// This function returns a `Result` which is either an `HttpResponse` with the notes data,
+/// This function returns a `Result` which is either an `HttpResponse` with the note data,
 /// or a `ServiceError` in case of failure.
 #[utoipa::path(
-    get,
-    path = "/api/notes/get_all_notes",
-    params(
-        PageQuery
-    ),
-    responses(
-        (status = 200, description = "Note information retrieved successfully", body = ManyResponseNotes),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Not found", body = ServiceErrorSerialized),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+get,
+path = "/api/note/get_all_notes",
+params(
+PageQuery
+),
+responses(
+(status = 200, description = "Note information retrieved successfully", body = ManyResponseNotes),
+(status = 401, description = "Unauthorized"),
+(status = 404, description = "Not found", body = ServiceErrorSerialized),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn get_all_notes(
     req: HttpRequest,
@@ -104,20 +104,20 @@ pub async fn get_all_notes(
 /// This function returns a `Result` which is either an `HttpResponse` with the note data,
 /// or a `ServiceError` in case of failure.
 #[utoipa::path(
-    get,
-    path = "/api/notes/get_by_id",
-    params(
-        ("id" = i64, Query, description = "Unique identifier of the note")
-    ),
-    responses(
-        (status = 200, description = "Note information retrieved successfully", body = Note),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Not found", body = ServiceErrorSerialized),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+get,
+path = "/api/note/get_by_id",
+params(
+("id" = i64, Query, description = "Unique identifier of the note")
+),
+responses(
+(status = 200, description = "Note information retrieved successfully", body = Note),
+(status = 401, description = "Unauthorized"),
+(status = 404, description = "Not found", body = ServiceErrorSerialized),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn get_by_id(
     req: HttpRequest,
@@ -145,20 +145,20 @@ pub async fn get_by_id(
 /// This function returns a `Result` which is either an `HttpResponse` confirming the deletion,
 /// or a `ServiceError` in case of failure.
 #[utoipa::path(
-    delete,
-    path = "/api/notes/delete",
-    params(
-        FindNote
-    ),
-    responses(
-        (status = 200, description = "Note was deleted", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Not found", body = ServiceErrorSerialized),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
+delete,
+path = "/api/note/delete",
+params(
+FindNote
+),
+responses(
+(status = 200, description = "Note was deleted", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 404, description = "Not found", body = ServiceErrorSerialized),
+(status = 429, description = "Too Many Requests"),
+),
+security(
+("token" = [])
+)
 )]
 pub async fn delete(
     req: HttpRequest,
@@ -188,20 +188,20 @@ pub async fn delete(
 /// This function returns a `Result` which is either an `HttpResponse` confirming the update,
 /// or a `ServiceError` in case of failure.
 #[utoipa::path(
-    put,
-    path = "/api/notes/update",
-    request_body = DTONote,
-    params(
-        FindNote
-    ),
-    responses(
-         (status = 200, description = "Note was updated", body = UniversalResponse),
-         (status = 401, description = "Unauthorized"),
-         (status = 429, description = "Too Many Requests")
-    ),
-    security(
-        ("token" = [])
-    )
+put,
+path = "/api/note/update",
+request_body = DTONote,
+params(
+FindNote
+),
+responses(
+(status = 200, description = "Note was updated", body = UniversalResponse),
+(status = 401, description = "Unauthorized"),
+(status = 429, description = "Too Many Requests")
+),
+security(
+("token" = [])
+)
 )]
 pub async fn update(
     req: HttpRequest,

@@ -12,8 +12,9 @@ use sea_orm::{
 };
 
 use crate::core::constants::core_constants;
-use crate::core::db::extract_db_connection;
-use crate::models::{ErrorCode, ServerError, ServiceError};
+use crate::infrastructure::persistence::db::extract_db_connection;
+use crate::application::error::service_error::ServiceError;
+use crate::models::{ErrorCode, ServerError};
 use crate::modules::auth::credentials::generate_password_hash;
 use crate::modules::auth::email::success_enter_email;
 use crate::modules::auth::hash_token;
@@ -127,9 +128,9 @@ pub async fn get_user_security_token_by_id(
                 user_id: Set(user_id.to_string()),
                 ..Default::default()
             }
-            .insert(db)
-            .await
-            .map_err(|e| err_server!("Problem create OTP token {}:{}", user_id, e))?;
+                .insert(db)
+                .await
+                .map_err(|e| err_server!("Problem create OTP token {}:{}", user_id, e))?;
             Ok(token)
         }
         Err(e) => Err(err_server!(

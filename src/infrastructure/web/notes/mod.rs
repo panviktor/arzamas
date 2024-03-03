@@ -1,14 +1,13 @@
 pub mod controllers;
-pub(crate) mod models;
-mod service;
+pub(crate) mod dto_models;
 
-use crate::core::middleware::rate_limiter;
+use crate::infrastructure::middleware::rate_limiter;
 use crate::modules::auth;
 use actix_web::web;
 
 pub fn init_notes_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/notes")
+        web::scope("/note")
             .wrap(auth::middleware::AuthCheckService)
             .wrap(rate_limiter::RateLimitServices {
                 requests_count: 500,

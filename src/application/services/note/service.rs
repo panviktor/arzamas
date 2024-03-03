@@ -1,8 +1,10 @@
-use crate::core::db::extract_db_connection;
+use crate::domain;
+use crate::infrastructure::persistence::db::extract_db_connection;
+use crate::infrastructure::repository::note::Repository;
+use crate::infrastructure::web::notes::dto_models::{DTONote, FindNote};
 use crate::models::many_response::{ManyResponse, PageQuery};
-use crate::models::ServiceError;
+use crate::application::error::service_error::ServiceError;
 use crate::modules::generate_unique_id;
-use crate::modules::notes::models::{DTONote, FindNote};
 use actix_http::StatusCode;
 use actix_web::HttpRequest;
 use chrono::Utc;
@@ -13,6 +15,40 @@ use sea_orm::{
     QueryFilter, QueryOrder,
 };
 use std::cmp::max;
+
+use crate::domain::note::note::NoteText;
+
+pub struct NoteService<R: Repository<domain::note::Note>> {
+    note_repository: R,
+}
+
+impl<R: Repository<domain::note::Note>> NoteService<R> {
+    pub fn new(note_repository: R) -> Self {
+        Self { note_repository }
+    }
+
+    pub async fn create_note(
+        &self,
+        note: DTONote,
+    ) -> Result<domain::note::Note, ServiceError> {
+        let domain_note = domain::note::Note::new(
+            "".to_string(),
+            "".to_string(),
+            NoteText("s".to_string()),
+            Default::default(), Default::default(),
+        );
+
+        Ok(domain_note)
+
+        // self.note_repository
+        //     .create(domain_note)
+        //     .await
+        //     .map_err(|e| e.into())
+        // RepoCreateError convert   ApplicationError(RepositoryError)
+        // RepositoryError and ApplicationError enum?
+        // should i change ServiceError here to something else
+    }
+}
 
 pub async fn try_create_note(
     req: &HttpRequest,

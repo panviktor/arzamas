@@ -8,9 +8,9 @@ use sea_orm::{
 };
 use totp_rs::{Algorithm, Secret, TOTP};
 use uuid::Uuid;
-
 use crate::err_server;
 use crate::models::ServerError;
+
 use crate::modules::auth::email::send_totp_email_code;
 use crate::modules::auth::hash_token;
 use crate::modules::auth::session::{decode_token, generate_token};
@@ -44,7 +44,7 @@ pub async fn set_app_only_expire_time(
         user_agent,
         expiry_timestamp_nanos,
     )
-    .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
+        .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
 
     if let Some(user) = user_otp_token::Entity::find()
         .filter(user_otp_token::Column::UserId.contains(user_id))
@@ -96,7 +96,7 @@ pub async fn generate_email_code(
         user_agent,
         expiry_timestamp_nanos,
     )
-    .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
+        .map_err(|e| err_server!("Unable to generate session token.:{}", e))?;
 
     if let Some(user) = user_otp_token::Entity::find()
         .filter(user_otp_token::Column::UserId.contains(user_id))
@@ -218,7 +218,7 @@ async fn validate_email_otp(
                 Utc::now() + Duration::minutes(15),
                 db,
             )
-            .await?;
+                .await?;
             let user_id = user_otp_token.user_id.clone();
 
             user_otp_token
@@ -273,7 +273,7 @@ async fn validate_app_code(
                         Utc::now() + Duration::minutes(15),
                         db,
                     )
-                    .await?;
+                        .await?;
                     let user_id = user_otp_token.user_id.clone();
 
                     user_otp_token.delete(db).await.map_err(|e| {

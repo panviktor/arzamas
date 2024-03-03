@@ -7,9 +7,10 @@ use lettre::{
 use sea_orm::DatabaseConnection;
 
 use crate::core::config::get_config;
-use crate::core::email::MAILER;
 use crate::err_server;
 use crate::models::ServerError;
+use crate::infrastructure::email::email::MAILER;
+
 use crate::modules::auth::utils::{
     add_email_token, add_password_reset_token, find_email_verify_token, verify_email_by,
 };
@@ -70,7 +71,7 @@ pub async fn send_password_reset_email(
             Utc::now() + Duration::days(1),
             db,
         )
-        .await
+            .await
         {
             Ok(_) => {
                 error = None;
@@ -145,7 +146,7 @@ pub async fn send_validate_email(
             user_exists,
             db,
         )
-        .await
+            .await
         {
             Ok(_) => {
                 insert_error = None;
@@ -203,7 +204,7 @@ pub async fn send_totp_email_code(
          Your login ID and confirmation code are included in the email.\n\
             Code: {}\n\
             User Id: {}\n\
-            This code will expire in 5 minutes.",  code,  user_id
+            This code will expire in 5 minutes.", code, user_id
     );
 
     let email = LettreMessage::builder()

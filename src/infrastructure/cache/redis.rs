@@ -1,9 +1,11 @@
 use crate::core::config::get_config;
-use crate::models::{ErrorCode, ServerError, ServiceError};
+
 use actix_web::http::StatusCode;
 use deadpool_redis::{CreatePoolError, Pool, PoolError, Runtime};
 use redis::RedisError;
 use secrecy::ExposeSecret;
+use crate::application::error::service_error::ServiceError;
+use crate::models::{ErrorCode, ServerError};
 
 pub fn create_redis_pool() -> Result<Pool, CreatePoolError> {
     let config = get_config().expect("Failed to read configuration.");

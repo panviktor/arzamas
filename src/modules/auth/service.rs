@@ -7,8 +7,8 @@ use entity::user::Model as User;
 use sea_orm::{ActiveModelTrait, Set};
 
 use crate::core::constants::core_constants;
-use crate::core::db::extract_db_connection;
-use crate::models::ServiceError;
+use crate::infrastructure::persistence::db::extract_db_connection;
+use crate::application::error::service_error::ServiceError;
 use crate::modules::auth::credentials::{
     credential_validator_username_email, generate_password_hash, generate_user_id,
     validate_email_rules, validate_password_rules, validate_username_rules,
@@ -267,8 +267,8 @@ pub async fn try_login_2fa(
         db,
         redis_pool,
     )
-    .await
-    .map_err(|s| ServiceError::general(&req, s.message, true))?;
+        .await
+        .map_err(|s| ServiceError::general(&req, s.message, true))?;
 
     Ok(LoginResponse::TokenResponse {
         token,
