@@ -9,7 +9,7 @@ use sea_orm::{
 use totp_rs::{Algorithm, Secret, TOTP};
 use uuid::Uuid;
 use crate::err_server;
-use crate::models::ServerError;
+use crate::core::error::ServerError;
 
 use crate::modules::auth::email::send_totp_email_code;
 use crate::modules::auth::hash_token;

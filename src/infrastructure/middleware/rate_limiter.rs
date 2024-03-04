@@ -13,7 +13,7 @@ use std::task::{Context, Poll};
 
 use crate::core::constants::core_constants::RATE_LIMIT_KEY_PREFIX;
 use crate::err_server;
-use crate::models::server_error::ServerError;
+use crate::core::error::server_error::ServerError;
 
 pub struct RateLimitServices {
     pub requests_count: u64,

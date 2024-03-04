@@ -4,8 +4,8 @@ use actix_web::http::StatusCode;
 use deadpool_redis::{CreatePoolError, Pool, PoolError, Runtime};
 use redis::RedisError;
 use secrecy::ExposeSecret;
-use crate::application::error::service_error::ServiceError;
-use crate::models::{ErrorCode, ServerError};
+use crate::application::error::response_error::AppResponseError;
+use crate::core::error::{ErrorCode, ServerError};
 
 pub fn create_redis_pool() -> Result<Pool, CreatePoolError> {
     let config = get_config().expect("Failed to read configuration.");
@@ -21,11 +21,11 @@ pub fn create_redis_pool() -> Result<Pool, CreatePoolError> {
     Ok(pool)
 }
 
-impl From<RedisError> for ServiceError {
+impl From<RedisError> for AppResponseError {
     fn from(err: RedisError) -> Self {
-        ServiceError {
+        AppResponseError {
             code: StatusCode::INTERNAL_SERVER_ERROR,
-            path: "redis".to_string(),
+            path: Option::from("redis".to_string()),
             message: err.to_string(),
             show_message: true,
         }

@@ -1,4 +1,4 @@
-use crate::models::ServerError;
+use crate::core::error::ServerError;
 use crate::modules::auth::utils::{get_user_by_email, get_user_by_username};
 use crate::{err_input, err_server};
 use argon2::{

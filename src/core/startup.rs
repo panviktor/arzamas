@@ -11,6 +11,7 @@ use deadpool_redis::Pool;
 use sea_orm::DatabaseConnection;
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
+use crate::application::services::note::service::NoteService;
 
 pub async fn run(
     listener: TcpListener,
@@ -21,7 +22,7 @@ pub async fn run(
     let redis_pool_data = web::Data::new(redis_pool);
 
     let app_state = web::Data::new(AppState {
-        note_service: SeaOrmNoteRepository::new(database),
+        note_service: NoteService::new(SeaOrmNoteRepository::new(database)),
     });
 
     let server = HttpServer::new(move || {
@@ -47,7 +48,7 @@ pub async fn run(
             .app_data(old_database.clone())
             .app_data(app_state.clone())
     })
-    .listen(listener)?
-    .run();
+        .listen(listener)?
+        .run();
     Ok(server)
 }

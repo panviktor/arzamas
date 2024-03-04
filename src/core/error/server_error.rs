@@ -3,7 +3,7 @@
 use actix_web::http::StatusCode;
 use actix_web::HttpRequest;
 use std::fmt;
-use crate::application::error::service_error::ServiceError;
+use crate::application::error::response_error::AppResponseError;
 
 #[derive(Debug, Clone)]
 pub enum ErrorCode {
@@ -25,79 +25,69 @@ impl fmt::Display for ServerError {
     }
 }
 
+///FIXME: - remove this code after full hex refactoring
 #[macro_export]
 macro_rules! err_server {
     ($($arg:tt)*) => {{
         let msg = format!($($arg)*);
         log::error!("{}", msg);
         ServerError {
-            code: crate::models::ErrorCode::ServerError,
+            code: crate::core::error::ErrorCode::ServerError,
             message: msg,
             show_message: false,
         }
     }};
 }
 
-#[macro_export]
-macro_rules! err_server_show {
-    ($($arg:tt)*) => {{
-        let msg = format!($($arg)*);
-        log::error!("{}", msg);
-        ServerError {
-            code: crate::models::ErrorCode::ServerError,
-            message: msg,
-            show_message: true,
-        }
-    }};
-}
-
+///FIXME: - remove this code after full hex refactoring
 #[macro_export]
 macro_rules! err_input {
     ($($arg:tt)*) => {{
         let msg = format!($($arg)*);
         log::error!("{}", msg);
         ServerError {
-            code: crate::models::ErrorCode::InputError,
+            code:  crate::core::error::ErrorCode::InputError,
             message: msg,
             show_message: true,
         }
     }};
 }
 
+///FIXME: - remove this code after full hex refactoring
 impl ServerError {
-    pub fn not_found(&self, req: &HttpRequest) -> ServiceError {
-        ServiceError {
+    pub fn not_found(&self, req: &HttpRequest) -> AppResponseError {
+        AppResponseError {
             code: StatusCode::NOT_FOUND,
-            path: req.uri().path().to_string(),
+            path: Option::from(req.uri().path().to_string()),
             message: self.message.to_string(),
             show_message: self.show_message,
         }
     }
 
-    pub fn unauthorized(&self, req: &HttpRequest) -> ServiceError {
-        ServiceError {
+    pub fn unauthorized(&self, req: &HttpRequest) -> AppResponseError {
+        AppResponseError {
             code: StatusCode::UNAUTHORIZED,
-            path: req.uri().path().to_string(),
+            path: Option::from(req.uri().path().to_string()),
             message: self.message.to_string(),
             show_message: self.show_message,
         }
     }
 
     /// Shortcut for creating a 500 General Server Error
-    pub fn general(&self, req: &HttpRequest) -> ServiceError {
-        ServiceError {
+    pub fn general(&self, req: &HttpRequest) -> AppResponseError {
+        AppResponseError {
             code: StatusCode::INTERNAL_SERVER_ERROR,
-            path: req.uri().path().to_string(),
+            path: Option::from(req.uri().path().to_string()),
             message: self.message.to_string(),
             show_message: self.show_message,
         }
     }
 
     /// Shortcut for creating a 400 Bad Request Error
-    pub fn bad_request(&self, req: &HttpRequest) -> ServiceError {
-        ServiceError {
+    pub fn bad_request(&self, req: &HttpRequest) -> AppResponseError {
+        AppResponseError {
             code: StatusCode::BAD_REQUEST,
-            path: req.uri().path().to_string(),
+            path: Option::from(req.uri().path().to_string()),
             message: self.message.to_string(),
             show_message: self.show_message,
         }

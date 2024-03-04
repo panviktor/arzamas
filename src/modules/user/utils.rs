@@ -1,4 +1,4 @@
-use crate::application::error::service_error::ServiceError;
+use crate::application::error::response_error::AppResponseError;
 use crate::modules::auth::utils::{get_user_security_token_by_id, get_user_settings_by_id};
 use crate::modules::user::models::AuthenticationAppInformation;
 use actix_web::HttpRequest;
@@ -13,7 +13,7 @@ pub(crate) async fn toggle_email(
     user_id: &str,
     two_factor: bool,
     db: &DatabaseConnection,
-) -> Result<(), ServiceError> {
+) -> Result<(), AppResponseError> {
     let settings = get_security_settings(req, user_id, db).await?;
     let mut settings = settings.into_active_model();
     settings.two_factor_email = Set(two_factor);
@@ -43,7 +43,7 @@ pub(crate) async fn generate_2fa_secret(
     req: &HttpRequest,
     user_id: &str,
     db: &DatabaseConnection,
-) -> Result<AuthenticationAppInformation, ServiceError> {
+) -> Result<AuthenticationAppInformation, AppResponseError> {
     let mut secret = [0u8; 32];
     getrandom::getrandom(&mut secret).expect("Failed to fill bytes with randomness");
     let mnemonic = Mnemonic::from_entropy(&secret, Language::English).unwrap();
@@ -72,7 +72,7 @@ pub(crate) async fn get_security_settings(
     req: &HttpRequest,
     user_id: &str,
     db: &DatabaseConnection,
-) -> Result<user_security_settings::Model, ServiceError> {
+) -> Result<user_security_settings::Model, AppResponseError> {
     let settings = get_user_settings_by_id(user_id, db)
         .await
         .map_err(|s| s.general(&req))?;

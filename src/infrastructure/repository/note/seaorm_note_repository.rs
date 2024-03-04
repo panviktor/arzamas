@@ -6,9 +6,8 @@ use crate::infrastructure::repository::error::{
 use async_trait::async_trait;
 use chrono::Utc;
 use entity::note;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter, Set,
-};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, PaginatorTrait, QueryFilter, Set};
+use crate::application::dto::paginated_result::PaginatedResult;
 
 #[derive(Clone)]
 pub struct SeaOrmNoteRepository {
@@ -47,16 +46,31 @@ impl Repository<Note> for SeaOrmNoteRepository {
         Ok(note_model.into())
     }
 
-    async fn find_all(&self, find_notes: FindNotes) -> Result<Vec<Note>, RepoFindAllError> {
+    async fn find_all(&self, find_notes: FindNotes) -> Result<PaginatedResult<Note>, RepoFindAllError> {
         let db = &self.db;
-        let notes = note::Entity::find()
+
+        let paginator = note::Entity::find()
             .filter(note::Column::UserId.eq(find_notes.user_id))
-            .all(db)
+            .paginate(db, find_notes.per_page);
+
+        let num_items_and_pages = paginator.num_items_and_pages().await?;
+
+        let notes = paginator
+            .fetch_page(find_notes.page.saturating_sub(1))
             .await
             .map_err(|e| RepoFindAllError::Unknown(e.to_string()))?;
 
         let domain_notes = notes.into_iter().map(Note::from).collect();
-        Ok(domain_notes)
+
+        let result = PaginatedResult {
+            items: domain_notes,
+            total_items: num_items_and_pages.number_of_items,
+            total_pages: num_items_and_pages.number_of_pages,
+            current_page: find_notes.page,
+            items_per_page: find_notes.per_page,
+        };
+
+        Ok(result)
     }
 
     async fn update(&self, note: Note) -> Result<Note, RepoUpdateError> {

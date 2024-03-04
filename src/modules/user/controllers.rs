@@ -1,5 +1,5 @@
-use crate::models::many_response::UniversalResponse;
-use crate::application::error::service_error::ServiceError;
+use crate::application::dto::many_response::UniversalResponse;
+use crate::application::error::response_error::AppResponseError;
 use crate::modules::auth::middleware::LoginUser;
 use crate::modules::auth::session::{
     try_active_sessions, try_current_active_session, try_remove_active_session_token,
@@ -51,7 +51,7 @@ security(
 ("token" = [])
 )
 )]
-pub async fn about_me(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
+pub async fn about_me(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
     let info = try_about_me(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(info))
 }
@@ -92,7 +92,7 @@ security(
 ("token" = [])
 )
 )]
-pub async fn logout(req: HttpRequest) -> Result<HttpResponse, ServiceError> {
+pub async fn logout(req: HttpRequest) -> Result<HttpResponse, AppResponseError> {
     try_remove_active_session_token(&req).await?;
     let response = UniversalResponse::new(
         "Logout Successful".to_string(),
@@ -137,7 +137,7 @@ security(
 ("token" = [])
 )
 )]
-pub async fn logout_all(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
+pub async fn logout_all(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
     try_remove_all_sessions_token(&req, &user.id).await?;
     let response = UniversalResponse::new(
         "Logout Successful".to_string(),
@@ -191,7 +191,7 @@ security(
 ("token" = [])
 )
 )]
-pub async fn current_session(req: HttpRequest) -> Result<HttpResponse, ServiceError> {
+pub async fn current_session(req: HttpRequest) -> Result<HttpResponse, AppResponseError> {
     let session = try_current_active_session(&req).await?;
     Ok(HttpResponse::Ok().json(session))
 }
@@ -241,7 +241,7 @@ security(
 ("token" = [])
 )
 )]
-pub async fn all_sessions(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
+pub async fn all_sessions(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
     let sessions = try_active_sessions(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(sessions))
 }
@@ -297,7 +297,7 @@ pub async fn change_password(
     req: HttpRequest,
     user: LoginUser,
     params: web::Json<ChangePasswordParams>,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     try_change_password(&req, &user.id, params.0).await?;
     let response = UniversalResponse::new("Password Changed Successfully".to_string(), None, true);
     Ok(HttpResponse::Ok().json(response))
@@ -354,7 +354,7 @@ pub async fn change_email(
     req: HttpRequest,
     user: LoginUser,
     params: web::Json<ChangeEmailParams>,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     try_change_email(&req, &user.id, params.0).await?;
     let response = UniversalResponse::new("Email Changed Successfully".to_string(), None, true);
     Ok(HttpResponse::Ok().json(response))
@@ -398,7 +398,7 @@ security(
 pub async fn resend_verify_email(
     req: HttpRequest,
     user: LoginUser,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     try_resend_verify_email(&req, &user.id).await?;
     let response =
         UniversalResponse::new("Email Verify Resend Successfully".to_string(), None, true);
@@ -454,7 +454,7 @@ security(
 pub async fn get_security_settings(
     req: HttpRequest,
     user: LoginUser,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     let info = try_get_security_settings(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(info))
 }
@@ -477,7 +477,7 @@ pub async fn update_security_settings(
     req: HttpRequest,
     user: LoginUser,
     params: web::Json<SecuritySettingsUpdate>,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     try_update_security_settings(&req, &user.id, params.0).await?;
     Ok(HttpResponse::Ok().json("get_security_settings"))
 }
@@ -521,7 +521,7 @@ security(
 pub async fn add_email_2fa(
     req: HttpRequest,
     user: LoginUser,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     try_add_email_2fa(&req, &user.id).await?;
     let response = UniversalResponse::new(
         "Sending an authorization code by email is activated.".to_string(),
@@ -570,7 +570,7 @@ security(
 pub async fn remove_email_2fa(
     req: HttpRequest,
     user: LoginUser,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     try_remove_email_2fa(&req, &user.id).await?;
     let response = UniversalResponse::new(
         "Sending an authorization code by email is disabled.".to_string(),
@@ -619,7 +619,7 @@ security(
 ("token" = [])
 )
 )]
-pub async fn add_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
+pub async fn add_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
     let json = try_2fa_add(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(json))
 }
@@ -665,7 +665,7 @@ pub async fn activate_2fa(
     req: HttpRequest,
     user: LoginUser,
     params: web::Json<MnemonicConfirmation>,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     try_2fa_activate(&req, &user.id, params.0).await?;
     let response = UniversalResponse::new(
         "2FA Successfully Activated".to_string(),
@@ -718,7 +718,7 @@ security(
 ("token" = [])
 )
 )]
-pub async fn reset_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
+pub async fn reset_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
     let json = try_2fa_reset(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(json))
 }
@@ -759,7 +759,7 @@ security(
 ("token" = [])
 )
 )]
-pub async fn remove_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, ServiceError> {
+pub async fn remove_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
     try_2fa_remove(&req, &user.id).await?;
     let response = UniversalResponse::new(
         "2FA Successfully Removed".to_string(),

@@ -13,8 +13,8 @@ use sea_orm::{
 
 use crate::core::constants::core_constants;
 use crate::infrastructure::persistence::db::extract_db_connection;
-use crate::application::error::service_error::ServiceError;
-use crate::models::{ErrorCode, ServerError};
+use crate::application::error::response_error::AppResponseError;
+use crate::core::error::{ErrorCode, ServerError};
 use crate::modules::auth::credentials::generate_password_hash;
 use crate::modules::auth::email::success_enter_email;
 use crate::modules::auth::hash_token;
@@ -168,7 +168,7 @@ pub(crate) async fn create_user_and_try_save(
     req: &HttpRequest,
     user_id: &String,
     params: &NewUserParams,
-) -> Result<User, ServiceError> {
+) -> Result<User, AppResponseError> {
     let db = extract_db_connection(req)?;
     let hash = generate_password_hash(&params.password).map_err(|s| s.general(&req))?;
 
@@ -396,14 +396,14 @@ pub(crate) async fn handle_login_result(
     req: &HttpRequest,
     params: &LoginParams,
     db: &DatabaseConnection,
-) -> Result<HttpResponse, ServiceError> {
-    let login_ip = get_ip_addr(req).map_err(|s| ServiceError::general(req, s.message, false))?;
+) -> Result<HttpResponse, AppResponseError> {
+    let login_ip = get_ip_addr(req).map_err(|s| AppResponseError::general(req, s.message, false))?;
     let user_agent = get_user_agent(&req);
     let persistent = params.persist.unwrap_or(false);
 
     let redis_pool = req
         .app_data::<web::Data<Pool>>() // Make sure Pool is the type of your Redis connection pool
-        .ok_or_else(|| ServiceError::general(&req, "Failed to extract Redis pool", true))?;
+        .ok_or_else(|| AppResponseError::general(&req, "Failed to extract Redis pool", true))?;
 
     return match (
         security_settings.two_factor_email,
@@ -412,7 +412,7 @@ pub(crate) async fn handle_login_result(
         (true, true) => {
             generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent, db)
                 .await
-                .map_err(|s| ServiceError::general(&req, s.message, false))?;
+                .map_err(|s| AppResponseError::general(&req, s.message, false))?;
             let json = LoginResponse::OTPResponse {
                 message: "The code has been sent to your email!\n
                 Enter your code from email and code from 2FA apps like Google Authenticator and Authy!
@@ -426,7 +426,7 @@ pub(crate) async fn handle_login_result(
         (true, false) => {
             generate_email_code(user_id, persistent, user_email, &login_ip, &user_agent, db)
                 .await
-                .map_err(|s| ServiceError::general(&req, s.message, false))?;
+                .map_err(|s| AppResponseError::general(&req, s.message, false))?;
             let json = LoginResponse::OTPResponse {
                 message: "The code has been sent to your email!".to_string(),
                 apps_code: false,
@@ -437,7 +437,7 @@ pub(crate) async fn handle_login_result(
         (false, true) => {
             set_app_only_expire_time(user_id, persistent, &login_ip, &user_agent, db)
                 .await
-                .map_err(|s| ServiceError::general(&req, s.message, false))?;
+                .map_err(|s| AppResponseError::general(&req, s.message, false))?;
             let json = LoginResponse::OTPResponse {
                 message: "Enter your OTP code! For better security, use dual authorization in conjunction with email.".to_string(),
                 apps_code: true,
@@ -449,12 +449,12 @@ pub(crate) async fn handle_login_result(
             let token =
                 generate_session_token(user_id, persistent, &login_ip, &user_agent, redis_pool)
                     .await
-                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
+                    .map_err(|s| AppResponseError::general(&req, s.message, false))?;
 
             if security_settings.email_on_success_enabled_at {
                 success_enter_email(user_email, &login_ip)
                     .await
-                    .map_err(|s| ServiceError::general(&req, s.message, false))?;
+                    .map_err(|s| AppResponseError::general(&req, s.message, false))?;
             }
 
             let response = LoginResponse::TokenResponse {

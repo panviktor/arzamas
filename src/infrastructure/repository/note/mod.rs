@@ -5,6 +5,7 @@ use crate::infrastructure::repository::error::{
 };
 use async_trait::async_trait;
 use serde_derive::{Deserialize, Serialize};
+use crate::application::dto::paginated_result::PaginatedResult;
 
 pub(crate) mod seaorm_note_repository;
 mod seaorm_note_service;
@@ -18,6 +19,8 @@ pub struct FindNote {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FindNotes {
     pub user_id: String,
+    pub page: u64,
+    pub per_page: u64,
 }
 
 impl Entity for Note {}
@@ -34,7 +37,7 @@ pub trait Repository<T>
     async fn find_one(&self, note: FindNote) -> Result<T, RepoSelectError>;
 
     /// Find and return all records corresponding to the search criteria from the persistence system
-    async fn find_all(&self, notes: FindNotes) -> Result<Vec<T>, RepoFindAllError>;
+    async fn find_all(&self, notes: FindNotes) -> Result<PaginatedResult<T>, RepoFindAllError>;
 
     /// Update one single record already present in the persistence system
     async fn update(&self, note: T) -> Result<T, RepoUpdateError>;

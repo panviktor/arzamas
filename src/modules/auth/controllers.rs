@@ -1,5 +1,5 @@
-use crate::models::many_response::UniversalResponse;
-use crate::application::error::service_error::ServiceError;
+use crate::application::dto::many_response::UniversalResponse;
+use crate::application::error::response_error::AppResponseError;
 use actix_web::{web, HttpRequest, HttpResponse};
 
 use crate::modules::auth::models::{
@@ -49,7 +49,7 @@ responses(
 pub async fn create_user(
     req: HttpRequest,
     params: web::Json<NewUserParams>,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     let saved_user = try_create_user(&req, params.0).await?;
     Ok(HttpResponse::Created().json(saved_user))
 }
@@ -93,7 +93,7 @@ responses(
 pub async fn verify_email(
     req: HttpRequest,
     params: web::Json<VerifyEmailParams>,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     try_verify_user_email(&req, &params.email, &params.email_token).await?;
     let response = UniversalResponse::new("Email verified successfully".to_string(), None, true);
     Ok(HttpResponse::Ok().json(response))
@@ -141,7 +141,7 @@ responses(
 pub async fn login(
     req: HttpRequest,
     params: web::Json<LoginParams>,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     try_login_user(&req, params.0).await
 }
 
@@ -180,7 +180,7 @@ responses(
 pub async fn login_2fa(
     req: HttpRequest,
     params: web::Json<OTPCode>,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     let json_response = try_login_2fa(&req, params.0).await?;
     Ok(HttpResponse::Ok().json(json_response))
 }
@@ -221,7 +221,7 @@ responses(
 pub async fn forgot_password(
     req: HttpRequest,
     params: web::Json<ForgotPasswordParams>,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     try_send_restore_email(&req, params.0).await?;
     let response = UniversalResponse::new(
         "A password reset request has been sent.".to_string(),
@@ -277,7 +277,7 @@ responses(
 pub async fn password_reset(
     req: HttpRequest,
     params: web::Json<ResetPasswordParams>,
-) -> Result<HttpResponse, ServiceError> {
+) -> Result<HttpResponse, AppResponseError> {
     try_reset_password(&req, params.0).await?;
     let response = UniversalResponse::new("Password successfully reset.".to_string(), None, true);
     Ok(HttpResponse::Ok().json(response))

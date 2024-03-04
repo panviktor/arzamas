@@ -3,8 +3,9 @@ pub use utoipa::{
     Modify, OpenApi,
 };
 
-use crate::models::many_response::{ManyResponseNotes, UniversalResponse};
-use crate::application::error::service_error::ServiceErrorSerialized;
+use crate::application::dto::many_response::UniversalResponse;
+use crate::application::dto::paginated_result::PaginatedResultNotes;
+use crate::application::error::response_error::ServiceErrorSerialized;
 
 use crate::modules::auth;
 use crate::modules::auth::models::{
@@ -88,7 +89,7 @@ AuthenticationAppInformation
 schemas(
 DTONote,
 Note,
-ManyResponseNotes,
+PaginatedResultNotes,
 )
 ),
 tags(

@@ -8,7 +8,7 @@ use sea_orm::DatabaseConnection;
 
 use crate::core::config::get_config;
 use crate::err_server;
-use crate::models::ServerError;
+use crate::core::error::ServerError;
 use crate::infrastructure::email::email::MAILER;
 
 use crate::modules::auth::utils::{

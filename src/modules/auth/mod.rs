@@ -5,7 +5,7 @@ use hex::encode;
 use sha2::{Digest, Sha256};
 
 use crate::err_server;
-use crate::models::ServerError;
+use crate::core::error::ServerError;
 
 pub mod controllers;
 
