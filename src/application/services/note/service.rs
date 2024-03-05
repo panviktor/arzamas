@@ -1,12 +1,12 @@
-use crate::application::dto::many_response::PageQuery;
+use crate::application::dto::page_query::PageQuery;
 use crate::application::dto::paginated_result::PaginatedResult;
 use crate::application::error::response_error::AppResponseError;
 use crate::domain;
 use crate::domain::note::note::NoteText;
 use crate::infrastructure::persistence::db::extract_db_connection;
 use crate::infrastructure::repository::error::RepositoryError;
-use crate::infrastructure::repository::note::{FindNotes, Repository};
-use crate::infrastructure::web::notes::dto_models::{DTONote, FindNote};
+use crate::infrastructure::repository::note::{FindNote, FindNotes, Repository, UpdateNote};
+use crate::infrastructure::web::notes::dto_models::{DTOFindNote, DTONote};
 use crate::modules::generate_unique_id;
 use actix_web::HttpRequest;
 use chrono::Utc;
@@ -69,86 +69,59 @@ impl<R: Repository<domain::note::Note>> NoteService<R> {
 
         Ok(notes)
     }
-}
 
-pub async fn try_get_by_id_notes(
-    req: &HttpRequest,
-    user_id: &str,
-    note: FindNote,
-) -> Result<note::Model, AppResponseError> {
-    let db = extract_db_connection(req)?;
+    pub async fn get_note_by_id(
+        &self,
+        user_id: &str,
+        note: DTOFindNote,
+    ) -> Result<domain::note::Note, RepositoryError> {
+        let note_to_repo = FindNote {
+            user_id: user_id.to_string(),
+            note_id: note.id,
+        };
 
-    if let Some(note) = Note::find()
-        .filter(note::Column::NoteId.contains(note.id.to_string()))
-        .order_by_asc(note::Column::Id)
-        .one(db)
-        .await?
-    {
-        if note.user_id == user_id {
-            return Ok(note);
-        }
+        let note = self
+            .note_repository
+            .find_one(note_to_repo)
+            .await
+            .map_err(RepositoryError::from)?;
+
+        Ok(note)
     }
 
-    Err(AppResponseError::not_found(
-        &req,
-        "Note not found".to_string(),
-        false,
-    ))
-}
+    pub async fn delete_note(
+        &self,
+        user_id: &str,
+        note: DTOFindNote,
+    ) -> Result<(), RepositoryError> {
+        let note_to_repo = FindNote {
+            user_id: user_id.to_string(),
+            note_id: note.id,
+        };
 
-pub async fn try_delete_note(
-    req: &HttpRequest,
-    user_id: &str,
-    params: FindNote,
-) -> Result<(), AppResponseError> {
-    let db = extract_db_connection(req)?;
+        self.note_repository
+            .delete(note_to_repo)
+            .await
+            .map_err(RepositoryError::from)?;
 
-    if let Some(note) = Note::find()
-        .filter(note::Column::NoteId.contains(params.id.to_string()))
-        .order_by_asc(note::Column::Id)
-        .one(db)
-        .await?
-    {
-        if note.user_id == user_id {
-            note.delete(db).await?;
-            return Ok(());
-        }
-    }
-    Err(AppResponseError::not_found(
-        &req,
-        "Note not found".to_string(),
-        false,
-    ))
-}
-
-pub async fn try_update_note(
-    req: &HttpRequest,
-    user_id: &str,
-    note_id: &str,
-    body: DTONote,
-) -> Result<(), AppResponseError> {
-    let db = extract_db_connection(req)?;
-
-    let new_text = body.text.to_string();
-
-    if let Some(note) = Note::find()
-        .filter(note::Column::NoteId.contains(note_id.to_string()))
-        .order_by_asc(note::Column::Id)
-        .one(db)
-        .await?
-    {
-        if note.user_id == user_id {
-            let mut active: note::ActiveModel = note.into();
-            active.text = Set(new_text.to_owned());
-            active.updated_at = Set(Utc::now().naive_utc());
-            active.update(db).await?;
-            return Ok(());
-        }
+        Ok(())
     }
 
-    Err(AppResponseError::not_found(
-        &req,
-        "Note not found".to_string(),
-        false,
-    ))
+    pub async fn update_note(
+        &self,
+        user_id: &str,
+        note_id: &str,
+        note: DTONote,
+    ) -> Result<domain::note::Note, RepositoryError> {
+        let updated_note = UpdateNote {
+            user_id: user_id.to_string(),
+            note_id: note_id.to_string(),
+            text: NoteText(note.text),
+        };
+
+        self.note_repository
+            .update(updated_note)
+            .await
+            .map_err(RepositoryError::from)
+    }
 }

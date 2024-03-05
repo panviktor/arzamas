@@ -9,6 +9,6 @@ pub(crate) struct DTONote {
 
 /// Struct for holding the form parameters with the new user form
 #[derive(Serialize, Deserialize, IntoParams, Debug)]
-pub(crate) struct FindNote {
+pub(crate) struct DTOFindNote {
     pub(crate) id: String,
 }

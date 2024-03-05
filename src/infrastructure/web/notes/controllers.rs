@@ -1,10 +1,8 @@
-use crate::application::dto::many_response::{PageQuery, UniversalResponse};
+use crate::application::dto::page_query::PageQuery;
+use crate::application::dto::universal_response::UniversalResponse;
 use crate::application::error::response_error::AppResponseError;
-use crate::application::services::note::service::{
-    try_delete_note, try_get_by_id_notes, try_update_note,
-};
 use crate::infrastructure::app_state::app_state::AppState;
-use crate::infrastructure::web::notes::dto_models::{DTONote, FindNote};
+use crate::infrastructure::web::notes::dto_models::{DTOFindNote, DTONote};
 use crate::modules::auth::middleware::LoginUser;
 
 use crate::infrastructure::repository::error::IntoServiceError;
@@ -33,7 +31,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
         (status = 429, description = "Too Many Requests")
     ),
     security(
-        ("token" = [])
+    ("token" = [])
     )
 )]
 pub async fn create_note(
@@ -89,12 +87,12 @@ pub async fn create_note(
 pub async fn get_all_notes(
     req: HttpRequest,
     data: web::Data<AppState>,
-    info: web::Query<PageQuery>,
+    query: web::Query<PageQuery>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
     let result = data
         .note_service
-        .get_all_notes(&user.id, info.0)
+        .get_all_notes(&user.id, query.0)
         .await
         .map_err(|e| e.into_service_error(req.path()))?;
 
@@ -136,11 +134,17 @@ pub async fn get_all_notes(
 )]
 pub async fn get_by_id(
     req: HttpRequest,
+    data: web::Data<AppState>,
     user: LoginUser,
-    query: web::Query<FindNote>,
+    query: web::Query<DTOFindNote>,
 ) -> Result<HttpResponse, AppResponseError> {
-    let note = try_get_by_id_notes(&req, &user.id, query.into_inner()).await?;
-    Ok(HttpResponse::Ok().json(note))
+    let result = data
+        .note_service
+        .get_note_by_id(&user.id, query.0)
+        .await
+        .map_err(|e| e.into_service_error(req.path()))?;
+
+    Ok(HttpResponse::Ok().json(result))
 }
 
 /// Deletes a note.
@@ -163,7 +167,7 @@ pub async fn get_by_id(
     delete,
     path = "/api/note/delete",
     params(
-       FindNote
+        DTOFindNote
     ),
     responses(
         (status = 200, description = "Note was deleted", body = UniversalResponse),
@@ -177,10 +181,15 @@ pub async fn get_by_id(
 )]
 pub async fn delete(
     req: HttpRequest,
+    data: web::Data<AppState>,
     user: LoginUser,
-    params: web::Query<FindNote>,
+    query: web::Query<DTOFindNote>,
 ) -> Result<HttpResponse, AppResponseError> {
-    try_delete_note(&req, &user.id, params.0).await?;
+    data.note_service
+        .delete_note(&user.id, query.0)
+        .await
+        .map_err(|e| e.into_service_error(req.path()))?;
+
     let response = UniversalResponse::new("Note was deleted.".to_string(), None, true);
     Ok(HttpResponse::Ok().json(response))
 }
@@ -207,7 +216,7 @@ pub async fn delete(
     path = "/api/note/update",
     request_body = DTONote,
     params(
-        FindNote
+        DTOFindNote
     ),
     responses(
         (status = 200, description = "Note was updated", body = UniversalResponse),
@@ -220,11 +229,15 @@ pub async fn delete(
 )]
 pub async fn update(
     req: HttpRequest,
+    data: web::Data<AppState>,
     user: LoginUser,
-    note_id: web::Query<FindNote>,
+    note_id: web::Query<DTOFindNote>,
     body: web::Json<DTONote>,
 ) -> Result<HttpResponse, AppResponseError> {
-    try_update_note(&req, &user.id, &note_id.id, body.0).await?;
+    data.note_service
+        .update_note(&user.id, &note_id.id, body.0)
+        .await
+        .map_err(|e| e.into_service_error(req.path()))?;
     let response = UniversalResponse::new("Note was updated.".to_string(), None, true);
     Ok(HttpResponse::Ok().json(response))
 }

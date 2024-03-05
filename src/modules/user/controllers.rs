@@ -1,4 +1,4 @@
-use crate::application::dto::many_response::UniversalResponse;
+use crate::application::dto::universal_response::UniversalResponse;
 use crate::application::error::response_error::AppResponseError;
 use crate::modules::auth::middleware::LoginUser;
 use crate::modules::auth::session::{
@@ -137,7 +137,10 @@ security(
 ("token" = [])
 )
 )]
-pub async fn logout_all(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
+pub async fn logout_all(
+    req: HttpRequest,
+    user: LoginUser,
+) -> Result<HttpResponse, AppResponseError> {
     try_remove_all_sessions_token(&req, &user.id).await?;
     let response = UniversalResponse::new(
         "Logout Successful".to_string(),
@@ -241,7 +244,10 @@ security(
 ("token" = [])
 )
 )]
-pub async fn all_sessions(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
+pub async fn all_sessions(
+    req: HttpRequest,
+    user: LoginUser,
+) -> Result<HttpResponse, AppResponseError> {
     let sessions = try_active_sessions(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(sessions))
 }
@@ -718,7 +724,10 @@ security(
 ("token" = [])
 )
 )]
-pub async fn reset_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
+pub async fn reset_2fa(
+    req: HttpRequest,
+    user: LoginUser,
+) -> Result<HttpResponse, AppResponseError> {
     let json = try_2fa_reset(&req, &user.id).await?;
     Ok(HttpResponse::Ok().json(json))
 }
@@ -759,7 +768,10 @@ security(
 ("token" = [])
 )
 )]
-pub async fn remove_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
+pub async fn remove_2fa(
+    req: HttpRequest,
+    user: LoginUser,
+) -> Result<HttpResponse, AppResponseError> {
     try_2fa_remove(&req, &user.id).await?;
     let response = UniversalResponse::new(
         "2FA Successfully Removed".to_string(),

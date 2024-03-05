@@ -1,4 +1,4 @@
-use crate::application::dto::many_response::UniversalResponse;
+use crate::application::dto::universal_response::UniversalResponse;
 use crate::application::error::response_error::AppResponseError;
 use actix_web::{web, HttpRequest, HttpResponse};
 
