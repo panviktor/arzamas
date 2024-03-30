@@ -1,4 +1,4 @@
-pub(crate) mod note;
-pub(crate) mod error;
-
-pub trait Entity {}
+pub mod entities;
+pub mod error;
+pub mod repositories;
+pub mod services;

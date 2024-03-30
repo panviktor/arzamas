@@ -1,4 +1,3 @@
-pub(crate) mod note;
 pub mod error;
-
-
+pub mod note;
+pub mod user;

@@ -1,8 +1,6 @@
-use crate::infrastructure::app_state::app_state::AppState;
-use crate::infrastructure::repository::note::seaorm_note_repository::SeaOrmNoteRepository;
+use crate::application::services::service_container::ServiceContainer;
 use crate::infrastructure::web::api::configure_documentation_services;
-use crate::infrastructure::web::notes;
-use crate::modules::{auth, general_handlers, user};
+use crate::infrastructure::web::handlers::{auth, general_handlers, notes, user};
 use actix_files::Files;
 use actix_web::dev::Server;
 use actix_web::middleware::NormalizePath;
@@ -10,20 +8,20 @@ use actix_web::{web, App, HttpServer};
 use deadpool_redis::Pool;
 use sea_orm::DatabaseConnection;
 use std::net::TcpListener;
+use std::sync::Arc;
 use tracing_actix_web::TracingLogger;
-use crate::application::services::note::service::NoteService;
 
 pub async fn run(
     listener: TcpListener,
     database: DatabaseConnection,
     redis_pool: Pool,
 ) -> Result<Server, std::io::Error> {
-    let old_database = web::Data::new(database.clone());
-    let redis_pool_data = web::Data::new(redis_pool);
+    std::env::set_var("RUST_LOG", "actix_web=debug");
+    env_logger::init();
 
-    let app_state = web::Data::new(AppState {
-        note_service: NoteService::new(SeaOrmNoteRepository::new(database)),
-    });
+    let redis_pool_data = web::Data::new(redis_pool);
+    let shared_services = Arc::new(ServiceContainer::new(database));
+    let data_container = web::Data::new(shared_services);
 
     let server = HttpServer::new(move || {
         App::new()
@@ -45,10 +43,9 @@ pub async fn run(
             .service(configure_documentation_services())
             //  Register the database connection pool
             .app_data(redis_pool_data.clone())
-            .app_data(old_database.clone())
-            .app_data(app_state.clone())
+            .app_data(data_container.clone())
     })
-        .listen(listener)?
-        .run();
+    .listen(listener)?
+    .run();
     Ok(server)
 }

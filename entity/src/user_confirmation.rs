@@ -13,8 +13,8 @@ pub struct Model {
     pub user_id: String,
     pub email: String,
     #[serde(skip_deserializing)]
-    pub otp_hash: String,
-    pub expiry: DateTime,
+    pub otp_hash: Option<String>,
+    pub expiry: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

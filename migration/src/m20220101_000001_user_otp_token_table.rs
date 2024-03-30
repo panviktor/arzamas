@@ -1,3 +1,4 @@
+use super::m20220101_000001_user_table::User;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -24,6 +25,13 @@ impl MigrationTrait for Migration {
                             .string()
                             .not_null()
                             .unique_key(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_otp_token_user_id")
+                            .from(UserOTPToken::Table, UserOTPToken::UserId)
+                            .to(User::Table, User::UserId)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(UserOTPToken::OTPEmailHash).string().null())
                     .col(ColumnDef::new(UserOTPToken::OTPAppHash).string().null())

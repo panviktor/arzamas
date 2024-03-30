@@ -1,2 +1,3 @@
 pub mod api;
-pub mod notes;
+pub(crate) mod handlers;
+pub mod middleware;

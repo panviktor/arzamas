@@ -12,8 +12,8 @@ pub struct Model {
     #[sea_orm(unique)]
     pub user_id: String,
     #[serde(skip_serializing, skip_deserializing)]
-    pub otp_hash: String,
-    pub expiry: DateTime,
+    pub otp_hash: Option<String>,
+    pub expiry: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

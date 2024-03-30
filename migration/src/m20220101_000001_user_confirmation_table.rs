@@ -1,3 +1,4 @@
+use crate::m20220101_000001_user_table::User;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -25,17 +26,16 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .unique_key(),
                     )
-                    .col(ColumnDef::new(UserConfirmation::Email).string().not_null())
-                    .col(
-                        ColumnDef::new(UserConfirmation::OTPHash)
-                            .string()
-                            .not_null(),
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_confirmation_user_id")
+                            .from(UserConfirmation::Table, UserConfirmation::UserId)
+                            .to(User::Table, User::UserId)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .col(
-                        ColumnDef::new(UserConfirmation::Expiry)
-                            .timestamp()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(UserConfirmation::Email).string().null())
+                    .col(ColumnDef::new(UserConfirmation::OTPHash).string().null())
+                    .col(ColumnDef::new(UserConfirmation::Expiry).timestamp().null())
                     .to_owned(),
             )
             .await

@@ -1,3 +1,4 @@
+use crate::application::error::error::ApplicationError;
 /// Module for the ServiceError struct.
 use actix_web::http::StatusCode;
 use actix_web::{HttpRequest, HttpResponse, ResponseError};
@@ -114,7 +115,6 @@ impl ResponseError for AppResponseError {
     }
 }
 
-
 ///FIXME: - remove this code after full hex refactoring
 impl From<DbErr> for AppResponseError {
     fn from(value: DbErr) -> Self {
@@ -196,6 +196,19 @@ impl From<DbErr> for AppResponseError {
             path: Option::from("Database".to_string()),
             message,
             show_message: true,
+        }
+    }
+}
+
+impl ApplicationError {
+    pub fn into_service_error(self, req: &HttpRequest) -> AppResponseError {
+        match self {
+            ApplicationError::ValidationError(msg) => AppResponseError::bad_request(req, msg, true),
+            ApplicationError::NotFound(msg) => AppResponseError::not_found(req, msg, true),
+            ApplicationError::BadRequest(msg) => AppResponseError::bad_request(req, msg, true),
+            ApplicationError::DatabaseError(msg) => AppResponseError::general(req, msg, true),
+            ApplicationError::InternalServerError(msg) => AppResponseError::general(req, msg, true),
+            ApplicationError::Unknown(msg) => AppResponseError::general(req, msg, true),
         }
     }
 }

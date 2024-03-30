@@ -1,127 +1,94 @@
-use crate::application::dto::page_query::PageQuery;
-use crate::application::dto::paginated_result::PaginatedResult;
-use crate::application::error::response_error::AppResponseError;
-use crate::domain;
-use crate::domain::note::note::NoteText;
-use crate::infrastructure::persistence::db::extract_db_connection;
-use crate::infrastructure::repository::error::RepositoryError;
-use crate::infrastructure::repository::note::{FindNote, FindNotes, Repository, UpdateNote};
-use crate::infrastructure::web::notes::dto_models::{DTOFindNote, DTONote};
-use crate::modules::generate_unique_id;
-use actix_web::HttpRequest;
-use chrono::Utc;
-use entity::note;
-use entity::prelude::Note;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, ModelTrait, QueryFilter,
-    QueryOrder,
+use crate::application::dto::note::note_request_dto::{
+    CreateNoteRequest, GetAllNotesRequest, NoteByIdRequest, UpdateNoteRequest,
 };
+use crate::application::dto::note::note_response_dto::NoteResponse;
+use crate::application::dto::shared::paginated_result::PaginatedResult;
+use crate::application::error::error::ApplicationError;
+use crate::domain::entities::note::{Note, NoteText};
+use crate::domain::repositories::note::note_parameters::{FindNote, FindNotes, UpdateNote};
+use crate::domain::repositories::note::note_repository::NoteDomainRepository;
+use crate::domain::services::note::note_service::NoteDomainService;
 use std::cmp::{max, min};
 
-pub struct NoteService<R: Repository<domain::note::Note>> {
-    note_repository: R,
+pub struct NoteApplicationService<R: NoteDomainRepository> {
+    note_domain_service: NoteDomainService<R>,
 }
 
-impl<R: Repository<domain::note::Note>> NoteService<R> {
-    pub fn new(note_repository: R) -> Self {
-        Self { note_repository }
+impl<R: NoteDomainRepository> NoteApplicationService<R> {
+    pub fn new(note_domain_service: NoteDomainService<R>) -> Self {
+        Self {
+            note_domain_service,
+        }
     }
-
     pub async fn create_note(
         &self,
-        user_id: &str,
-        note: DTONote,
-    ) -> Result<domain::note::Note, RepositoryError> {
-        let text = note.text.to_string();
-        let id = generate_unique_id();
-
-        let domain_note = domain::note::Note::new(
-            id,
-            user_id.to_string(),
-            NoteText(text),
-            Utc::now(),
-            Utc::now(),
-        );
-
-        self.note_repository
-            .create(domain_note)
-            .await
-            .map_err(|e| e.into())
+        dto_note: CreateNoteRequest,
+    ) -> Result<NoteResponse, ApplicationError> {
+        let note_text = NoteText(dto_note.text);
+        let note = Note::create(dto_note.user_id, note_text)?;
+        let created_note = self.note_domain_service.add_note(note).await?;
+        Ok(NoteResponse::from(created_note))
     }
 
     pub async fn get_all_notes(
         &self,
-        user_id: &str,
-        query: PageQuery,
-    ) -> Result<PaginatedResult<domain::note::Note>, RepositoryError> {
-        let per_page = max(min(query.per_page, 100), 1);
-        let params = FindNotes {
-            user_id: user_id.to_string(),
-            page: query.page,
+        request: GetAllNotesRequest,
+    ) -> Result<PaginatedResult<NoteResponse>, ApplicationError> {
+        let per_page = max(min(request.per_page, 100), 1);
+
+        let find_notes = FindNotes {
+            user_id: request.user_id,
+            page: request.page,
             per_page,
         };
 
-        let notes = self
-            .note_repository
-            .find_all(params)
-            .await
-            .map_err(RepositoryError::from)?;
+        let paginated_notes = self.note_domain_service.find_all(find_notes).await?;
+        let note_responses: Vec<NoteResponse> = paginated_notes
+            .items
+            .into_iter()
+            .map(|note| NoteResponse::from(note))
+            .collect();
 
-        Ok(notes)
+        Ok(PaginatedResult {
+            items: note_responses,
+            total_items: paginated_notes.total_items,
+            total_pages: paginated_notes.total_pages,
+            current_page: paginated_notes.current_page,
+            items_per_page: paginated_notes.items_per_page,
+        })
     }
 
     pub async fn get_note_by_id(
         &self,
-        user_id: &str,
-        note: DTOFindNote,
-    ) -> Result<domain::note::Note, RepositoryError> {
-        let note_to_repo = FindNote {
-            user_id: user_id.to_string(),
-            note_id: note.id,
+        request: NoteByIdRequest,
+    ) -> Result<NoteResponse, ApplicationError> {
+        let find_note = FindNote {
+            user_id: request.user_id,
+            note_id: request.note_id,
         };
-
-        let note = self
-            .note_repository
-            .find_one(note_to_repo)
-            .await
-            .map_err(RepositoryError::from)?;
-
-        Ok(note)
+        let found_note = self.note_domain_service.find_one(find_note).await?;
+        Ok(NoteResponse::from(found_note))
     }
 
-    pub async fn delete_note(
-        &self,
-        user_id: &str,
-        note: DTOFindNote,
-    ) -> Result<(), RepositoryError> {
-        let note_to_repo = FindNote {
-            user_id: user_id.to_string(),
-            note_id: note.id,
+    pub async fn delete_note(&self, request: NoteByIdRequest) -> Result<(), ApplicationError> {
+        let find_note = FindNote {
+            user_id: request.user_id,
+            note_id: request.note_id,
         };
-
-        self.note_repository
-            .delete(note_to_repo)
-            .await
-            .map_err(RepositoryError::from)?;
-
+        self.note_domain_service.delete(find_note).await?;
         Ok(())
     }
 
     pub async fn update_note(
         &self,
-        user_id: &str,
-        note_id: &str,
-        note: DTONote,
-    ) -> Result<domain::note::Note, RepositoryError> {
-        let updated_note = UpdateNote {
-            user_id: user_id.to_string(),
-            note_id: note_id.to_string(),
-            text: NoteText(note.text),
+        request: UpdateNoteRequest,
+    ) -> Result<NoteResponse, ApplicationError> {
+        let update_note = UpdateNote {
+            user_id: request.user_id,
+            note_id: request.note_id,
+            text: NoteText(request.text),
         };
-
-        self.note_repository
-            .update(updated_note)
-            .await
-            .map_err(RepositoryError::from)
+        let updated_note = self.note_domain_service.update(update_note).await?;
+        Ok(NoteResponse::from(updated_note))
     }
 }

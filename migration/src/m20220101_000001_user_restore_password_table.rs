@@ -1,3 +1,4 @@
+use super::m20220101_000001_user_table::User;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -25,15 +26,18 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .unique_key(),
                     )
-                    .col(
-                        ColumnDef::new(UserRestorePassword::OTPHash)
-                            .string()
-                            .not_null(),
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_restore_password_user_id")
+                            .from(UserRestorePassword::Table, UserRestorePassword::UserId)
+                            .to(User::Table, User::UserId)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
+                    .col(ColumnDef::new(UserRestorePassword::OTPHash).string().null())
                     .col(
                         ColumnDef::new(UserRestorePassword::Expiry)
                             .timestamp()
-                            .not_null(),
+                            .null(),
                     )
                     .to_owned(),
             )
