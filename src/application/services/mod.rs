@@ -2,7 +2,7 @@ use crate::application::error::error::ApplicationError;
 use crate::domain::error::{DomainError, ExternalServiceError, PersistenceError, ValidationError};
 
 pub mod note;
-pub(crate) mod service_container;
+pub mod service_container;
 pub mod user;
 
 impl From<DomainError> for ApplicationError {

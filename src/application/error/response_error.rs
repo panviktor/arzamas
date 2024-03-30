@@ -207,6 +207,9 @@ impl ApplicationError {
             ApplicationError::NotFound(msg) => AppResponseError::not_found(req, msg, true),
             ApplicationError::BadRequest(msg) => AppResponseError::bad_request(req, msg, true),
             ApplicationError::DatabaseError(msg) => AppResponseError::general(req, msg, true),
+            ApplicationError::ExternalServiceError(msg) => {
+                AppResponseError::general(req, msg, true)
+            }
             ApplicationError::InternalServerError(msg) => AppResponseError::general(req, msg, true),
             ApplicationError::Unknown(msg) => AppResponseError::general(req, msg, true),
         }

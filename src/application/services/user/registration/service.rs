@@ -5,18 +5,33 @@ use crate::application::dto::user::user_registration_response_dto::CreatedUserRe
 use crate::application::error::error::ApplicationError;
 use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::UserRegistration;
+use crate::domain::ports::email::email::EmailPort;
 use crate::domain::repositories::user::user_parameters::FindUser;
 use crate::domain::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
 use crate::domain::services::user::user_registration_service::UserRegistrationDomainService;
+use std::sync::Arc;
 
-pub struct UserRegistrationApplicationService<R: UserRegistrationDomainRepository> {
+pub struct UserRegistrationApplicationService<R, E>
+where
+    R: UserRegistrationDomainRepository,
+    E: EmailPort,
+{
     user_registration_domain_service: UserRegistrationDomainService<R>,
+    email_service: Arc<E>,
 }
 
-impl<R: UserRegistrationDomainRepository> UserRegistrationApplicationService<R> {
-    pub fn new(user_registration_domain_service: UserRegistrationDomainService<R>) -> Self {
+impl<R, E> UserRegistrationApplicationService<R, E>
+where
+    R: UserRegistrationDomainRepository,
+    E: EmailPort,
+{
+    pub fn new(
+        user_registration_domain_service: UserRegistrationDomainService<R>,
+        email_service: Arc<E>,
+    ) -> Self {
         Self {
             user_registration_domain_service,
+            email_service,
         }
     }
 
@@ -40,6 +55,15 @@ impl<R: UserRegistrationDomainRepository> UserRegistrationApplicationService<R> 
             .user_registration_domain_service
             .create_user(domain_user)
             .await?;
+
+        let token = "token444";
+
+        self.email_service
+            .send_email(created_user.email.value(), "Registration complete", token)
+            .await
+            .map_err(|e| ApplicationError::ExternalServiceError(e.to_string()))?;
+
+        // send-email.wait?;
         Ok(CreatedUserResponse::from(created_user))
     }
 

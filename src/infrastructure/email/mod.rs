@@ -1,1 +1,1 @@
-pub(crate) mod email;
+pub mod lettre_email_adapter;

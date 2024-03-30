@@ -6,6 +6,7 @@ use actix_web::dev::Server;
 use actix_web::middleware::NormalizePath;
 use actix_web::{web, App, HttpServer};
 use deadpool_redis::Pool;
+use lettre::AsyncSmtpTransport;
 use sea_orm::DatabaseConnection;
 use std::net::TcpListener;
 use std::sync::Arc;
@@ -15,12 +16,10 @@ pub async fn run(
     listener: TcpListener,
     database: DatabaseConnection,
     redis_pool: Pool,
+    email_transport: AsyncSmtpTransport<lettre::Tokio1Executor>,
 ) -> Result<Server, std::io::Error> {
-    std::env::set_var("RUST_LOG", "actix_web=debug");
-    env_logger::init();
-
     let redis_pool_data = web::Data::new(redis_pool);
-    let shared_services = Arc::new(ServiceContainer::new(database));
+    let shared_services = Arc::new(ServiceContainer::new(database, email_transport));
     let data_container = web::Data::new(shared_services);
 
     let server = HttpServer::new(move || {

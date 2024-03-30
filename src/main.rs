@@ -4,6 +4,8 @@ use lib::core::startup::run;
 use lib::infrastructure::persistence::db::{check_migration, create_db_pool};
 // use std::env;
 use lib::infrastructure::cache::redis::create_redis_pool;
+
+use lib::infrastructure::email::lettre_email_adapter::create_mail_transport;
 use std::net::TcpListener;
 
 // const APPLICATION_NAME: &str = "Arzamas";
@@ -47,8 +49,10 @@ async fn main() -> std::io::Result<()> {
 
     let redis_pool = create_redis_pool().expect("Cannot create deadpool redis.");
 
+    let email_transport = create_mail_transport();
+
     // Run the App 🚀
-    match run(listener, connection, redis_pool).await {
+    match run(listener, connection, redis_pool, email_transport).await {
         Ok(server) => {
             // If the server is successfully created, run it
             server.await

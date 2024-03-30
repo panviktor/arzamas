@@ -5,5 +5,6 @@ pub enum ApplicationError {
     BadRequest(String),
     DatabaseError(String),
     InternalServerError(String),
+    ExternalServiceError(String),
     Unknown(String),
 }

@@ -7,7 +7,6 @@ use crate::core::error::ServerError;
 use crate::err_server;
 
 pub mod credentials;
-pub mod email;
 
 pub mod models;
 pub mod service;
