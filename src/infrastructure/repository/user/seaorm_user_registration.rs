@@ -1,6 +1,6 @@
 use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::{DomainError, PersistenceError};
-use crate::domain::repositories::user::user_parameters::FindUser;
+use crate::domain::repositories::user::user_parameters::FindUserByIdDTO;
 use crate::domain::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
 use async_trait::async_trait;
 use entity::{
@@ -88,7 +88,7 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
         Ok(domain_user)
     }
 
-    async fn delete_user(&self, user: FindUser) -> Result<(), DomainError> {
+    async fn delete_user(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
         let txn = self.db.begin().await.map_err(|e| {
             DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
         })?;

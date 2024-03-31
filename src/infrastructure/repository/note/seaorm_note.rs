@@ -1,7 +1,9 @@
 use crate::application::dto::shared::paginated_result::PaginatedResult;
 use crate::domain::entities::note::Note;
 use crate::domain::error::{DomainError, PersistenceError};
-use crate::domain::repositories::note::note_parameters::{FindNote, FindNotes, UpdateNote};
+use crate::domain::repositories::note::note_parameters::{
+    FindNoteDTO, FindNotesDTO, UpdateNoteDTO,
+};
 use crate::domain::repositories::note::note_repository::NoteDomainRepository;
 use async_trait::async_trait;
 use chrono::Utc;
@@ -36,7 +38,7 @@ impl NoteDomainRepository for SeaOrmNoteRepository {
         Ok(res.into())
     }
 
-    async fn find_one(&self, note: FindNote) -> Result<Note, DomainError> {
+    async fn find_one(&self, note: FindNoteDTO) -> Result<Note, DomainError> {
         let db_ref = Arc::as_ref(&self.db);
 
         let note_model = note::Entity::find()
@@ -50,7 +52,7 @@ impl NoteDomainRepository for SeaOrmNoteRepository {
         Ok(note_model.into())
     }
 
-    async fn find_all(&self, notes: FindNotes) -> Result<PaginatedResult<Note>, DomainError> {
+    async fn find_all(&self, notes: FindNotesDTO) -> Result<PaginatedResult<Note>, DomainError> {
         let db_ref = Arc::as_ref(&self.db);
 
         let paginator = note::Entity::find()
@@ -81,7 +83,7 @@ impl NoteDomainRepository for SeaOrmNoteRepository {
         Ok(result)
     }
 
-    async fn update(&self, note: UpdateNote) -> Result<Note, DomainError> {
+    async fn update(&self, note: UpdateNoteDTO) -> Result<Note, DomainError> {
         let db_ref = Arc::as_ref(&self.db);
 
         let existing_note = note::Entity::find()
@@ -111,7 +113,7 @@ impl NoteDomainRepository for SeaOrmNoteRepository {
         Ok(updated_note.into())
     }
 
-    async fn delete(&self, note: FindNote) -> Result<(), DomainError> {
+    async fn delete(&self, note: FindNoteDTO) -> Result<(), DomainError> {
         let db_ref = Arc::as_ref(&self.db);
 
         let existing_note = note::Entity::find()

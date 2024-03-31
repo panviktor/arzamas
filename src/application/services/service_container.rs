@@ -4,6 +4,7 @@ use crate::domain::services::note::note_service::NoteDomainService;
 use crate::domain::services::user::user_registration_service::UserRegistrationDomainService;
 use crate::infrastructure::email::lettre_email_adapter::LettreEmailAdapter;
 use crate::infrastructure::repository::note::seaorm_note::SeaOrmNoteRepository;
+use crate::infrastructure::repository::user::seaorm_user::SeaOrmUserRepository;
 use crate::infrastructure::repository::user::seaorm_user_registration::SeaOrmUserRegistrationRepository;
 use lettre::AsyncSmtpTransport;
 use sea_orm::DatabaseConnection;
@@ -12,7 +13,11 @@ use std::sync::Arc;
 pub struct ServiceContainer {
     pub note_application_service: Arc<NoteApplicationService<SeaOrmNoteRepository>>,
     pub user_registration_service: Arc<
-        UserRegistrationApplicationService<SeaOrmUserRegistrationRepository, LettreEmailAdapter>,
+        UserRegistrationApplicationService<
+            SeaOrmUserRegistrationRepository,
+            SeaOrmUserRepository,
+            LettreEmailAdapter,
+        >,
     >,
 }
 
@@ -29,9 +34,13 @@ impl ServiceContainer {
         let note_domain_service = NoteDomainService::new(note_repository);
         let note_application_service = Arc::new(NoteApplicationService::new(note_domain_service));
 
+        let user_repository = SeaOrmUserRepository::new(db_arc.clone());
         let user_registration_repository = SeaOrmUserRegistrationRepository::new(db_arc.clone());
-        let user_registration_domain_service =
-            UserRegistrationDomainService::new(user_registration_repository);
+
+        let user_registration_domain_service = UserRegistrationDomainService::new(
+            user_registration_repository,
+            Arc::new(user_repository),
+        );
         let user_registration_service = Arc::new(UserRegistrationApplicationService::new(
             user_registration_domain_service,
             email_service,

@@ -1,4 +1,3 @@
-#[derive(Debug, Clone)]
-pub struct FindUser {
+pub struct FindUserByIdDTO {
     pub user_id: String,
 }

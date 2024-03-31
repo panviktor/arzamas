@@ -5,7 +5,9 @@ use crate::application::dto::note::note_response_dto::NoteResponse;
 use crate::application::dto::shared::paginated_result::PaginatedResult;
 use crate::application::error::error::ApplicationError;
 use crate::domain::entities::note::{Note, NoteText};
-use crate::domain::repositories::note::note_parameters::{FindNote, FindNotes, UpdateNote};
+use crate::domain::repositories::note::note_parameters::{
+    CreateNoteDTO, FindNoteDTO, FindNotesDTO, UpdateNoteDTO,
+};
 use crate::domain::repositories::note::note_repository::NoteDomainRepository;
 use crate::domain::services::note::note_service::NoteDomainService;
 use std::cmp::{max, min};
@@ -25,8 +27,8 @@ impl<R: NoteDomainRepository> NoteApplicationService<R> {
         dto_note: CreateNoteRequest,
     ) -> Result<NoteResponse, ApplicationError> {
         let note_text = NoteText(dto_note.text);
-        let note = Note::create(dto_note.user_id, note_text)?;
-        let created_note = self.note_domain_service.add_note(note).await?;
+        let note_dto = CreateNoteDTO::new(dto_note.user_id, note_text);
+        let created_note = self.note_domain_service.add_note(note_dto).await?;
         Ok(NoteResponse::from(created_note))
     }
 
@@ -36,7 +38,7 @@ impl<R: NoteDomainRepository> NoteApplicationService<R> {
     ) -> Result<PaginatedResult<NoteResponse>, ApplicationError> {
         let per_page = max(min(request.per_page, 100), 1);
 
-        let find_notes = FindNotes {
+        let find_notes = FindNotesDTO {
             user_id: request.user_id,
             page: request.page,
             per_page,
@@ -62,7 +64,7 @@ impl<R: NoteDomainRepository> NoteApplicationService<R> {
         &self,
         request: NoteByIdRequest,
     ) -> Result<NoteResponse, ApplicationError> {
-        let find_note = FindNote {
+        let find_note = FindNoteDTO {
             user_id: request.user_id,
             note_id: request.note_id,
         };
@@ -71,7 +73,7 @@ impl<R: NoteDomainRepository> NoteApplicationService<R> {
     }
 
     pub async fn delete_note(&self, request: NoteByIdRequest) -> Result<(), ApplicationError> {
-        let find_note = FindNote {
+        let find_note = FindNoteDTO {
             user_id: request.user_id,
             note_id: request.note_id,
         };
@@ -83,7 +85,7 @@ impl<R: NoteDomainRepository> NoteApplicationService<R> {
         &self,
         request: UpdateNoteRequest,
     ) -> Result<NoteResponse, ApplicationError> {
-        let update_note = UpdateNote {
+        let update_note = UpdateNoteDTO {
             user_id: request.user_id,
             note_id: request.note_id,
             text: NoteText(request.text),

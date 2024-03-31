@@ -1,3 +1,4 @@
+pub mod seaorm_user;
 pub mod seaorm_user_authentication;
 pub mod seaorm_user_helper;
 pub mod seaorm_user_notification;

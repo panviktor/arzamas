@@ -23,7 +23,7 @@ pub enum UserRegistrationError {
 }
 
 impl UserRegistration {
-    pub(crate) fn new(
+    pub fn new(
         user_id: String,
         email: Email,
         username: String,
