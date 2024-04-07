@@ -10,32 +10,6 @@ pub struct VerifyEmailParams {
 }
 
 /// Struct for holding the form parameters with the new user form
-#[derive(Serialize, Deserialize, ToSchema)]
-pub struct LoginParams {
-    pub identifier: String,
-    pub password: String,
-    pub persist: Option<bool>,
-}
-
-#[derive(Serialize, Deserialize, ToSchema)]
-pub enum LoginResponse {
-    OTPResponse {
-        message: String,
-        apps_code: bool,
-        id: Option<String>,
-    },
-    TokenResponse {
-        token: String,
-        token_type: String,
-    },
-}
-
-#[derive(Serialize, Deserialize, ToSchema)]
-pub struct OTPCode {
-    pub user_id: String,
-    pub email_code: Option<String>,
-    pub app_code: Option<String>,
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct UserInfo {

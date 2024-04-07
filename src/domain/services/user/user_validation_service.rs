@@ -1,11 +1,11 @@
-use crate::domain::entities::shared::Email;
+use crate::domain::entities::shared::{Email, Username};
 use crate::domain::error::{DomainError, ValidationError};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::fmt;
 
 lazy_static! {
-    static ref EMAIL_REGEX: Regex = Regex::new(
+    pub static ref EMAIL_REGEX: Regex = Regex::new(
         r"^([a-z0-9_+]([a-z0-9_+.-]*[a-z0-9_+])?)@([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6})",
     )
     .unwrap();
@@ -47,20 +47,20 @@ impl UserValidationService {
         }
     }
 
-    pub fn validate_username(username: &str) -> Result<(), ValidationServiceError> {
-        if username.is_empty() {
+    pub fn validate_username(username: &Username) -> Result<(), ValidationServiceError> {
+        if username.value().is_empty() {
             Err(ValidationServiceError::TooShort(
                 "Username cannot be empty.".to_string(),
             ))
-        } else if username.len() < 3 {
+        } else if username.value().len() < 3 {
             Err(ValidationServiceError::TooShort(
                 "Username must be at least 3 characters.".to_string(),
             ))
-        } else if username.bytes().len() > 8192 {
+        } else if username.value().bytes().len() > 8192 {
             Err(ValidationServiceError::TooLong(
                 "Username too long. Maximum allowed is 8192 bytes.".to_string(),
             ))
-        } else if EMAIL_REGEX.is_match(username) {
+        } else if EMAIL_REGEX.is_match(username.value()) {
             Err(ValidationServiceError::InvalidFormat(
                 "Username may not be an email.".to_string(),
             ))

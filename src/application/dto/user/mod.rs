@@ -2,6 +2,8 @@ use crate::application::error::error::ApplicationError;
 use crate::domain::entities::user::user_registration::UserRegistrationError;
 use crate::domain::services::user::CredentialServiceError;
 
+pub mod user_authentication_request_dto;
+pub mod user_authentication_response_dto;
 pub mod user_registration_request_dto;
 pub mod user_registration_response_dto;
 

@@ -1,7 +1,7 @@
-use crate::domain::entities::shared::Email;
+use crate::domain::entities::shared::{Email, Username};
 use crate::domain::error::DomainError;
 use crate::domain::error::PersistenceError;
-use crate::domain::repositories::user::user_repository::UserDomainRepository;
+use crate::domain::repositories::user::user_shared_repository::UserDomainRepository;
 use async_trait::async_trait;
 use entity::user;
 use sea_orm::ColumnTrait;
@@ -35,9 +35,10 @@ impl UserDomainRepository for SeaOrmUserRepository {
         Ok(user.is_some())
     }
 
-    async fn exists_with_username(&self, username: &str) -> Result<bool, DomainError> {
+    async fn exists_with_username(&self, username: &Username) -> Result<bool, DomainError> {
+        let user_str = username.value();
         let user = entity::prelude::User::find()
-            .filter(user::Column::Username.eq(username))
+            .filter(user::Column::Username.eq(user_str))
             .one(&*self.db)
             .await
             .map_err(|e| {

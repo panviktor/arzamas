@@ -1,4 +1,4 @@
-use crate::domain::entities::email::email::EmailError;
+use crate::domain::entities::email::EmailError;
 
 #[async_trait::async_trait]
 pub trait EmailPort {

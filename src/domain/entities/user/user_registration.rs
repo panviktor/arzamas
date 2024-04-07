@@ -1,4 +1,4 @@
-use crate::domain::entities::shared::Email;
+use crate::domain::entities::shared::{Email, Username};
 use crate::domain::error::{DomainError, ExternalServiceError, PersistenceError, ValidationError};
 use crate::domain::services::user::user_validation_service::ValidationServiceError;
 use crate::domain::services::user::{
@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 pub struct UserRegistration {
     pub user_id: String,
     pub email: Email,
-    pub username: String,
+    pub username: Username,
     pub pass_hash: String,
     pub created_at: DateTime<Utc>,
 }
@@ -26,7 +26,7 @@ impl UserRegistration {
     pub fn new(
         user_id: String,
         email: Email,
-        username: String,
+        username: Username,
         pass_hash: String,
         created_at: DateTime<Utc>,
     ) -> Self {
@@ -41,7 +41,7 @@ impl UserRegistration {
 
     pub fn create(
         email: Email,
-        username: String,
+        username: Username,
         password: String,
     ) -> Result<Self, UserRegistrationError> {
         UserValidationService::validate_email(&email)

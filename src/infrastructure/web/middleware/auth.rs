@@ -1,6 +1,6 @@
-use crate::modules_deprecated::auth::session::{
-    get_session_token_service_request, validate_session,
-};
+// use crate::modules_deprecated::auth::session::{
+//     get_session_token_service_request, validate_session,
+// };
 /// Module that contains all the auth middleware.
 use actix_http::body::BoxBody;
 use actix_http::HttpMessage;
@@ -63,34 +63,35 @@ where
         let srv = self.service.clone();
         // Run this async so we can use async functions.
         Box::pin(async move {
-            let redis_pool = match req.app_data::<web::Data<Pool>>() {
-                Some(pool) => pool,
-                None => {
-                    return Ok(req.into_response(
-                        HttpResponse::InternalServerError().json("Auth Redis pool not found!"),
-                    ));
-                }
-            };
-
-            let is_logged_in = match get_session_token_service_request(&req) {
-                Some(token) => validate_session(&token, redis_pool)
-                    .await
-                    .unwrap_or_else(|e| {
-                        error!("Error validating token: {}", e);
-                        None
-                    }),
-                None => None,
-            };
-
-            match is_logged_in {
-                Some(user_id) => {
-                    let user = LoginUser { id: user_id };
-                    req.extensions_mut().insert(user);
-                    let ok = srv.call(req).await?;
-                    Ok(ok)
-                }
-                None => Ok(req.into_response(HttpResponse::Unauthorized().finish())),
-            }
+            //     let redis_pool = match req.app_data::<web::Data<Pool>>() {
+            //         Some(pool) => pool,
+            //         None => {
+            //             return Ok(req.into_response(
+            //                 HttpResponse::InternalServerError().json("Auth Redis pool not found!"),
+            //             ));
+            //         }
+            //     };
+            //
+            //     let is_logged_in = match get_session_token_service_request(&req) {
+            //         Some(token) => validate_session(&token, redis_pool)
+            //             .await
+            //             .unwrap_or_else(|e| {
+            //                 error!("Error validating token: {}", e);
+            //                 None
+            //             }),
+            //         None => None,
+            //     };
+            //
+            //     match is_logged_in {
+            //         Some(user_id) => {
+            //             let user = LoginUser { id: user_id };
+            //             req.extensions_mut().insert(user);
+            //             let ok = srv.call(req).await?;
+            //             Ok(ok)
+            //         }
+            //         None => Ok(req.into_response(HttpResponse::Unauthorized().finish())),
+            //     }
+            todo!()
         })
     }
 }

@@ -3,13 +3,13 @@ use crate::application::dto::user::user_registration_request_dto::{
 };
 use crate::application::dto::user::user_registration_response_dto::CreatedUserResponse;
 use crate::application::error::error::ApplicationError;
-use crate::domain::entities::shared::Email;
+use crate::domain::entities::shared::{Email, Username};
 
 use crate::domain::ports::email::email::EmailPort;
-use crate::domain::repositories::user::user_parameters::FindUserByIdDTO;
 use crate::domain::repositories::user::user_registration_parameters::CreateUserDTO;
 use crate::domain::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
-use crate::domain::repositories::user::user_repository::UserDomainRepository;
+use crate::domain::repositories::user::user_shared_parameters::FindUserByIdDTO;
+use crate::domain::repositories::user::user_shared_repository::UserDomainRepository;
 use crate::domain::services::user::user_registration_service::UserRegistrationDomainService;
 use std::sync::Arc;
 
@@ -50,7 +50,8 @@ where
         }
 
         let email = Email(dto_user.email);
-        let create_user = CreateUserDTO::new(dto_user.username, email, dto_user.password);
+        let username = Username(dto_user.username);
+        let create_user = CreateUserDTO::new(username, email, dto_user.password);
 
         let created_user = self
             .user_registration_domain_service
@@ -58,7 +59,8 @@ where
             .await
             .map_err(|e| ApplicationError::from(e))?;
 
-        let token = "token444";
+        let token = "token444"; //make real
+
         self.email_service
             .send_email(created_user.email.value(), "Registration complete", token)
             .await

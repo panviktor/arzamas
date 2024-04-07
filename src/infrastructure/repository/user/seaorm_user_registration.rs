@@ -1,7 +1,7 @@
 use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::{DomainError, PersistenceError};
-use crate::domain::repositories::user::user_parameters::FindUserByIdDTO;
 use crate::domain::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
+use crate::domain::repositories::user::user_shared_parameters::FindUserByIdDTO;
 use async_trait::async_trait;
 use entity::{
     user, user_confirmation, user_otp_token, user_restore_password, user_security_settings,

@@ -30,6 +30,12 @@ pub enum Relation {
     Note,
     #[sea_orm(has_one = "super::user_security_settings::Entity")]
     UserSecuritySettings,
+    #[sea_orm(has_one = "super::user_otp_token::Entity")]
+    UserOtpToken,
+    #[sea_orm(has_one = "super::user_restore_password::Entity")]
+    UserRestorePassword,
+    #[sea_orm(has_one = "super::user_confirmation::Entity")]
+    UserConfirmation,
 }
 
 impl Related<super::note::Entity> for Entity {
@@ -41,6 +47,24 @@ impl Related<super::note::Entity> for Entity {
 impl Related<super::user_security_settings::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserSecuritySettings.def()
+    }
+}
+
+impl Related<super::user_otp_token::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserOtpToken.def()
+    }
+}
+
+impl Related<super::user_restore_password::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserRestorePassword.def()
+    }
+}
+
+impl Related<super::user_confirmation::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserRestorePassword.def()
     }
 }
 

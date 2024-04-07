@@ -3,7 +3,7 @@ use lib::core::startup::run;
 // use lib::application::telemetry::{get_subscriber, init_subscriber};
 use lib::infrastructure::persistence::db::{check_migration, create_db_pool};
 // use std::env;
-use lib::infrastructure::cache::redis::create_redis_pool;
+use lib::infrastructure::cache::redis_adapter::create_redis_pool;
 
 use lib::infrastructure::email::lettre_email_adapter::create_mail_transport;
 use std::net::TcpListener;

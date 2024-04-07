@@ -1,10 +1,11 @@
+use crate::domain::entities::shared::Username;
 use crate::domain::entities::user::user_registration::UserRegistrationError;
 use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::DomainError;
-use crate::domain::repositories::user::user_parameters::FindUserByIdDTO;
 use crate::domain::repositories::user::user_registration_parameters::CreateUserDTO;
 use crate::domain::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
-use crate::domain::repositories::user::user_repository::UserDomainRepository;
+use crate::domain::repositories::user::user_shared_parameters::FindUserByIdDTO;
+use crate::domain::repositories::user::user_shared_repository::UserDomainRepository;
 use crate::domain::services::user::ValidationServiceError;
 use std::sync::Arc;
 

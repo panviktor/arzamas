@@ -25,7 +25,7 @@ impl CreatedUserResponse {
     pub fn from(user: UserRegistration) -> Self {
         Self::new(
             &user.user_id,
-            &user.username,
+            &user.username.value(),
             user.email.value(),
             user.created_at,
         )
