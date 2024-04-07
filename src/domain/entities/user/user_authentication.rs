@@ -1,4 +1,5 @@
 use crate::domain::entities::shared::{Email, Username};
+use crate::domain::entities::user::user_otp_token::UserOtpToken;
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::services::user::{CredentialServiceError, ValidationServiceError};
 use sea_orm::prelude::DateTime;
@@ -9,7 +10,12 @@ pub enum AuthenticationOutcome {
     RequireAuthenticatorApp,
     RequireEmailAndAuthenticatorApp,
     AuthenticatedWithPreferences {
-        token: String,
+        email: Email,
+        email_notifications_enabled: bool,
+    },
+    AuthenticationFailed {
+        email: Email,
+        message: String,
         email_notifications_enabled: bool,
     },
 }
@@ -26,11 +32,13 @@ pub struct VerificationInfo {
 }
 
 pub struct UserAuthentication {
+    pub user_id: String,
     pub email: Email,
     pub username: Username,
     pub pass_hash: String,
     pub email_validated: bool,
     pub security_setting: UserSecuritySettings,
+    pub otp: UserOtpToken,
     pub login_blocked_until: Option<DateTime>,
 }
 
@@ -38,12 +46,3 @@ pub enum UserAuthenticationError {
     UserIdentifier(ValidationServiceError),
     CredentialError(CredentialServiceError),
 }
-
-// impl UserAuthentication {
-//     pub fn authenticate(
-//         identifier: UserIdentifier,
-//         password: String,
-//     ) -> Result<AuthenticationOutcome, DomainError> {
-//         todo!()
-//     }
-// }

@@ -20,7 +20,6 @@ pub struct Model {
     pub email_validated: bool,
     pub created_at: DateTime,
     pub updated_at: DateTime,
-    #[serde(skip_deserializing)]
     pub login_blocked_until: Option<DateTime>,
 }
 
@@ -28,14 +27,14 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::note::Entity")]
     Note,
-    #[sea_orm(has_one = "super::user_security_settings::Entity")]
-    UserSecuritySettings,
+    #[sea_orm(has_one = "super::user_confirmation::Entity")]
+    UserConfirmation,
     #[sea_orm(has_one = "super::user_otp_token::Entity")]
     UserOtpToken,
     #[sea_orm(has_one = "super::user_restore_password::Entity")]
     UserRestorePassword,
-    #[sea_orm(has_one = "super::user_confirmation::Entity")]
-    UserConfirmation,
+    #[sea_orm(has_one = "super::user_security_settings::Entity")]
+    UserSecuritySettings,
 }
 
 impl Related<super::note::Entity> for Entity {
@@ -44,9 +43,9 @@ impl Related<super::note::Entity> for Entity {
     }
 }
 
-impl Related<super::user_security_settings::Entity> for Entity {
+impl Related<super::user_confirmation::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserSecuritySettings.def()
+        Relation::UserConfirmation.def()
     }
 }
 
@@ -62,9 +61,9 @@ impl Related<super::user_restore_password::Entity> for Entity {
     }
 }
 
-impl Related<super::user_confirmation::Entity> for Entity {
+impl Related<super::user_security_settings::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserRestorePassword.def()
+        Relation::UserSecuritySettings.def()
     }
 }
 
