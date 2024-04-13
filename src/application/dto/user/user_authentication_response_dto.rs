@@ -4,7 +4,7 @@ pub enum LoginResponse {
     OTPResponse {
         message: String,
         apps_code: bool,
-        id: Option<String>,
+        user_id: String,
     },
     TokenResponse {
         token: String,

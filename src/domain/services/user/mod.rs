@@ -1,5 +1,4 @@
 pub mod user_authentication_service;
-pub mod user_confirmation_service;
 pub mod user_credential_service;
 pub mod user_otp_token_service;
 pub mod user_registration_service;

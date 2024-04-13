@@ -41,17 +41,17 @@ where
 
     pub async fn create_user(
         &self,
-        dto_user: CreateUserRequest,
+        request: CreateUserRequest,
     ) -> Result<CreatedUserResponse, ApplicationError> {
-        if dto_user.password != dto_user.password_confirm {
+        if request.password != request.password_confirm {
             return Err(ApplicationError::ValidationError(
                 "Passwords do not match.".to_string(),
             ));
         }
 
-        let email = Email(dto_user.email);
-        let username = Username(dto_user.username);
-        let create_user = CreateUserDTO::new(username, email, dto_user.password);
+        let email = Email(request.email);
+        let username = Username(request.username);
+        let create_user = CreateUserDTO::new(username, email, request.password);
 
         let created_user = self
             .user_registration_domain_service
@@ -59,13 +59,15 @@ where
             .await
             .map_err(|e| ApplicationError::from(e))?;
 
-        let token = "token444"; //make real
-
         self.email_service
-            .send_email(created_user.email.value(), "Registration complete", token)
+            .send_email(
+                created_user.user.email.value(),
+                "Registration complete",
+                created_user.email_validation_token.value(),
+            )
             .await
             .map_err(|e| ApplicationError::ExternalServiceError(e.to_string()))?;
-        Ok(CreatedUserResponse::from(created_user))
+        Ok(CreatedUserResponse::from(created_user.user))
     }
 
     pub async fn delete_user(&self, request: FindUserByIdRequest) -> Result<(), ApplicationError> {

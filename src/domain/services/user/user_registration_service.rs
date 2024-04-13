@@ -1,11 +1,14 @@
-use crate::domain::entities::shared::Username;
-use crate::domain::entities::user::user_registration::UserRegistrationError;
+use crate::domain::entities::user::user_authentication::EmailToken;
+use crate::domain::entities::user::user_registration::{
+    UserRegistrationError, UserRegistrationOutcome,
+};
 use crate::domain::entities::user::UserRegistration;
-use crate::domain::error::DomainError;
+use crate::domain::error::{DomainError, ValidationError};
 use crate::domain::repositories::user::user_registration_parameters::CreateUserDTO;
 use crate::domain::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
 use crate::domain::repositories::user::user_shared_parameters::FindUserByIdDTO;
 use crate::domain::repositories::user::user_shared_repository::UserDomainRepository;
+use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::ValidationServiceError;
 use std::sync::Arc;
 
@@ -30,7 +33,10 @@ where
         }
     }
 
-    pub async fn create_user(&self, user: CreateUserDTO) -> Result<UserRegistration, DomainError> {
+    pub async fn create_user(
+        &self,
+        user: CreateUserDTO,
+    ) -> Result<UserRegistrationOutcome, DomainError> {
         if self.user_repository.exists_with_email(&user.email).await? {
             return Err(UserRegistrationError::InvalidEmail(
                 ValidationServiceError::InvalidFormat("Email already exists".to_string()),
@@ -50,10 +56,42 @@ where
         }
 
         let user = UserRegistration::create(user.email, user.username, user.password)?;
-        self.user_registration_repository.create_user(user).await
+        let token = SharedDomainService::generate_token(8)?;
+        let confirmation_token = EmailToken::new(&token);
+
+        let user_id = FindUserByIdDTO::new(&user.user_id);
+
+        let user = self.user_registration_repository.create_user(user).await?;
+
+        self.user_repository
+            .save_email_validation_token(user_id, &confirmation_token)
+            .await?;
+
+        Ok(UserRegistrationOutcome {
+            user,
+            email_validation_token: confirmation_token,
+        })
     }
 
     pub async fn delete_user(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
         self.user_registration_repository.delete_user(user).await
+    }
+
+    pub async fn validate_email_user(
+        &self,
+        user: FindUserByIdDTO,
+        token: EmailToken,
+    ) -> Result<(), DomainError> {
+        match self
+            .user_repository
+            .verify_email_validation_token(user, token)
+            .await
+        {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(DomainError::ValidationError(ValidationError::InvalidData(
+                "Invalid validation code provided.".to_string(),
+            ))),
+            Err(e) => Err(e),
+        }
     }
 }

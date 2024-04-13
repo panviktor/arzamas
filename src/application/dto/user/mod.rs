@@ -20,6 +20,9 @@ impl From<UserRegistrationError> for ApplicationError {
                 | CredentialServiceError::UserIdGenerationError(msg) => {
                     ApplicationError::DatabaseError(msg)
                 }
+                CredentialServiceError::VerificationError(msg) => {
+                    ApplicationError::ValidationError(msg)
+                }
             },
         }
     }

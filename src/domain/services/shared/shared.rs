@@ -1,3 +1,5 @@
+use crate::domain::entities::user::user_registration::UserRegistrationError;
+use crate::domain::error::{DomainError, ExternalServiceError};
 use chrono::Utc;
 use getrandom::getrandom;
 use hex::encode;
@@ -35,5 +37,15 @@ impl SharedDomainService {
         let mut hasher = Sha512::new();
         hasher.update(id_str.as_bytes());
         encode(hasher.finalize())
+    }
+}
+
+impl From<SharedDomainError> for DomainError {
+    fn from(error: SharedDomainError) -> Self {
+        match error {
+            SharedDomainError::TokenGenerationError(msg) => {
+                DomainError::ExternalServiceError(ExternalServiceError::Custom(msg))
+            }
+        }
     }
 }

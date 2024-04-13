@@ -6,3 +6,4 @@ pub use super::user_confirmation::Entity as UserConfirmation;
 pub use super::user_otp_token::Entity as UserOtpToken;
 pub use super::user_restore_password::Entity as UserRestorePassword;
 pub use super::user_security_settings::Entity as UserSecuritySettings;
+pub use super::user_session::Entity as UserSession;

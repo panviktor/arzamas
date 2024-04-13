@@ -1,4 +1,5 @@
 use crate::domain::entities::shared::{Email, Username};
+use crate::domain::entities::user::user_authentication::EmailToken;
 use crate::domain::error::{DomainError, ExternalServiceError, PersistenceError, ValidationError};
 use crate::domain::services::user::user_validation_service::ValidationServiceError;
 use crate::domain::services::user::{
@@ -13,6 +14,11 @@ pub struct UserRegistration {
     pub username: Username,
     pub pass_hash: String,
     pub created_at: DateTime<Utc>,
+}
+
+pub struct UserRegistrationOutcome {
+    pub user: UserRegistration,
+    pub email_validation_token: EmailToken,
 }
 
 pub enum UserRegistrationError {
@@ -77,6 +83,9 @@ impl From<UserRegistrationError> for DomainError {
                     CredentialServiceError::UserIdGenerationError(msg) => {
                         // ID Generation might be considered a custom persistence operation
                         DomainError::PersistenceError(PersistenceError::Custom(msg))
+                    }
+                    CredentialServiceError::VerificationError(msg) => {
+                        DomainError::ValidationError(ValidationError::InvalidData(msg))
                     }
                 }
             }

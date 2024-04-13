@@ -27,12 +27,20 @@ impl EmailPort for LettreEmailAdapter {
             .to(format!("Receiver <{}>", to).parse().unwrap())
             .subject(subject)
             .body(body.to_string())
-            .map_err(|_| EmailError::SendingFailed("Failed to build email message".to_string()))?;
+            .map_err(|_| EmailError::SendingFailed {
+                message: "Failed to build email message".to_string(),
+                recipient: to.to_string(),
+                error_code: None,
+            })?;
 
         self.mailer
             .send(email)
             .await
-            .map_err(|e| EmailError::SendingFailed(format!("Email sending failed: {}", e)))?;
+            .map_err(|e| EmailError::SendingFailed {
+                message: format!("Email sending failed: {}", e),
+                recipient: to.to_string(),
+                error_code: None,
+            })?;
 
         Ok(())
     }
