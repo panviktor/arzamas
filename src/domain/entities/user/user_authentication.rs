@@ -40,17 +40,6 @@ pub enum AuthenticationOutcome {
         message: String,
     },
 }
-#[derive(Debug, Clone)]
-pub enum VerificationMethod {
-    EmailOTP,
-    AuthenticatorApp,
-}
-#[derive(Debug, Clone)]
-pub struct VerificationInfo {
-    pub method: VerificationMethod,
-    pub code: Option<String>,
-    pub answers: Option<Vec<String>>,
-}
 
 pub struct UserAuthentication {
     pub user_id: String,

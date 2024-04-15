@@ -46,4 +46,10 @@ pub trait UserAuthenticationDomainRepository {
         expiry: DateTime<Utc>,
         email_token_hash: Option<String>,
     ) -> Result<(), DomainError>;
+
+    async fn update_2fa_session_expiry(
+        &self,
+        user: FindUserByIdDTO,
+        expiry: DateTime<Utc>,
+    ) -> Result<(), DomainError>;
 }

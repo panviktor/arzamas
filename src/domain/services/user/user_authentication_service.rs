@@ -1,12 +1,14 @@
 use crate::core::constants::emojis::EMOJIS;
 use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::user_authentication::{UserAuthentication, VerificationInfo};
+use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 
 use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::entities::user::AuthenticationOutcome;
 use crate::domain::error::{DomainError, ValidationError};
-use crate::domain::repositories::user::user_authentication_parameters::CreateLoginRequestDTO;
+use crate::domain::repositories::user::user_authentication_parameters::{
+    ContinueLoginRequestDTO, CreateLoginRequestDTO,
+};
 use crate::domain::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
 use crate::domain::repositories::user::user_shared_parameters::{
     FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
@@ -46,14 +48,12 @@ where
 
     pub async fn continue_login(
         &self,
-        user_id: String,
-        verification_info: VerificationInfo,
+        request: ContinueLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        // 1. Retrieve the user's ongoing authentication flow state (possibly from a cache).
-        // 2. Verify any provided 2FA codes or other verification details.
-        // 3. Update the authentication flow state as necessary.
-        // 4. Invalid attempts count
-        // Return either a success token or prompt for further action as needed.
+        let identifier = &request.identifier;
+        let user_result = self.identify_user(identifier).await?;
+        self.check_account_blocked(&user_result)?;
+
         todo!()
     }
 }
@@ -163,7 +163,7 @@ where
             (true, true) => {
                 // Both two-factor authentication methods are enabled
                 // Handle case where both email and authenticator app verification are required
-                let duration = Duration::minutes(5);
+                let duration = Duration::minutes(10);
                 let confirmation_token = self
                     .generate_and_prepare_token(&user.user_id, duration)
                     .await?;
@@ -177,7 +177,7 @@ where
             (true, false) => {
                 // Only two-factor email authentication is enabled
                 // Handle case where only email verification is required
-                let duration = Duration::minutes(5);
+                let duration = Duration::minutes(10);
                 let confirmation_token = self
                     .generate_and_prepare_token(&user.user_id, duration)
                     .await?;
@@ -193,7 +193,7 @@ where
                 // Handle case where only authenticator app verification is required
                 let user_id = FindUserByIdDTO::new(&user.user_id);
                 let token = None;
-                let expiry_duration = Duration::minutes(3);
+                let expiry_duration = Duration::minutes(5);
                 self.prepare_2fa(user_id, token, expiry_duration).await?;
 
                 Ok(AuthenticationOutcome::RequireAuthenticatorApp {
