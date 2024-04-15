@@ -1,3 +1,4 @@
+use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::user::user_sessions::UserSession;
 use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
@@ -37,8 +38,8 @@ impl From<UserSession> for UserToken {
             session_id: session.session_id,
             session_name: session.session_name,
             login_timestamp: session.login_timestamp,
-            ip_address: session.ip_address,
-            user_agent: session.user_agent,
+            user_agent: session.user_agent.into_inner(),
+            ip_address: session.ip_address.into_inner(),
             expiry: session.expiry,
         }
     }

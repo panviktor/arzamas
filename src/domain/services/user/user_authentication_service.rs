@@ -2,12 +2,13 @@ use crate::core::constants::emojis::EMOJIS;
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
+use std::cmp::PartialEq;
 
-use crate::domain::entities::shared::value_objects::EmailToken;
+use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
 use crate::domain::entities::user::AuthenticationOutcome;
 use crate::domain::error::{DomainError, ValidationError};
 use crate::domain::repositories::user::user_authentication_parameters::{
-    ContinueLoginRequestDTO, CreateLoginRequestDTO,
+    ContinueLoginRequestDTO, CreateLoginRequestDTO, VerificationMethod,
 };
 use crate::domain::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
 use crate::domain::repositories::user::user_shared_parameters::{
@@ -42,8 +43,7 @@ where
         let identifier = &request.identifier;
         let user_result = self.identify_user(identifier).await?;
         self.check_account_blocked(&user_result)?;
-        self.process_login_attempt(&user_result, &request.password, &request)
-            .await
+        self.process_login_attempt(&user_result, request).await
     }
 
     pub async fn continue_login(
@@ -54,7 +54,22 @@ where
         let user_result = self.identify_user(identifier).await?;
         self.check_account_blocked(&user_result)?;
 
-        todo!()
+        if request.user_agent == user_result.otp.user_agent
+            && request.ip_address == user_result.otp.ip_address
+        {
+            match request.verification_method {
+                VerificationMethod::EmailOTP => {
+                    todo!()
+                }
+                VerificationMethod::AuthenticatorApp => {
+                    todo!()
+                }
+            }
+        } else {
+            let message = "IP address or user agent mismatch.";
+            self.handle_failed_login_attempt(&user_result, message)
+                .await
+        }
     }
 }
 
@@ -109,13 +124,13 @@ where
     async fn process_login_attempt(
         &self,
         user: &UserAuthentication,
-        password: &str,
-        request: &CreateLoginRequestDTO,
+        request: CreateLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        UserValidationService::validate_password(password)?;
+        UserValidationService::validate_password(&request.password)?;
 
-        if !UserCredentialService::credential_validator(&user.pass_hash, password)? {
-            self.handle_failed_login_attempt(user).await
+        if !UserCredentialService::credential_validator(&user.pass_hash, &request.password)? {
+            let message = "Incorrect password.";
+            self.handle_failed_login_attempt(user, message).await
         } else {
             self.handle_successful_login_attempt(user, request).await
         }
@@ -124,6 +139,7 @@ where
     async fn handle_failed_login_attempt(
         &self,
         user: &UserAuthentication,
+        message: &str,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let attempt_count = user.attempt_count + 1;
         let user_id = FindUserByIdDTO::new(&user.user_id);
@@ -146,7 +162,7 @@ where
 
         Ok(AuthenticationOutcome::AuthenticationFailed {
             email: user.email.clone(),
-            message: "Incorrect password.".to_string(),
+            message: message.to_string(),
             email_notifications_enabled: user.security_setting.email_on_failure_enabled_at,
         })
     }
@@ -154,7 +170,7 @@ where
     async fn handle_successful_login_attempt(
         &self,
         user: &UserAuthentication,
-        request: &CreateLoginRequestDTO,
+        request: CreateLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
         match (
             user.security_setting.two_factor_email,
@@ -165,7 +181,12 @@ where
                 // Handle case where both email and authenticator app verification are required
                 let duration = Duration::minutes(10);
                 let confirmation_token = self
-                    .generate_and_prepare_token(&user.user_id, duration)
+                    .generate_and_prepare_token(
+                        &user.user_id,
+                        duration,
+                        request.user_agent,
+                        request.ip_address,
+                    )
                     .await?;
                 Ok(AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
                     user_id: user.user_id.clone(),
@@ -179,7 +200,12 @@ where
                 // Handle case where only email verification is required
                 let duration = Duration::minutes(10);
                 let confirmation_token = self
-                    .generate_and_prepare_token(&user.user_id, duration)
+                    .generate_and_prepare_token(
+                        &user.user_id,
+                        duration,
+                        request.user_agent,
+                        request.ip_address,
+                    )
                     .await?;
                 Ok(AuthenticationOutcome::RequireEmailVerification {
                     user_id: user.user_id.clone(),
@@ -192,9 +218,14 @@ where
                 // Only two-factor authenticator app authentication is enabled
                 // Handle case where only authenticator app verification is required
                 let user_id = FindUserByIdDTO::new(&user.user_id);
-                let token = None;
                 let expiry_duration = Duration::minutes(5);
-                self.prepare_2fa(user_id, token, expiry_duration).await?;
+                self.prepare_2fa(
+                    user_id,
+                    expiry_duration,
+                    request.user_agent,
+                    request.ip_address,
+                )
+                .await?;
 
                 Ok(AuthenticationOutcome::RequireAuthenticatorApp {
                     user_id: user.user_id.clone(),
@@ -209,12 +240,13 @@ where
     async fn prepare_2fa(
         &self,
         user_id: FindUserByIdDTO,
-        email_token_hash: Option<String>,
         expiry_duration: Duration,
+        user_agent: UserAgent,
+        ip_address: IPAddress,
     ) -> Result<(), DomainError> {
         let expiry = Utc::now() + expiry_duration;
         self.user_authentication_repository
-            .prepare_user_for_2fa(user_id, expiry, email_token_hash)
+            .prepare_user_for_2fa(user_id, expiry, None, user_agent, ip_address)
             .await
     }
 
@@ -222,6 +254,8 @@ where
         &self,
         user_id: &str,
         duration: Duration,
+        user_agent: UserAgent,
+        ip_address: IPAddress,
     ) -> Result<EmailToken, DomainError> {
         let token = SharedDomainService::generate_token(6)?;
         let confirmation_token = EmailToken::new(&token);
@@ -233,6 +267,8 @@ where
                 user_id_dto,
                 Utc::now() + duration,
                 Some(confirmation_token_hash),
+                user_agent,
+                ip_address,
             )
             .await?;
 
@@ -242,7 +278,7 @@ where
     async fn create_session_for_user(
         &self,
         user: &UserAuthentication,
-        request: &CreateLoginRequestDTO,
+        request: CreateLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let session_id = Uuid::new_v4().to_string();
         let session_name = Self::generate_session_name();
@@ -260,8 +296,8 @@ where
             &session_id,
             &session_name,
             Utc::now(),
-            &request.ip_address,
             &request.user_agent,
+            &request.ip_address,
             expiry,
         );
 

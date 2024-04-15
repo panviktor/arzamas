@@ -1,9 +1,11 @@
+use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
+
 #[derive(Debug, Clone)]
 pub struct CreateLoginRequestDTO {
     pub identifier: String,
     pub password: String,
-    pub user_agent: String,
-    pub ip_address: String,
+    pub user_agent: UserAgent,
+    pub ip_address: IPAddress,
     pub persistent: bool,
 }
 
@@ -11,8 +13,8 @@ impl CreateLoginRequestDTO {
     pub fn new(
         identifier: String,
         password: String,
-        user_agent: String,
-        ip_address: String,
+        user_agent: UserAgent,
+        ip_address: IPAddress,
         persistent: bool,
     ) -> Self {
         Self {
@@ -33,23 +35,23 @@ pub enum VerificationMethod {
 #[derive(Debug, Clone)]
 pub struct ContinueLoginRequestDTO {
     pub identifier: String,
-    pub method: VerificationMethod,
+    pub verification_method: VerificationMethod,
     pub code: String,
-    pub user_agent: String,
-    pub ip_address: String,
+    pub user_agent: UserAgent,
+    pub ip_address: IPAddress,
 }
 
 impl ContinueLoginRequestDTO {
     pub fn new(
         identifier: String,
-        method: VerificationMethod,
+        verification_method: VerificationMethod,
         code: String,
-        user_agent: String,
-        ip_address: String,
+        user_agent: UserAgent,
+        ip_address: IPAddress,
     ) -> Self {
         Self {
             identifier,
-            method,
+            verification_method,
             code,
             user_agent,
             ip_address,

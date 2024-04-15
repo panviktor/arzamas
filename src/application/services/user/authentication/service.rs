@@ -4,6 +4,7 @@ use crate::application::dto::user::user_authentication_request_dto::{
 use crate::application::dto::user::user_authentication_response_dto::LoginResponse;
 use crate::application::error::error::ApplicationError;
 use crate::core::config::APP_SETTINGS;
+use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::user::AuthenticationOutcome;
 use crate::domain::ports::caching::caching::CachingPort;
 use crate::domain::ports::email::email::EmailPort;
@@ -53,11 +54,14 @@ where
             ));
         }
 
+        let user_agent = UserAgent::new(&request.user_agent);
+        let ip_address = IPAddress::new(&request.ip_address);
+
         let create_login = CreateLoginRequestDTO::new(
             request.identifier,
             request.password,
-            request.user_agent,
-            request.ip_address,
+            user_agent,
+            ip_address,
             request.persistent,
         );
 

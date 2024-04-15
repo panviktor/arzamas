@@ -71,3 +71,49 @@ impl EmailToken {
         self.0
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct UserAgent(pub String);
+
+impl UserAgent {
+    pub fn new(user_agent: &str) -> Self {
+        Self(user_agent.to_string())
+    }
+
+    pub fn value(&self) -> &String {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl PartialEq for UserAgent {
+    fn eq(&self, other: &Self) -> bool {
+        self.value() == other.value()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct IPAddress(pub String);
+
+impl IPAddress {
+    pub fn new(ip_address: &str) -> Self {
+        Self(ip_address.to_string())
+    }
+
+    pub fn value(&self) -> &String {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl PartialEq for IPAddress {
+    fn eq(&self, other: &Self) -> bool {
+        self.value() == other.value()
+    }
+}
