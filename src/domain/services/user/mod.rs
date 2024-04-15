@@ -1,6 +1,5 @@
 pub mod user_authentication_service;
 pub mod user_credential_service;
-pub mod user_otp_token_service;
 pub mod user_registration_service;
 pub mod user_restore_password_service;
 pub mod user_security_settings_service;

@@ -54,15 +54,11 @@ where
         let user_result = self.identify_user(identifier).await?;
         self.check_account_blocked(&user_result)?;
 
-        if request.user_agent == user_result.otp.user_agent
-            && request.ip_address == user_result.otp.ip_address
-        {
+        if self.is_request_from_trusted_source(&request, &user_result) {
             match request.verification_method {
-                VerificationMethod::EmailOTP => {
-                    todo!()
-                }
+                VerificationMethod::EmailOTP => self.verify_email_otp(&user_result, request).await,
                 VerificationMethod::AuthenticatorApp => {
-                    todo!()
+                    self.verify_authenticator_app(&user_result, request).await
                 }
             }
         } else {
@@ -233,7 +229,15 @@ where
                     email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
                 })
             }
-            (false, false) => self.create_session_for_user(user, request).await,
+            (false, false) => {
+                self.create_session_for_user(
+                    user,
+                    request.persistent,
+                    request.user_agent,
+                    request.ip_address,
+                )
+                .await
+            }
         }
     }
 
@@ -275,17 +279,48 @@ where
         Ok(confirmation_token)
     }
 
+    fn is_request_from_trusted_source(
+        &self,
+        request: &ContinueLoginRequestDTO,
+        user_result: &UserAuthentication,
+    ) -> bool {
+        request.user_agent == user_result.otp.user_agent
+            && request.ip_address == user_result.otp.ip_address
+    }
+
+    /// Placeholder function for verifying the email OTP.
+    async fn verify_email_otp(
+        &self,
+        user: &UserAuthentication,
+        request: ContinueLoginRequestDTO,
+    ) -> Result<AuthenticationOutcome, DomainError> {
+        // Implement actual verification logic here
+        todo!()
+    }
+
+    /// Placeholder function for verifying the authenticator app.
+    async fn verify_authenticator_app(
+        &self,
+        user: &UserAuthentication,
+        request: ContinueLoginRequestDTO,
+    ) -> Result<AuthenticationOutcome, DomainError> {
+        // Implement actual verification logic here
+        todo!()
+    }
+
     async fn create_session_for_user(
         &self,
         user: &UserAuthentication,
-        request: CreateLoginRequestDTO,
+        persistent: bool,
+        user_agent: UserAgent,
+        ip_address: IPAddress,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let session_id = Uuid::new_v4().to_string();
         let session_name = Self::generate_session_name();
         let user_id = FindUserByIdDTO::new(&user.user_id);
 
         let expiry = Utc::now()
-            + if request.persistent {
+            + if persistent {
                 Duration::days(14)
             } else {
                 Duration::days(2)
@@ -296,8 +331,8 @@ where
             &session_id,
             &session_name,
             Utc::now(),
-            &request.user_agent,
-            &request.ip_address,
+            &user_agent,
+            &ip_address,
             expiry,
         );
 
