@@ -2,11 +2,9 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "user_security_settings")]
-#[schema(as = UserSecuritySettings)]
 pub struct Model {
     #[sea_orm(primary_key)]
     #[serde(skip_serializing, skip_deserializing)]

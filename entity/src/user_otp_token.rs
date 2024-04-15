@@ -10,11 +10,16 @@ pub struct Model {
     #[sea_orm(unique)]
     pub user_id: String,
     pub otp_email_hash: Option<String>,
+    pub otp_email_valid_time: Option<DateTime>,
+    pub otp_email_currently_valid: bool,
     pub otp_app_hash: Option<String>,
+    pub otp_app_valid_time: Option<DateTime>,
+    pub otp_app_currently_valid: bool,
     pub otp_app_mnemonic: Option<String>,
     pub expiry: Option<DateTime>,
     pub attempt_count: i32,
-    pub code: Option<String>,
+    pub user_agent: Option<String>,
+    pub ip_address: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

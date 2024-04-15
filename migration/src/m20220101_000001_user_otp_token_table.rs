@@ -33,9 +33,31 @@ impl MigrationTrait for Migration {
                             .to(User::Table, User::UserId)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserOTPToken::OTPEmailHash).string().null())
-                    .col(ColumnDef::new(UserOTPToken::OTPAppHash).string().null())
-                    .col(ColumnDef::new(UserOTPToken::OTPAppMnemonic).string().null())
+                    .col(ColumnDef::new(UserOTPToken::OtpEmailHash).string().null())
+                    .col(
+                        ColumnDef::new(UserOTPToken::OtpEmailValidTime)
+                            .timestamp()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserOTPToken::OtpEmailCurrentlyValid)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(ColumnDef::new(UserOTPToken::OtpAppHash).string().null())
+                    .col(
+                        ColumnDef::new(UserOTPToken::OtpAppValidTime)
+                            .timestamp()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserOTPToken::OtpAppCurrentlyValid)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(ColumnDef::new(UserOTPToken::OtpAppMnemonic).string().null())
                     .col(ColumnDef::new(UserOTPToken::Expiry).timestamp().null())
                     .col(
                         ColumnDef::new(UserOTPToken::AttemptCount)
@@ -43,7 +65,8 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(0),
                     )
-                    .col(ColumnDef::new(UserOTPToken::Code).string().null())
+                    .col(ColumnDef::new(UserOTPToken::UserAgent).string().null())
+                    .col(ColumnDef::new(UserOTPToken::IpAddress).string().null())
                     .to_owned(),
             )
             .await
@@ -60,13 +83,18 @@ impl MigrationTrait for Migration {
 /// Learn more at https://docs.rs/sea-query#iden
 #[derive(Iden)]
 pub enum UserOTPToken {
-    Id,
     Table,
+    Id,
     UserId,
-    OTPEmailHash,
-    OTPAppHash,
-    OTPAppMnemonic,
+    OtpEmailHash,
+    OtpEmailValidTime,
+    OtpEmailCurrentlyValid,
+    OtpAppHash,
+    OtpAppValidTime,
+    OtpAppCurrentlyValid,
+    OtpAppMnemonic,
     Expiry,
     AttemptCount,
-    Code,
+    UserAgent,
+    IpAddress,
 }
