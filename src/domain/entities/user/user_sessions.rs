@@ -13,21 +13,21 @@ pub struct UserSession {
 
 impl UserSession {
     pub fn new(
-        user_id: String,
-        session_id: String,
-        session_name: String,
+        user_id: &str,
+        session_id: &str,
+        session_name: &str,
         login_timestamp: DateTime<Utc>,
-        ip_address: String,
-        user_agent: String,
+        ip_address: &str,
+        user_agent: &str,
         expiry: DateTime<Utc>,
     ) -> Self {
         Self {
-            user_id,
-            session_id,
-            session_name,
+            user_id: user_id.to_string(),
+            session_id: session_id.to_string(),
+            session_name: session_name.to_string(),
             login_timestamp,
-            ip_address,
-            user_agent,
+            ip_address: ip_address.to_string(),
+            user_agent: user_agent.to_string(),
             expiry,
         }
     }

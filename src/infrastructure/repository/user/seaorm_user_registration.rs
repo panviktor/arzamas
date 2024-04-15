@@ -51,7 +51,6 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
 
         let user_confirmation = user_confirmation::ActiveModel {
             user_id: Set(user_id_clone.clone()),
-            email: Set(user_email),
             ..Default::default()
         };
 

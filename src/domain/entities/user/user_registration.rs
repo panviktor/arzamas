@@ -1,5 +1,5 @@
+use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::user_authentication::EmailToken;
 use crate::domain::error::{DomainError, ExternalServiceError, PersistenceError, ValidationError};
 use crate::domain::services::user::user_validation_service::ValidationServiceError;
 use crate::domain::services::user::{

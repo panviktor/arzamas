@@ -1,4 +1,4 @@
-use crate::domain::entities::user::user_authentication::EmailToken;
+use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::entities::user::user_registration::{
     UserRegistrationError, UserRegistrationOutcome,
 };
@@ -10,6 +10,7 @@ use crate::domain::repositories::user::user_shared_parameters::FindUserByIdDTO;
 use crate::domain::repositories::user::user_shared_repository::UserDomainRepository;
 use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::ValidationServiceError;
+use chrono::{Duration, Utc};
 use std::sync::Arc;
 
 pub struct UserRegistrationDomainService<R, U>
@@ -58,13 +59,15 @@ where
         let user = UserRegistration::create(user.email, user.username, user.password)?;
         let token = SharedDomainService::generate_token(8)?;
         let confirmation_token = EmailToken::new(&token);
+        let confirmation_token_hash = SharedDomainService::hash_token(&token);
 
         let user_id = FindUserByIdDTO::new(&user.user_id);
 
         let user = self.user_registration_repository.create_user(user).await?;
+        let expiry = Utc::now() + Duration::days(1);
 
         self.user_repository
-            .save_email_validation_token(user_id, &confirmation_token)
+            .store_email_confirmation_token(user_id, confirmation_token_hash, expiry)
             .await?;
 
         Ok(UserRegistrationOutcome {
@@ -80,18 +83,26 @@ where
     pub async fn validate_email_user(
         &self,
         user: FindUserByIdDTO,
-        token: EmailToken,
+        token: String,
     ) -> Result<(), DomainError> {
-        match self
+        let confirmation = self
             .user_repository
-            .verify_email_validation_token(user, token)
-            .await
-        {
-            Ok(true) => Ok(()),
-            Ok(false) => Err(DomainError::ValidationError(ValidationError::InvalidData(
+            .retrieve_email_confirmation_token(&user)
+            .await?;
+
+        if SharedDomainService::validate_hash(&token, &confirmation.otp_hash) {
+            let now = Utc::now();
+            if confirmation.expiry > now {
+                self.user_repository.complete_email_verification(user).await
+            } else {
+                Err(DomainError::ValidationError(ValidationError::InvalidData(
+                    "Token has expired.".to_string(),
+                )))
+            }
+        } else {
+            Err(DomainError::ValidationError(ValidationError::InvalidData(
                 "Invalid validation code provided.".to_string(),
-            ))),
-            Err(e) => Err(e),
+            )))
         }
     }
 }

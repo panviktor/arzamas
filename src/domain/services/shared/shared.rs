@@ -3,7 +3,7 @@ use crate::domain::error::{DomainError, ExternalServiceError};
 use chrono::Utc;
 use getrandom::getrandom;
 use hex::encode;
-use sha2::{Digest, Sha512};
+use sha2::{Digest, Sha256, Sha512};
 use uuid::Uuid;
 
 pub struct SharedDomainService;
@@ -37,6 +37,16 @@ impl SharedDomainService {
         let mut hasher = Sha512::new();
         hasher.update(id_str.as_bytes());
         encode(hasher.finalize())
+    }
+
+    pub fn hash_token(token: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(token.as_bytes());
+        encode(hasher.finalize())
+    }
+
+    pub fn validate_hash(token: &str, hash: &str) -> bool {
+        Self::hash_token(token) == hash
     }
 }
 

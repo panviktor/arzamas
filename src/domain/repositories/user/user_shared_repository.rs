@@ -1,21 +1,27 @@
 use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::user_authentication::EmailToken;
+use crate::domain::entities::user::value_objects::UserEmailConfirmation;
 use crate::domain::error::DomainError;
 use crate::domain::repositories::user::user_shared_parameters::FindUserByIdDTO;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
 #[async_trait]
 pub trait UserDomainRepository {
     async fn exists_with_email(&self, email: &Email) -> Result<bool, DomainError>;
     async fn exists_with_username(&self, username: &Username) -> Result<bool, DomainError>;
-    async fn save_email_validation_token(
+    async fn store_email_confirmation_token(
         &self,
         user: FindUserByIdDTO,
-        token: &EmailToken,
+        token: String,
+        expiry: DateTime<Utc>,
     ) -> Result<(), DomainError>;
-    async fn verify_email_validation_token(
+    async fn retrieve_email_confirmation_token(
         &self,
-        user: FindUserByIdDTO,
-        token: EmailToken,
-    ) -> Result<bool, DomainError>;
+        user: &FindUserByIdDTO,
+    ) -> Result<UserEmailConfirmation, DomainError>;
+
+    async fn complete_email_verification(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
+
+    async fn invalidate_email_verification(&self, user: FindUserByIdDTO)
+        -> Result<(), DomainError>;
 }

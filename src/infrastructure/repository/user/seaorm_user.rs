@@ -1,10 +1,12 @@
+use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::user_authentication::EmailToken;
+use crate::domain::entities::user::value_objects::UserEmailConfirmation;
 use crate::domain::error::DomainError;
 use crate::domain::error::PersistenceError;
 use crate::domain::repositories::user::user_shared_parameters::FindUserByIdDTO;
 use crate::domain::repositories::user::user_shared_repository::UserDomainRepository;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use entity::user;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
@@ -50,19 +52,30 @@ impl UserDomainRepository for SeaOrmUserRepository {
         Ok(user.is_some())
     }
 
-    async fn save_email_validation_token(
+    async fn store_email_confirmation_token(
         &self,
         user: FindUserByIdDTO,
-        token: &EmailToken,
+        token: String,
+        expiry: DateTime<Utc>,
     ) -> Result<(), DomainError> {
         todo!()
     }
 
-    async fn verify_email_validation_token(
+    async fn retrieve_email_confirmation_token(
+        &self,
+        user: &FindUserByIdDTO,
+    ) -> Result<UserEmailConfirmation, DomainError> {
+        todo!()
+    }
+
+    async fn complete_email_verification(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+        todo!()
+    }
+
+    async fn invalidate_email_verification(
         &self,
         user: FindUserByIdDTO,
-        token: EmailToken,
-    ) -> Result<bool, DomainError> {
+    ) -> Result<(), DomainError> {
         todo!()
     }
 }

@@ -91,8 +91,8 @@ where
                     token_type: "Bearer".to_string(),
                 })
             }
-            AuthenticationOutcome::RequireEmailVerification { user_id, email }
-            | AuthenticationOutcome::RequireEmailAndAuthenticatorApp { user_id, email } => {
+            AuthenticationOutcome::RequireEmailVerification { user_id, email, .. }
+            | AuthenticationOutcome::RequireEmailAndAuthenticatorApp { user_id, email, .. } => {
                 Ok(LoginResponse::OTPResponse {
                     message: format!("Please verify your email: {:?}", email),
                     apps_code: false,
@@ -114,6 +114,7 @@ where
             AuthenticationOutcome::AuthenticationFailed { email, message, .. } => Err(
                 ApplicationError::ValidationError(format!("{}: {:?}", message, email)),
             ),
+            AuthenticationOutcome::AccountTemporarilyLocked { .. } => todo!(),
         }
     }
 

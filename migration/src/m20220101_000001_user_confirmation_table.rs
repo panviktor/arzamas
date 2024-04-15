@@ -33,7 +33,6 @@ impl MigrationTrait for Migration {
                             .to(User::Table, User::UserId)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserConfirmation::Email).string().null())
                     .col(ColumnDef::new(UserConfirmation::OTPHash).string().null())
                     .col(ColumnDef::new(UserConfirmation::Expiry).timestamp().null())
                     .to_owned(),
@@ -55,7 +54,6 @@ pub enum UserConfirmation {
     Id,
     Table,
     UserId,
-    Email,
     OTPHash,
     Expiry,
 }

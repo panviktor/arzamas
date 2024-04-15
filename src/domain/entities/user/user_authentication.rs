@@ -1,3 +1,4 @@
+use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_otp_token::UserOtpToken;
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
@@ -9,6 +10,8 @@ pub enum AuthenticationOutcome {
     RequireEmailVerification {
         user_id: String,
         email: Email,
+        token: EmailToken,
+        email_notifications_enabled: bool,
     },
     RequireAuthenticatorApp {
         user_id: String,
@@ -18,6 +21,8 @@ pub enum AuthenticationOutcome {
     RequireEmailAndAuthenticatorApp {
         user_id: String,
         email: Email,
+        token: EmailToken,
+        email_notifications_enabled: bool,
     },
     AuthenticatedWithPreferences {
         session: UserSession,
@@ -29,6 +34,10 @@ pub enum AuthenticationOutcome {
         email: Email,
         message: String,
         email_notifications_enabled: bool,
+    },
+    AccountTemporarilyLocked {
+        until: DateTime<Utc>,
+        message: String,
     },
 }
 #[derive(Debug, Clone)]
@@ -52,21 +61,6 @@ pub struct UserAuthentication {
     pub security_setting: UserSecuritySettings,
     pub otp: UserOtpToken,
     pub sessions: Vec<UserSession>,
-    pub login_blocked_until: DateTime<Utc>,
-}
-
-pub struct EmailToken(pub String);
-impl EmailToken {
-    pub fn new(token: &str) -> Self {
-        Self(token.to_string())
-    }
-    pub fn value(&self) -> &String {
-        &self.0
-    }
-}
-
-impl EmailToken {
-    pub fn into_inner(self) -> String {
-        self.0
-    }
+    pub attempt_count: i32,
+    pub login_blocked_until: Option<DateTime<Utc>>,
 }

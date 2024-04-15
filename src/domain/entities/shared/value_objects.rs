@@ -54,3 +54,20 @@ impl TryFrom<String> for Username {
         }
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct EmailToken(pub String);
+impl EmailToken {
+    pub fn new(token: &str) -> Self {
+        Self(token.to_string())
+    }
+    pub fn value(&self) -> &String {
+        &self.0
+    }
+}
+
+impl EmailToken {
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
