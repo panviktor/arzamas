@@ -1,6 +1,7 @@
 use crate::infrastructure::web::middleware::rate_limiter;
 use actix_web::web;
-mod auth_dto;
+mod auth_request_dto;
+mod auth_response_dto;
 pub mod controllers;
 
 pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {

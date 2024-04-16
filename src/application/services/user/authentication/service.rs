@@ -11,7 +11,7 @@ use crate::domain::ports::email::email::EmailPort;
 use crate::domain::repositories::user::user_authentication_parameters::CreateLoginRequestDTO;
 use crate::domain::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
 use crate::domain::services::user::user_authentication_service::UserAuthenticationDomainService;
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, TokenData, Validation};
+use jsonwebtoken::{EncodingKey, Header};
 use secrecy::ExposeSecret;
 use std::sync::Arc;
 

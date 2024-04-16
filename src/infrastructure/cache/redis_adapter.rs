@@ -2,7 +2,10 @@ use crate::core::config::get_config;
 
 use crate::application::error::response_error::AppResponseError;
 use crate::core::error::{ErrorCode, ServerError};
+use crate::domain::entities::caching::caching::CachingError;
+use crate::domain::ports::caching::caching::CachingPort;
 use actix_web::http::StatusCode;
+use async_trait::async_trait;
 use deadpool_redis::{CreatePoolError, Pool, PoolError, Runtime};
 use redis::RedisError;
 use secrecy::ExposeSecret;
@@ -31,7 +34,6 @@ impl From<RedisError> for AppResponseError {
         }
     }
 }
-
 impl From<RedisError> for ServerError {
     fn from(value: RedisError) -> Self {
         ServerError {
@@ -49,5 +51,26 @@ impl From<PoolError> for ServerError {
             message: error.to_string(),
             show_message: true,
         }
+    }
+}
+
+pub struct RedisAdapter {
+    pool: Pool,
+}
+
+impl RedisAdapter {
+    pub fn new(pool: Pool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl CachingPort for RedisAdapter {
+    async fn store_user_token(&self, user_id: &str, token: &str) -> Result<(), CachingError> {
+        todo!()
+    }
+
+    async fn get_user_token(&self, user_id: &str) -> Result<String, CachingError> {
+        todo!()
     }
 }

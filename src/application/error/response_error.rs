@@ -26,6 +26,19 @@ impl AppResponseError {
             show_message: self.show_message,
         }
     }
+    pub fn new(
+        code: StatusCode,
+        path: Option<String>,
+        message: String,
+        show_message: bool,
+    ) -> Self {
+        Self {
+            code,
+            path,
+            message,
+            show_message,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, ToSchema)]

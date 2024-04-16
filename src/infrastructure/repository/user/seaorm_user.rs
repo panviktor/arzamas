@@ -3,7 +3,9 @@ use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::value_objects::UserEmailConfirmation;
 use crate::domain::error::DomainError;
 use crate::domain::error::PersistenceError;
-use crate::domain::repositories::user::user_shared_parameters::FindUserByIdDTO;
+use crate::domain::repositories::user::user_shared_parameters::{
+    FindUserByEmailDTO, FindUserByIdDTO,
+};
 use crate::domain::repositories::user::user_shared_repository::UserDomainRepository;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -63,12 +65,15 @@ impl UserDomainRepository for SeaOrmUserRepository {
 
     async fn retrieve_email_confirmation_token(
         &self,
-        user: &FindUserByIdDTO,
+        email: &FindUserByEmailDTO,
     ) -> Result<UserEmailConfirmation, DomainError> {
         todo!()
     }
 
-    async fn complete_email_verification(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+    async fn complete_email_verification(
+        &self,
+        email: FindUserByEmailDTO,
+    ) -> Result<(), DomainError> {
         todo!()
     }
 

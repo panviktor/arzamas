@@ -1,7 +1,9 @@
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::value_objects::UserEmailConfirmation;
 use crate::domain::error::DomainError;
-use crate::domain::repositories::user::user_shared_parameters::FindUserByIdDTO;
+use crate::domain::repositories::user::user_shared_parameters::{
+    FindUserByEmailDTO, FindUserByIdDTO,
+};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
@@ -17,10 +19,13 @@ pub trait UserDomainRepository {
     ) -> Result<(), DomainError>;
     async fn retrieve_email_confirmation_token(
         &self,
-        user: &FindUserByIdDTO,
+        user: &FindUserByEmailDTO,
     ) -> Result<UserEmailConfirmation, DomainError>;
 
-    async fn complete_email_verification(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
+    async fn complete_email_verification(
+        &self,
+        user: FindUserByEmailDTO,
+    ) -> Result<(), DomainError>;
 
     async fn invalidate_email_verification(&self, user: FindUserByIdDTO)
         -> Result<(), DomainError>;

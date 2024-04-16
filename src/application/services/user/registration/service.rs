@@ -1,10 +1,11 @@
 use crate::application::dto::user::user_registration_request_dto::{
-    CreateUserRequest, FindUserByIdRequest,
+    CreateUserRequest, FindUserByIdRequest, ValidateEmailRequest,
 };
 use crate::application::dto::user::user_registration_response_dto::CreatedUserResponse;
 use crate::application::error::error::ApplicationError;
 use crate::domain::entities::shared::{Email, Username};
 
+use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::ports::email::email::EmailPort;
 use crate::domain::repositories::user::user_registration_parameters::CreateUserDTO;
 use crate::domain::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
@@ -68,6 +69,13 @@ where
             .await
             .map_err(|e| ApplicationError::ExternalServiceError(e.to_string()))?;
         Ok(CreatedUserResponse::from(created_user.user))
+    }
+
+    pub async fn validate_email_user(
+        &self,
+        request: ValidateEmailRequest,
+    ) -> Result<CreatedUserResponse, ApplicationError> {
+        todo!()
     }
 
     pub async fn delete_user(&self, request: FindUserByIdRequest) -> Result<(), ApplicationError> {

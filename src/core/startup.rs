@@ -18,8 +18,12 @@ pub async fn run(
     redis_pool: Pool,
     email_transport: AsyncSmtpTransport<lettre::Tokio1Executor>,
 ) -> Result<Server, std::io::Error> {
-    let redis_pool_data = web::Data::new(redis_pool);
-    let shared_services = Arc::new(ServiceContainer::new(database, email_transport));
+    let redis_pool_data = web::Data::new(redis_pool.clone());
+    let shared_services = Arc::new(ServiceContainer::new(
+        database,
+        email_transport,
+        redis_pool.clone(),
+    ));
     let data_container = web::Data::new(shared_services);
 
     let server = HttpServer::new(move || {

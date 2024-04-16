@@ -1,7 +1,11 @@
+use crate::application::dto::user::user_authentication_request_dto::LoginUserRequest;
 use crate::application::dto::user::user_registration_request_dto::CreateUserRequest;
 use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
-use crate::infrastructure::web::handlers::auth::auth_dto::CreateUserRequestWeb;
+use crate::infrastructure::web::actix_adapter::{get_ip_addr, get_user_agent};
+use crate::infrastructure::web::handlers::auth::auth_request_dto::{
+    CreateUserRequestWeb, LoginUserRequestWeb,
+};
 use actix_web::{web, HttpRequest, HttpResponse};
 use std::sync::Arc;
 
@@ -148,10 +152,28 @@ pub async fn verify_email(
 )]
 pub async fn login(
     req: HttpRequest,
-    // params: web::Json<LoginParams>,
+    data: web::Data<Arc<ServiceContainer>>,
+    params: web::Json<LoginUserRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
-    // try_login_user(&req, params.0).await
-    todo!()
+    let user_agent = get_user_agent(&req)?;
+    let login_ip = get_ip_addr(&req)?;
+
+    let request = LoginUserRequest::new(
+        &params.identifier,
+        &params.password,
+        &params.password_confirm,
+        &user_agent,
+        &login_ip,
+        params.persistent,
+    );
+
+    let auth = data
+        .user_authentication_service
+        .initiate_login(request)
+        .await
+        .map_err(|e| e.into_service_error(&req))?;
+
+    Ok(HttpResponse::Created().json(auth))
 }
 
 /// Logs in a user with 2-Factor Authentication (2FA).

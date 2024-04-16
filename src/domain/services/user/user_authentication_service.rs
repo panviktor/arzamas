@@ -288,7 +288,6 @@ where
             && request.ip_address == user_result.otp.ip_address
     }
 
-    /// Placeholder function for verifying the email OTP.
     async fn verify_email_otp(
         &self,
         user: &UserAuthentication,
@@ -298,7 +297,6 @@ where
         todo!()
     }
 
-    /// Placeholder function for verifying the authenticator app.
     async fn verify_authenticator_app(
         &self,
         user: &UserAuthentication,

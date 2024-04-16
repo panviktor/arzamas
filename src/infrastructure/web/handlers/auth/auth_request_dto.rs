@@ -13,3 +13,11 @@ pub struct CreateUserRequestWeb {
     pub password: String,
     pub password_confirm: String,
 }
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct LoginUserRequestWeb {
+    pub identifier: String,
+    pub password: String,
+    pub password_confirm: String,
+    pub persistent: bool,
+}

@@ -6,7 +6,9 @@ use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::{DomainError, ValidationError};
 use crate::domain::repositories::user::user_registration_parameters::CreateUserDTO;
 use crate::domain::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
-use crate::domain::repositories::user::user_shared_parameters::FindUserByIdDTO;
+use crate::domain::repositories::user::user_shared_parameters::{
+    FindUserByEmailDTO, FindUserByIdDTO,
+};
 use crate::domain::repositories::user::user_shared_repository::UserDomainRepository;
 use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::ValidationServiceError;
@@ -82,18 +84,20 @@ where
 
     pub async fn validate_email_user(
         &self,
-        user: FindUserByIdDTO,
-        token: String,
+        email: FindUserByEmailDTO,
+        token: EmailToken,
     ) -> Result<(), DomainError> {
         let confirmation = self
             .user_repository
-            .retrieve_email_confirmation_token(&user)
+            .retrieve_email_confirmation_token(&email)
             .await?;
 
-        if SharedDomainService::validate_hash(&token, &confirmation.otp_hash) {
+        if SharedDomainService::validate_hash(&token.value(), &confirmation.otp_hash) {
             let now = Utc::now();
             if confirmation.expiry > now {
-                self.user_repository.complete_email_verification(user).await
+                self.user_repository
+                    .complete_email_verification(email)
+                    .await
             } else {
                 Err(DomainError::ValidationError(ValidationError::InvalidData(
                     "Token has expired.".to_string(),

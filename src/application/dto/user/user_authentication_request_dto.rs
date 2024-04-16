@@ -13,6 +13,26 @@ pub struct LoginUserRequest {
     pub persistent: bool,
 }
 
+impl LoginUserRequest {
+    pub fn new(
+        identifier: &str,
+        password: &str,
+        password_confirm: &str,
+        user_agent: &str,
+        ip_address: &str,
+        persistent: bool,
+    ) -> Self {
+        Self {
+            identifier: identifier.to_string(),
+            password: password.to_string(),
+            password_confirm: password_confirm.to_string(),
+            user_agent: user_agent.to_string(),
+            ip_address: ip_address.to_string(),
+            persistent,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct OTPCodeRequest {
     pub user_id: String,

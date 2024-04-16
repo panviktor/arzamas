@@ -1,7 +1,6 @@
 use serde_derive::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize)]
 pub struct CreateUserRequest {
     pub username: String,
     pub email: String,
@@ -19,7 +18,19 @@ impl CreateUserRequest {
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize)]
 pub struct FindUserByIdRequest {
     pub user_id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ValidateEmailRequest {
+    pub email: String,
+    pub email_token: String,
+}
+
+impl ValidateEmailRequest {
+    pub fn new(email: String, email_token: String) -> Self {
+        Self { email, email_token }
+    }
 }
