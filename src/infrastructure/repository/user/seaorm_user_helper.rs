@@ -1,10 +1,8 @@
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::UserRegistration;
 use chrono::{TimeZone, Utc};
-use entity::{note, user};
+use entity::user;
 use sea_orm::ActiveValue::Set;
-
-type Error = String;
 
 impl UserRegistration {
     pub fn into_active_model(self) -> user::ActiveModel {

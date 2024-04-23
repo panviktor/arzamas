@@ -1,5 +1,4 @@
 use crate::domain::entities::caching::caching::CachingError;
-use chrono::Duration;
 
 #[async_trait::async_trait]
 pub trait CachingPort {

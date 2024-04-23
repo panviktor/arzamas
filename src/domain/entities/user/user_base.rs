@@ -1,20 +1,20 @@
+use crate::domain::entities::shared::Email;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct User {
+#[derive(Debug, Clone)]
+pub struct UserBase {
     pub user_id: String,
-    pub email: String,
+    pub email: Email,
     pub username: String,
     pub email_validated: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
-impl User {
+impl UserBase {
     pub fn new(
         user_id: String,
-        email: String,
+        email: Email,
         username: String,
         email_validated: bool,
         created_at: DateTime<Utc>,

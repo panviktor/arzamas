@@ -1,12 +1,12 @@
-use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::value_objects::UserEmailConfirmation;
+use crate::domain::entities::user::UserBase;
 use crate::domain::error::DomainError;
 use crate::domain::error::PersistenceError;
 use crate::domain::repositories::user::user_shared_parameters::{
-    FindUserByEmailDTO, FindUserByIdDTO,
+    FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
 };
-use crate::domain::repositories::user::user_shared_repository::UserDomainRepository;
+use crate::domain::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use entity::user;
@@ -16,18 +16,18 @@ use sea_orm::{DatabaseConnection, EntityTrait};
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct SeaOrmUserRepository {
+pub struct SeaOrmUserSharedRepository {
     db: Arc<DatabaseConnection>,
 }
 
-impl SeaOrmUserRepository {
+impl SeaOrmUserSharedRepository {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }
 }
 
 #[async_trait]
-impl UserDomainRepository for SeaOrmUserRepository {
+impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
     async fn exists_with_email(&self, email: &Email) -> Result<bool, DomainError> {
         let email_str = email.value();
         let user = entity::prelude::User::find()
@@ -54,6 +54,20 @@ impl UserDomainRepository for SeaOrmUserRepository {
         Ok(user.is_some())
     }
 
+    async fn get_base_user_by_email(
+        &self,
+        query: FindUserByEmailDTO,
+    ) -> Result<UserBase, DomainError> {
+        todo!()
+    }
+
+    async fn get_base_user_by_username(
+        &self,
+        query: FindUserByUsernameDTO,
+    ) -> Result<UserBase, DomainError> {
+        todo!()
+    }
+
     async fn store_email_confirmation_token(
         &self,
         user: FindUserByIdDTO,
@@ -65,15 +79,12 @@ impl UserDomainRepository for SeaOrmUserRepository {
 
     async fn retrieve_email_confirmation_token(
         &self,
-        email: &FindUserByEmailDTO,
+        email: &FindUserByIdDTO,
     ) -> Result<UserEmailConfirmation, DomainError> {
         todo!()
     }
 
-    async fn complete_email_verification(
-        &self,
-        email: FindUserByEmailDTO,
-    ) -> Result<(), DomainError> {
+    async fn complete_email_verification(&self, email: FindUserByIdDTO) -> Result<(), DomainError> {
         todo!()
     }
 

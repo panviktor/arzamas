@@ -1,4 +1,3 @@
-use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::user::user_sessions::UserSession;
 use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};

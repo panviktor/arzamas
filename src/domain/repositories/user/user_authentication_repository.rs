@@ -27,7 +27,7 @@ pub trait UserAuthenticationDomainRepository {
     async fn get_user_sessions(
         &self,
         user: FindUserByIdDTO,
-    ) -> Result<(Vec<UserSession>), DomainError>;
+    ) -> Result<Vec<UserSession>, DomainError>;
 
     async fn update_user_login_attempts(
         &self,

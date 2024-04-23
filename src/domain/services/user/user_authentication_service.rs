@@ -1,10 +1,8 @@
 use crate::core::constants::emojis::EMOJIS;
+use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
-use std::cmp::PartialEq;
-
-use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
 use crate::domain::entities::user::AuthenticationOutcome;
 use crate::domain::error::{DomainError, ValidationError};
 use crate::domain::repositories::user::user_authentication_parameters::{
@@ -42,6 +40,7 @@ where
     ) -> Result<AuthenticationOutcome, DomainError> {
         let identifier = &request.identifier;
         let user_result = self.identify_user(identifier).await?;
+        self.check_email_validated(&user_result)?;
         self.check_account_blocked(&user_result)?;
         self.process_login_attempt(&user_result, request).await
     }
@@ -113,6 +112,17 @@ where
                     )),
                 ));
             }
+        }
+        Ok(())
+    }
+
+    fn check_email_validated(&self, user_result: &UserAuthentication) -> Result<(), DomainError> {
+        if !user_result.email_validated {
+            return Err(DomainError::ValidationError(
+                ValidationError::BusinessRuleViolation(
+                    "Your account email not validated yet!".to_string(),
+                ),
+            ));
         }
         Ok(())
     }

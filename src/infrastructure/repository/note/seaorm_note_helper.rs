@@ -3,7 +3,6 @@ use chrono::{TimeZone, Utc};
 use entity::note;
 use sea_orm::ActiveValue::Set;
 
-type Error = String;
 impl Note {
     // Add a method to convert `Note` into `note::ActiveModel`
     pub fn into_active_model(self) -> note::ActiveModel {

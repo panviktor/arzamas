@@ -30,7 +30,10 @@ pub struct ValidateEmailRequest {
 }
 
 impl ValidateEmailRequest {
-    pub fn new(email: String, email_token: String) -> Self {
-        Self { email, email_token }
+    pub fn new(email: &str, email_token: &str) -> Self {
+        Self {
+            email: email.to_string(),
+            email_token: email_token.to_string(),
+        }
     }
 }

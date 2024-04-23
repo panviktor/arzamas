@@ -21,3 +21,9 @@ pub struct LoginUserRequestWeb {
     pub password_confirm: String,
     pub persistent: bool,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct ValidateEmailRequestWeb {
+    pub email: String,
+    pub email_token: String,
+}

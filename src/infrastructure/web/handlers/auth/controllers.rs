@@ -1,10 +1,13 @@
+use crate::application::dto::shared::universal_response::UniversalResponse;
 use crate::application::dto::user::user_authentication_request_dto::LoginUserRequest;
-use crate::application::dto::user::user_registration_request_dto::CreateUserRequest;
+use crate::application::dto::user::user_registration_request_dto::{
+    CreateUserRequest, ValidateEmailRequest,
+};
 use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
 use crate::infrastructure::web::actix_adapter::{get_ip_addr, get_user_agent};
 use crate::infrastructure::web::handlers::auth::auth_request_dto::{
-    CreateUserRequestWeb, LoginUserRequestWeb,
+    CreateUserRequestWeb, LoginUserRequestWeb, ValidateEmailRequestWeb,
 };
 use actix_web::{web, HttpRequest, HttpResponse};
 use std::sync::Arc;
@@ -103,12 +106,18 @@ pub async fn create_user(
 )]
 pub async fn verify_email(
     req: HttpRequest,
-    // params: web::Json<VerifyEmailParams>,
+    data: web::Data<Arc<ServiceContainer>>,
+    params: web::Json<ValidateEmailRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
-    // try_verify_user_email(&req, &params.email, &params.email_token).await?;
-    // let response = UniversalResponse::new("Email verified successfully".to_string(), None, true);
-    // Ok(HttpResponse::Ok().json(response))
-    todo!()
+    let request = ValidateEmailRequest::new(&params.email, &params.email_token);
+
+    data.user_registration_service
+        .validate_email_user(request)
+        .await
+        .map_err(|e| e.into_service_error(&req))?;
+
+    let response = UniversalResponse::new("Email verified successfully".to_string(), None, true);
+    Ok(HttpResponse::Ok().json(response))
 }
 
 /// Logs in a user.

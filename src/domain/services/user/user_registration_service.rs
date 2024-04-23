@@ -9,7 +9,7 @@ use crate::domain::repositories::user::user_registration_repository::UserRegistr
 use crate::domain::repositories::user::user_shared_parameters::{
     FindUserByEmailDTO, FindUserByIdDTO,
 };
-use crate::domain::repositories::user::user_shared_repository::UserDomainRepository;
+use crate::domain::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::ValidationServiceError;
 use chrono::{Duration, Utc};
@@ -18,7 +18,7 @@ use std::sync::Arc;
 pub struct UserRegistrationDomainService<R, U>
 where
     R: UserRegistrationDomainRepository,
-    U: UserDomainRepository,
+    U: UserSharedDomainRepository,
 {
     user_registration_repository: R,
     user_repository: Arc<U>,
@@ -27,7 +27,7 @@ where
 impl<R, U> UserRegistrationDomainService<R, U>
 where
     R: UserRegistrationDomainRepository,
-    U: UserDomainRepository,
+    U: UserSharedDomainRepository,
 {
     pub fn new(user_registration_repository: R, user_repository: Arc<U>) -> Self {
         Self {
@@ -87,16 +87,24 @@ where
         email: FindUserByEmailDTO,
         token: EmailToken,
     ) -> Result<(), DomainError> {
+        let user = self.user_repository.get_base_user_by_email(email).await?;
+
+        if user.email_validated {
+            return Ok(());
+        }
+
+        let user_id = FindUserByIdDTO::new(&user.user_id);
+
         let confirmation = self
             .user_repository
-            .retrieve_email_confirmation_token(&email)
+            .retrieve_email_confirmation_token(&user_id)
             .await?;
 
         if SharedDomainService::validate_hash(&token.value(), &confirmation.otp_hash) {
             let now = Utc::now();
             if confirmation.expiry > now {
                 self.user_repository
-                    .complete_email_verification(email)
+                    .complete_email_verification(user_id)
                     .await
             } else {
                 Err(DomainError::ValidationError(ValidationError::InvalidData(

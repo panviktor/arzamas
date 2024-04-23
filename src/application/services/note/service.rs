@@ -4,7 +4,7 @@ use crate::application::dto::note::note_request_dto::{
 use crate::application::dto::note::note_response_dto::NoteResponse;
 use crate::application::dto::shared::paginated_result::PaginatedResult;
 use crate::application::error::error::ApplicationError;
-use crate::domain::entities::note::{Note, NoteText};
+use crate::domain::entities::note::NoteText;
 use crate::domain::repositories::note::note_parameters::{
     CreateNoteDTO, FindNoteDTO, FindNotesDTO, UpdateNoteDTO,
 };

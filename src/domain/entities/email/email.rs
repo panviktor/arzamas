@@ -1,5 +1,4 @@
 use crate::application::error::error::ApplicationError;
-use crate::domain::error::{DomainError, ExternalServiceError};
 use chrono::{DateTime, Utc};
 use std::fmt;
 

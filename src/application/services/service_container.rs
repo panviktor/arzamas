@@ -7,7 +7,7 @@ use crate::domain::services::user::user_registration_service::UserRegistrationDo
 use crate::infrastructure::cache::redis_adapter::RedisAdapter;
 use crate::infrastructure::email::lettre_email_adapter::LettreEmailAdapter;
 use crate::infrastructure::repository::note::seaorm_note::SeaOrmNoteRepository;
-use crate::infrastructure::repository::user::seaorm_user::SeaOrmUserRepository;
+use crate::infrastructure::repository::user::seaorm_user::SeaOrmUserSharedRepository;
 use crate::infrastructure::repository::user::seaorm_user_authentication::SeaOrmUserAuthenticationRepository;
 use crate::infrastructure::repository::user::seaorm_user_registration::SeaOrmUserRegistrationRepository;
 use deadpool_redis::Pool;
@@ -20,7 +20,7 @@ pub struct ServiceContainer {
     pub user_registration_service: Arc<
         UserRegistrationApplicationService<
             SeaOrmUserRegistrationRepository,
-            SeaOrmUserRepository,
+            SeaOrmUserSharedRepository,
             LettreEmailAdapter,
         >,
     >,
@@ -48,12 +48,12 @@ impl ServiceContainer {
         let note_domain_service = NoteDomainService::new(note_repository);
         let note_application_service = Arc::new(NoteApplicationService::new(note_domain_service));
 
-        let user_repository = SeaOrmUserRepository::new(db_arc.clone());
+        let user_shared_repository = Arc::new(SeaOrmUserSharedRepository::new(db_arc.clone()));
         let user_registration_repository = SeaOrmUserRegistrationRepository::new(db_arc.clone());
 
         let user_registration_domain_service = UserRegistrationDomainService::new(
             user_registration_repository,
-            Arc::new(user_repository),
+            user_shared_repository.clone(),
         );
         let user_registration_service = Arc::new(UserRegistrationApplicationService::new(
             user_registration_domain_service,

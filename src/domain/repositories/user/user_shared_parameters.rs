@@ -16,6 +16,20 @@ pub struct FindUserByEmailDTO {
     pub email: Email,
 }
 
+impl FindUserByEmailDTO {
+    pub fn new(email: Email) -> Self {
+        Self { email }
+    }
+}
+
 pub struct FindUserByUsernameDTO {
     pub username: Username,
+}
+
+impl FindUserByUsernameDTO {
+    pub fn new(username: &Username) -> Self {
+        Self {
+            username: username.clone(),
+        }
+    }
 }

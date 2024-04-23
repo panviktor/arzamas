@@ -1,4 +1,3 @@
-use crate::domain::entities::user::user_registration::UserRegistrationError;
 use crate::domain::error::{DomainError, ExternalServiceError};
 use chrono::Utc;
 use getrandom::getrandom;
