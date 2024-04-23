@@ -1,5 +1,7 @@
 use crate::application::dto::shared::universal_response::UniversalResponse;
-use crate::application::dto::user::user_authentication_request_dto::LoginUserRequest;
+use crate::application::dto::user::user_authentication_request_dto::{
+    LoginUserRequest, OTPCodeRequest,
+};
 use crate::application::dto::user::user_registration_request_dto::{
     CreateUserRequest, ValidateEmailRequest,
 };
@@ -7,7 +9,7 @@ use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
 use crate::infrastructure::web::actix_adapter::{get_ip_addr, get_user_agent};
 use crate::infrastructure::web::handlers::auth::auth_request_dto::{
-    CreateUserRequestWeb, LoginUserRequestWeb, ValidateEmailRequestWeb,
+    ContinueLoginRequestWeb, CreateUserRequestWeb, LoginUserRequestWeb, ValidateEmailRequestWeb,
 };
 use actix_web::{web, HttpRequest, HttpResponse};
 use std::sync::Arc;
@@ -209,7 +211,7 @@ pub async fn login(
 #[utoipa::path(
     post,
     path = "/api/auth/login-2fa",
-    request_body = OTPCode,
+    request_body = ContinueLoginOTPCodeRequestWeb,
     responses(
         (status = 200, description = "User login successfully", body = LoginResponse),
         (status = 400, description = "User data invalid"),
@@ -219,10 +221,11 @@ pub async fn login(
 )]
 pub async fn login_2fa(
     req: HttpRequest,
-    // params: web::Json<OTPCode>,
+    params: web::Json<ContinueLoginRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
-    // let json_response = try_login_2fa(&req, params.0).await?;
-    // Ok(HttpResponse::Ok().json(json_response))
+    let user_agent = get_user_agent(&req)?;
+    let login_ip = get_ip_addr(&req)?;
+
     todo!()
 }
 

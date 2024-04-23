@@ -53,18 +53,13 @@ where
         let user_result = self.identify_user(identifier).await?;
         self.check_account_blocked(&user_result)?;
 
-        if self.is_request_from_trusted_source(&request, &user_result) {
-            match request.verification_method {
-                VerificationMethod::EmailOTP => self.verify_email_otp(&user_result, request).await,
-                VerificationMethod::AuthenticatorApp => {
-                    self.verify_authenticator_app(&user_result, request).await
-                }
-            }
-        } else {
+        if !self.is_request_from_trusted_source(&request, &user_result) {
             let message = "IP address or user agent mismatch.";
-            self.handle_failed_login_attempt(&user_result, message)
-                .await
+            return self
+                .handle_failed_login_attempt(&user_result, message)
+                .await;
         }
+        self.verify_otp(&user_result, request).await
     }
 }
 
@@ -84,18 +79,18 @@ where
 
     async fn identify_user(&self, identifier: &str) -> Result<UserAuthentication, DomainError> {
         if EMAIL_REGEX.is_match(identifier) {
-            UserValidationService::validate_email(&Email::new(identifier))?;
+            let email = Email::new(identifier);
+            UserValidationService::validate_email(&email)?;
+            let email_dto = FindUserByEmailDTO::new(email);
             self.user_authentication_repository
-                .get_user_by_email(FindUserByEmailDTO {
-                    email: Email::new(identifier),
-                })
+                .get_user_by_email(email_dto)
                 .await
         } else {
-            UserValidationService::validate_username(&Username::new(identifier))?;
+            let username = Username::new(identifier);
+            UserValidationService::validate_username(&username)?;
+            let username_dto = FindUserByUsernameDTO::new(&username);
             self.user_authentication_repository
-                .get_user_by_username(FindUserByUsernameDTO {
-                    username: Username::new(identifier),
-                })
+                .get_user_by_username(username_dto)
                 .await
         }
     }
@@ -198,7 +193,6 @@ where
                     user_id: user.user_id.clone(),
                     email: user.email.clone(),
                     token: confirmation_token,
-                    email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
                 })
             }
             (true, false) => {
@@ -217,7 +211,6 @@ where
                     user_id: user.user_id.clone(),
                     email: user.email.clone(),
                     token: confirmation_token,
-                    email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
                 })
             }
             (false, true) => {
@@ -298,22 +291,146 @@ where
             && request.ip_address == user_result.otp.ip_address
     }
 
-    async fn verify_email_otp(
+    async fn verify_otp(
         &self,
-        user: &UserAuthentication,
+        user_result: &UserAuthentication,
         request: ContinueLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        // Implement actual verification logic here
-        todo!()
+        let verification_result = match &request.verification_method {
+            VerificationMethod::EmailOTP => self.verify_email_otp(user_result, &request.code),
+            VerificationMethod::AuthenticatorApp => {
+                self.verify_authenticator_app(user_result, &request.code)
+            }
+        };
+
+        match verification_result {
+            true => {
+                let user_id = FindUserByIdDTO::new(&user_result.user_id);
+                self.update_verification_status(user_id, &request.verification_method)
+                    .await?;
+                self.handle_verification_status(&user_result, request).await
+            }
+            false => {
+                let message = "Verification failed due to invalid OTP.";
+                self.handle_failed_login_attempt(user_result, message).await
+            }
+        }
     }
 
-    async fn verify_authenticator_app(
+    fn verify_email_otp(&self, user: &UserAuthentication, code: &str) -> bool {
+        let token_hash = SharedDomainService::hash_token(code);
+        if let Some(token) = &user.otp.otp_email_hash {
+            token == &token_hash
+        } else {
+            false
+        }
+    }
+
+    fn verify_authenticator_app(&self, user: &UserAuthentication, code: &str) -> bool {
+        let token_hash = SharedDomainService::hash_token(code);
+        if let Some(token) = &user.otp.otp_app_hash {
+            token == &token_hash
+        } else {
+            false
+        }
+    }
+
+    async fn update_verification_status(
+        &self,
+        user_id: FindUserByIdDTO,
+        verification_method: &VerificationMethod,
+    ) -> Result<(), DomainError> {
+        match verification_method {
+            VerificationMethod::EmailOTP => {
+                self.user_authentication_repository
+                    .set_email_otp_verified(user_id)
+                    .await
+            }
+            VerificationMethod::AuthenticatorApp => {
+                self.user_authentication_repository
+                    .set_app_otp_verified(user_id)
+                    .await
+            }
+        }
+    }
+
+    async fn handle_verification_status(
         &self,
         user: &UserAuthentication,
         request: ContinueLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        // Implement actual verification logic here
-        todo!()
+        let username = FindUserByUsernameDTO::new(&user.username);
+
+        let user_updated = self
+            .user_authentication_repository
+            .get_user_by_username(username)
+            .await?;
+
+        // Determine if further verification is needed
+        let email_needed = user_updated.security_setting.two_factor_email;
+        let app_needed = user_updated.security_setting.two_factor_authenticator_app;
+        let email_done = user_updated.otp.otp_email_currently_valid;
+        let app_done = user_updated.otp.otp_app_currently_valid;
+
+        match (email_needed, app_needed, email_done, app_done) {
+            (true, true, true, true) => {
+                // Both methods are verified
+                self.create_session_for_user(
+                    user,
+                    request.persistent,
+                    request.user_agent,
+                    request.ip_address,
+                )
+                .await
+            }
+            (true, true, false, true) => {
+                // Email verification remains
+                Ok(AuthenticationOutcome::PendingVerification {
+                    user_id: user_updated.user_id,
+                    message: "Please verify your email to complete login.".to_string(),
+                })
+            }
+            (true, true, true, false) => {
+                // App verification remains
+                Ok(AuthenticationOutcome::PendingVerification {
+                    user_id: user_updated.user_id,
+                    message: "Please verify using your authenticator app to complete login."
+                        .to_string(),
+                })
+            }
+            (true, false, true, _) => {
+                // Only email is needed and done
+                self.create_session_for_user(
+                    user,
+                    request.persistent,
+                    request.user_agent,
+                    request.ip_address,
+                )
+                .await
+            }
+            (false, true, _, true) => {
+                // Only app is needed and done
+                self.create_session_for_user(
+                    user,
+                    request.persistent,
+                    request.user_agent,
+                    request.ip_address,
+                )
+                .await
+            }
+            (false, false, _, _) => Err(DomainError::ValidationError(
+                ValidationError::BusinessRuleViolation(
+                    "Two-factor authentication is not enabled on your account.".to_string(),
+                ),
+            )),
+            _ => {
+                // Catch-all for any other combinations, typically should not occur
+                Ok(AuthenticationOutcome::PendingVerification {
+                    user_id: user_updated.user_id,
+                    message: "Additional verification required to complete login.".to_string(),
+                })
+            }
+        }
     }
 
     async fn create_session_for_user(

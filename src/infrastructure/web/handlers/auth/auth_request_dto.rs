@@ -22,6 +22,13 @@ pub struct LoginUserRequestWeb {
     pub persistent: bool,
 }
 
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct ContinueLoginRequestWeb {
+    pub user_id: String,
+    pub email_code: Option<String>,
+    pub app_code: Option<String>,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ValidateEmailRequestWeb {
     pub email: String,

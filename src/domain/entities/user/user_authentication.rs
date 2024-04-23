@@ -11,7 +11,6 @@ pub enum AuthenticationOutcome {
         user_id: String,
         email: Email,
         token: EmailToken,
-        email_notifications_enabled: bool,
     },
     RequireAuthenticatorApp {
         user_id: String,
@@ -22,7 +21,6 @@ pub enum AuthenticationOutcome {
         user_id: String,
         email: Email,
         token: EmailToken,
-        email_notifications_enabled: bool,
     },
     AuthenticatedWithPreferences {
         session: UserSession,
@@ -37,6 +35,10 @@ pub enum AuthenticationOutcome {
     },
     AccountTemporarilyLocked {
         until: DateTime<Utc>,
+        message: String,
+    },
+    PendingVerification {
+        user_id: String,
         message: String,
     },
 }

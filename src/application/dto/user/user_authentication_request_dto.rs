@@ -2,7 +2,6 @@ use crate::domain::entities::user::user_sessions::UserSession;
 use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
 pub struct LoginUserRequest {
     pub identifier: String,
     pub password: String,
@@ -32,11 +31,12 @@ impl LoginUserRequest {
     }
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct OTPCodeRequest {
     pub user_id: String,
     pub email_code: Option<String>,
     pub app_code: Option<String>,
+    pub user_agent: String,
+    pub ip_address: String,
 }
 
 #[derive(Serialize, Deserialize)]

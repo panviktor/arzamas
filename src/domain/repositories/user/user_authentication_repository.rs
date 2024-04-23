@@ -69,41 +69,23 @@ pub trait UserAuthenticationDomainRepository {
         ip_address: IPAddress,
     ) -> Result<(), DomainError>;
 
-    /// Validates if the email-based 2FA setup is still valid.
+    /// Marks the email token as verified for a user.
     ///
     /// # Arguments
     /// * `user` - DTO containing the user ID.
-    /// * `expiry` - DateTime to check against the current time.
-    /// * `user_agent` - A string representing the user agent of the client initiating the 2FA setup. This can be used for logging purposes or for assessing the security context of the request.
-    /// * `ip_address` - The IP address from which the 2FA setup request was made. This can also be used for security logging and might be involved in evaluating the legitimacy of the setup request.
     ///
     /// # Returns
-    /// Result indicating if the 2FA email setup is still valid or not.
-    async fn validate_2fa_email_with_expiry(
-        &self,
-        user: FindUserByIdDTO,
-        expiry: DateTime<Utc>,
-        user_agent: UserAgent,
-        ip_address: IPAddress,
-    ) -> Result<(), DomainError>;
+    /// Result indicating success or an error if the verification fails.
+    async fn set_email_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
 
-    /// Validates if the app-based 2FA setup is still valid.
+    /// Marks the app OTP token as verified for a user.
     ///
     /// # Arguments
     /// * `user` - DTO containing the user ID.
-    /// * `expiry` - DateTime to check against the current time.
-    /// * `user_agent` - A string representing the user agent of the client initiating the 2FA setup. This can be used for logging purposes or for assessing the security context of the request.
-    /// * `ip_address` - The IP address from which the 2FA setup request was made. This can also be used for security logging and might be involved in evaluating the legitimacy of the setup request.
     ///
     /// # Returns
-    /// Result indicating if the 2FA app setup is still valid or not.
-    async fn validate_2f_app_with_expiry(
-        &self,
-        user: FindUserByIdDTO,
-        expiry: DateTime<Utc>,
-        user_agent: UserAgent,
-        ip_address: IPAddress,
-    ) -> Result<(), DomainError>;
+    /// Result indicating success or an error if the verification fails.
+    async fn set_app_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
 
     /// Resets the 2FA flow and all login attempts for a user.
     ///

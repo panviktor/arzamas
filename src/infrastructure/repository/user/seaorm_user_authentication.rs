@@ -76,23 +76,11 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         todo!()
     }
 
-    async fn validate_2fa_email_with_expiry(
-        &self,
-        user: FindUserByIdDTO,
-        expiry: DateTime<Utc>,
-        user_agent: UserAgent,
-        ip_address: IPAddress,
-    ) -> Result<(), DomainError> {
+    async fn set_email_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
         todo!()
     }
 
-    async fn validate_2f_app_with_expiry(
-        &self,
-        user: FindUserByIdDTO,
-        expiry: DateTime<Utc>,
-        user_agent: UserAgent,
-        ip_address: IPAddress,
-    ) -> Result<(), DomainError> {
+    async fn set_app_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
         todo!()
     }
 

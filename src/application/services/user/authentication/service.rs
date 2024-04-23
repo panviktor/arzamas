@@ -8,7 +8,9 @@ use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::user::AuthenticationOutcome;
 use crate::domain::ports::caching::caching::CachingPort;
 use crate::domain::ports::email::email::EmailPort;
-use crate::domain::repositories::user::user_authentication_parameters::CreateLoginRequestDTO;
+use crate::domain::repositories::user::user_authentication_parameters::{
+    ContinueLoginRequestDTO, CreateLoginRequestDTO,
+};
 use crate::domain::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
 use crate::domain::services::user::user_authentication_service::UserAuthenticationDomainService;
 use jsonwebtoken::{EncodingKey, Header};
@@ -95,30 +97,82 @@ where
                     token_type: "Bearer".to_string(),
                 })
             }
-            AuthenticationOutcome::RequireEmailVerification { user_id, email, .. }
-            | AuthenticationOutcome::RequireEmailAndAuthenticatorApp { user_id, email, .. } => {
+
+            AuthenticationOutcome::RequireEmailVerification {
+                user_id,
+                email,
+                token,
+            } => {
+                let subject = "Initiate login to your account in Arzamas App";
+                let message = format!("Enter your Email code: {}", token.value());
+
+                self.email_service
+                    .send_email(email.value(), &subject, &message)
+                    .await?;
+
                 Ok(LoginResponse::OTPResponse {
-                    message: format!("Please verify your email: {:?}", email),
-                    apps_code: false,
                     user_id,
+                    message: "Please check the code sent to your email.".to_string(),
                 })
             }
+
+            AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
+                user_id,
+                email,
+                token,
+            } => {
+                let subject = "Initiate login to your account in Arzamas App";
+                let message = format!(
+                    "Enter your OTP Code and the Code from Email. Email code: {}",
+                    token.value()
+                );
+
+                self.email_service
+                    .send_email(email.value(), &subject, &message)
+                    .await?;
+
+                Ok(LoginResponse::OTPResponse {
+                    user_id,
+                    message: "Please check your email and the OTP app for codes.".to_string(),
+                })
+            }
+
             AuthenticationOutcome::RequireAuthenticatorApp {
                 user_id,
                 email,
                 email_notifications_enabled,
-            } => Ok(LoginResponse::OTPResponse {
-                message: format!(
-                    "Please authenticate using your app. Email: {:?}, Notifications enabled: {}",
-                    email, email_notifications_enabled
-                ),
-                apps_code: true,
-                user_id,
-            }),
-            AuthenticationOutcome::AuthenticationFailed { email, message, .. } => Err(
-                ApplicationError::ValidationError(format!("{}: {:?}", message, email)),
+            } => {
+                if email_notifications_enabled {
+                    let subject = "Initiate login to your account in Arzamas App";
+                    let message = "Please authenticate using your Authenticator App.";
+
+                    self.email_service
+                        .send_email(email.value(), &subject, &message)
+                        .await?;
+                }
+
+                Ok(LoginResponse::OTPResponse {
+                    user_id,
+                    message: "Please authenticate using your app.".to_string(),
+                })
+            }
+
+            AuthenticationOutcome::AuthenticationFailed {
+                email,
+                message,
+                email_notifications_enabled,
+            } => Err(ApplicationError::ValidationError(format!(
+                "{}: {:?}",
+                message, email
+            ))),
+
+            AuthenticationOutcome::AccountTemporarilyLocked { until, message } => Err(
+                ApplicationError::ValidationError(format!("{}: {:?}", message, until)),
             ),
-            AuthenticationOutcome::AccountTemporarilyLocked { .. } => todo!(),
+
+            AuthenticationOutcome::PendingVerification { user_id, message } => {
+                Ok(LoginResponse::OTPResponse { user_id, message })
+            }
         }
     }
 
@@ -126,6 +180,17 @@ where
         &self,
         request: OTPCodeRequest,
     ) -> Result<LoginResponse, ApplicationError> {
+        let user_agent = UserAgent::new(&request.user_agent);
+        let ip_address = IPAddress::new(&request.ip_address);
+
+        // let continue_login = ContinueLoginRequestDTO::new(
+        //     "".to_string(),
+        //     VerificationMethod::EmailOTP,
+        //     "".to_string(),
+        //     user_agent,
+        //     ip_address,
+        // );
+
         todo!()
     }
 }
