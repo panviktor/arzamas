@@ -1,5 +1,5 @@
 use crate::application::dto::user::user_authentication_request_dto::{
-    LoginUserRequest, OTPCodeRequest, UserToken,
+    LoginUserRequest, OTPVerificationRequest, UserToken,
 };
 use crate::application::dto::user::user_authentication_response_dto::LoginResponse;
 use crate::application::error::error::ApplicationError;
@@ -178,20 +178,39 @@ where
 
     pub async fn continue_login(
         &self,
-        request: OTPCodeRequest,
+        request: OTPVerificationRequest,
     ) -> Result<LoginResponse, ApplicationError> {
-        let user_agent = UserAgent::new(&request.user_agent);
-        let ip_address = IPAddress::new(&request.ip_address);
+        let request = ContinueLoginRequestDTO::from(request);
 
-        // let continue_login = ContinueLoginRequestDTO::new(
-        //     "".to_string(),
-        //     VerificationMethod::EmailOTP,
-        //     "".to_string(),
-        //     user_agent,
-        //     ip_address,
-        // );
+        let response = self
+            .user_authentication_domain_service
+            .continue_login(request)
+            .await
+            .map_err(|e| ApplicationError::from(e))?;
 
-        todo!()
+        match response {
+            AuthenticationOutcome::RequireEmailVerification { .. } => {
+                todo!()
+            }
+            AuthenticationOutcome::RequireAuthenticatorApp { .. } => {
+                todo!()
+            }
+            AuthenticationOutcome::RequireEmailAndAuthenticatorApp { .. } => {
+                todo!()
+            }
+            AuthenticationOutcome::AuthenticatedWithPreferences { .. } => {
+                todo!()
+            }
+            AuthenticationOutcome::AuthenticationFailed { .. } => {
+                todo!()
+            }
+            AuthenticationOutcome::AccountTemporarilyLocked { .. } => {
+                todo!()
+            }
+            AuthenticationOutcome::PendingVerification { .. } => {
+                todo!()
+            }
+        }
     }
 }
 

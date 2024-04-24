@@ -28,14 +28,14 @@ impl CreateLoginRequestDTO {
 }
 
 #[derive(Debug, Clone)]
-pub enum VerificationMethod {
+pub enum DomainVerificationMethod {
     EmailOTP,
     AuthenticatorApp,
 }
 #[derive(Debug, Clone)]
 pub struct ContinueLoginRequestDTO {
     pub identifier: String,
-    pub verification_method: VerificationMethod,
+    pub verification_method: DomainVerificationMethod,
     pub code: String,
     pub user_agent: UserAgent,
     pub ip_address: IPAddress,
@@ -45,7 +45,7 @@ pub struct ContinueLoginRequestDTO {
 impl ContinueLoginRequestDTO {
     pub fn new(
         identifier: String,
-        verification_method: VerificationMethod,
+        verification_method: DomainVerificationMethod,
         code: String,
         user_agent: UserAgent,
         ip_address: IPAddress,

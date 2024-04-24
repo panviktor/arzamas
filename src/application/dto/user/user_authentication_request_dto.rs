@@ -1,4 +1,8 @@
+use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::user::user_sessions::UserSession;
+use crate::domain::repositories::user::user_authentication_parameters::{
+    ContinueLoginRequestDTO, DomainVerificationMethod,
+};
 use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
 
@@ -31,12 +35,60 @@ impl LoginUserRequest {
     }
 }
 
-pub struct OTPCodeRequest {
+pub enum APIVerificationMethod {
+    EmailOTP,
+    AuthenticatorApp,
+}
+
+pub struct OTPVerificationRequest {
     pub user_id: String,
-    pub email_code: Option<String>,
-    pub app_code: Option<String>,
+    pub verification_method: APIVerificationMethod,
+    pub code: String,
     pub user_agent: String,
     pub ip_address: String,
+    pub persistent: bool,
+}
+
+impl OTPVerificationRequest {
+    pub fn new(
+        user_id: String,
+        verification_method: APIVerificationMethod,
+        code: String,
+        user_agent: String,
+        ip_address: String,
+        persistent: bool,
+    ) -> Self {
+        Self {
+            user_id,
+            verification_method,
+            code,
+            user_agent,
+            ip_address,
+            persistent,
+        }
+    }
+}
+
+impl From<APIVerificationMethod> for DomainVerificationMethod {
+    fn from(method: APIVerificationMethod) -> Self {
+        match method {
+            APIVerificationMethod::EmailOTP => DomainVerificationMethod::EmailOTP,
+            APIVerificationMethod::AuthenticatorApp => DomainVerificationMethod::AuthenticatorApp,
+        }
+    }
+}
+
+impl From<OTPVerificationRequest> for ContinueLoginRequestDTO {
+    fn from(request: OTPVerificationRequest) -> Self {
+        ContinueLoginRequestDTO {
+            identifier: request.user_id,
+            verification_method: request.verification_method.into(),
+            code: request.code,
+            user_agent: UserAgent::new(&request.user_agent),
+            ip_address: IPAddress::new(&request.ip_address),
+            persistent: request.persistent,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]

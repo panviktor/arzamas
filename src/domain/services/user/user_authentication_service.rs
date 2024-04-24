@@ -6,7 +6,7 @@ use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::AuthenticationOutcome;
 use crate::domain::error::{DomainError, ValidationError};
 use crate::domain::repositories::user::user_authentication_parameters::{
-    ContinueLoginRequestDTO, CreateLoginRequestDTO, VerificationMethod,
+    ContinueLoginRequestDTO, CreateLoginRequestDTO, DomainVerificationMethod,
 };
 use crate::domain::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
 use crate::domain::repositories::user::user_shared_parameters::{
@@ -297,8 +297,8 @@ where
         request: ContinueLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let verification_result = match &request.verification_method {
-            VerificationMethod::EmailOTP => self.verify_email_otp(user_result, &request.code),
-            VerificationMethod::AuthenticatorApp => {
+            DomainVerificationMethod::EmailOTP => self.verify_email_otp(user_result, &request.code),
+            DomainVerificationMethod::AuthenticatorApp => {
                 self.verify_authenticator_app(user_result, &request.code)
             }
         };
@@ -338,15 +338,15 @@ where
     async fn update_verification_status(
         &self,
         user_id: FindUserByIdDTO,
-        verification_method: &VerificationMethod,
+        verification_method: &DomainVerificationMethod,
     ) -> Result<(), DomainError> {
         match verification_method {
-            VerificationMethod::EmailOTP => {
+            DomainVerificationMethod::EmailOTP => {
                 self.user_authentication_repository
                     .set_email_otp_verified(user_id)
                     .await
             }
-            VerificationMethod::AuthenticatorApp => {
+            DomainVerificationMethod::AuthenticatorApp => {
                 self.user_authentication_repository
                     .set_app_otp_verified(user_id)
                     .await

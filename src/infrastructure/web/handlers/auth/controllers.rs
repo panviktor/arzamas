@@ -1,6 +1,6 @@
 use crate::application::dto::shared::universal_response::UniversalResponse;
 use crate::application::dto::user::user_authentication_request_dto::{
-    LoginUserRequest, OTPCodeRequest,
+    LoginUserRequest, OTPVerificationRequest,
 };
 use crate::application::dto::user::user_registration_request_dto::{
     CreateUserRequest, ValidateEmailRequest,
