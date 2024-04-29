@@ -187,6 +187,7 @@ where
                         duration,
                         request.user_agent,
                         request.ip_address,
+                        request.persistent,
                     )
                     .await?;
                 Ok(AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
@@ -205,6 +206,7 @@ where
                         duration,
                         request.user_agent,
                         request.ip_address,
+                        request.persistent,
                     )
                     .await?;
                 Ok(AuthenticationOutcome::RequireEmailVerification {
@@ -223,6 +225,7 @@ where
                     expiry_duration,
                     request.user_agent,
                     request.ip_address,
+                    request.persistent,
                 )
                 .await?;
 
@@ -250,10 +253,11 @@ where
         expiry_duration: Duration,
         user_agent: UserAgent,
         ip_address: IPAddress,
+        persistent: bool,
     ) -> Result<(), DomainError> {
         let expiry = Utc::now() + expiry_duration;
         self.user_authentication_repository
-            .prepare_user_for_2fa(user_id, expiry, None, user_agent, ip_address)
+            .prepare_user_for_2fa(user_id, expiry, None, user_agent, ip_address, persistent)
             .await
     }
 
@@ -263,6 +267,7 @@ where
         duration: Duration,
         user_agent: UserAgent,
         ip_address: IPAddress,
+        persistent: bool,
     ) -> Result<EmailToken, DomainError> {
         let token = SharedDomainService::generate_token(6)?;
         let confirmation_token = EmailToken::new(&token);
@@ -276,6 +281,7 @@ where
                 Some(confirmation_token_hash),
                 user_agent,
                 ip_address,
+                persistent,
             )
             .await?;
 

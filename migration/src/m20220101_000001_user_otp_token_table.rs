@@ -67,6 +67,12 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(UserOTPToken::UserAgent).string().null())
                     .col(ColumnDef::new(UserOTPToken::IpAddress).string().null())
+                    .col(
+                        ColumnDef::new(UserOTPToken::LongSession)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await
@@ -97,4 +103,5 @@ pub enum UserOTPToken {
     AttemptCount,
     UserAgent,
     IpAddress,
+    LongSession,
 }

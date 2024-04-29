@@ -67,6 +67,7 @@ pub trait UserAuthenticationDomainRepository {
         email_token_hash: Option<String>,
         user_agent: UserAgent,
         ip_address: IPAddress,
+        persistent: bool,
     ) -> Result<(), DomainError>;
 
     /// Marks the email token as verified for a user.

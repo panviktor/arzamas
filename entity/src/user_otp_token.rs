@@ -20,6 +20,7 @@ pub struct Model {
     pub attempt_count: i32,
     pub user_agent: Option<String>,
     pub ip_address: Option<String>,
+    pub long_session: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

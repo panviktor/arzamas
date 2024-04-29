@@ -72,6 +72,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         email_token_hash: Option<String>,
         user_agent: UserAgent,
         ip_address: IPAddress,
+        persistent: bool,
     ) -> Result<(), DomainError> {
         todo!()
     }
