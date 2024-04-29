@@ -46,7 +46,6 @@ pub struct OTPVerificationRequest {
     pub code: String,
     pub user_agent: String,
     pub ip_address: String,
-    pub persistent: bool,
 }
 
 impl OTPVerificationRequest {
@@ -56,7 +55,6 @@ impl OTPVerificationRequest {
         code: String,
         user_agent: String,
         ip_address: String,
-        persistent: bool,
     ) -> Self {
         Self {
             user_id,
@@ -64,7 +62,6 @@ impl OTPVerificationRequest {
             code,
             user_agent,
             ip_address,
-            persistent,
         }
     }
 }
@@ -86,7 +83,6 @@ impl From<OTPVerificationRequest> for ContinueLoginRequestDTO {
             code: request.code,
             user_agent: UserAgent::new(&request.user_agent),
             ip_address: IPAddress::new(&request.ip_address),
-            persistent: request.persistent,
         }
     }
 }

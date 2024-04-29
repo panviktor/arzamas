@@ -55,6 +55,8 @@ pub struct UserOtpToken {
     /// and help in identifying suspicious activities or patterns of abuse, such as repeated failed attempts
     /// from the same IP address or unusual locations.
     pub ip_address: IPAddress,
+
+    pub persistent: bool,
 }
 
 impl UserOtpToken {
@@ -71,6 +73,7 @@ impl UserOtpToken {
         attempt_count: i32,
         user_agent: UserAgent,
         ip_address: IPAddress,
+        persistent: bool,
     ) -> Self {
         Self {
             user_id,
@@ -85,6 +88,7 @@ impl UserOtpToken {
             attempt_count,
             user_agent,
             ip_address,
+            persistent,
         }
     }
 }

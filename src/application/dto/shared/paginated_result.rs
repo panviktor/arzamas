@@ -4,8 +4,8 @@ use utoipa::ToSchema;
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, ToSchema)]
 #[aliases(
-PaginatedResultNotes = PaginatedResult < Note >
-)
+        PaginatedResultNotes = PaginatedResult < Note >
+    )
 ]
 pub struct PaginatedResult<T> {
     pub items: Vec<T>,

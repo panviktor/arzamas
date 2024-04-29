@@ -1,3 +1,5 @@
+use crate::application::dto::user::user_authentication_request_dto::APIVerificationMethod;
+use crate::domain::repositories::user::user_authentication_parameters::DomainVerificationMethod;
 use serde_derive::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
@@ -25,8 +27,13 @@ pub struct LoginUserRequestWeb {
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct ContinueLoginRequestWeb {
     pub user_id: String,
-    pub email_code: Option<String>,
-    pub app_code: Option<String>,
+    pub verification_method: APIVerificationMethodWeb,
+    pub code: String,
+}
+#[derive(Serialize, Deserialize, ToSchema)]
+pub enum APIVerificationMethodWeb {
+    EmailOTP,
+    AuthenticatorApp,
 }
 
 #[derive(Serialize, Deserialize)]

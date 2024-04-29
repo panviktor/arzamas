@@ -377,7 +377,7 @@ where
                 // Both methods are verified
                 self.create_session_for_user(
                     user,
-                    request.persistent,
+                    user.otp.persistent,
                     request.user_agent,
                     request.ip_address,
                 )
@@ -402,7 +402,7 @@ where
                 // Only email is needed and done
                 self.create_session_for_user(
                     user,
-                    request.persistent,
+                    user.otp.persistent,
                     request.user_agent,
                     request.ip_address,
                 )
@@ -412,7 +412,7 @@ where
                 // Only app is needed and done
                 self.create_session_for_user(
                     user,
-                    request.persistent,
+                    user.otp.persistent,
                     request.user_agent,
                     request.ip_address,
                 )

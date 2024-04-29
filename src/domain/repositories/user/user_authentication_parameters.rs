@@ -39,7 +39,6 @@ pub struct ContinueLoginRequestDTO {
     pub code: String,
     pub user_agent: UserAgent,
     pub ip_address: IPAddress,
-    pub persistent: bool,
 }
 
 impl ContinueLoginRequestDTO {
@@ -49,7 +48,6 @@ impl ContinueLoginRequestDTO {
         code: String,
         user_agent: UserAgent,
         ip_address: IPAddress,
-        persistent: bool,
     ) -> Self {
         Self {
             identifier,
@@ -57,7 +55,6 @@ impl ContinueLoginRequestDTO {
             code,
             user_agent,
             ip_address,
-            persistent,
         }
     }
 }

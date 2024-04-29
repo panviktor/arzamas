@@ -1,6 +1,6 @@
 use crate::application::dto::shared::universal_response::UniversalResponse;
 use crate::application::dto::user::user_authentication_request_dto::{
-    LoginUserRequest, OTPVerificationRequest,
+    APIVerificationMethod, LoginUserRequest, OTPVerificationRequest,
 };
 use crate::application::dto::user::user_registration_request_dto::{
     CreateUserRequest, ValidateEmailRequest,
@@ -225,6 +225,19 @@ pub async fn login_2fa(
 ) -> Result<HttpResponse, AppResponseError> {
     let user_agent = get_user_agent(&req)?;
     let login_ip = get_ip_addr(&req)?;
+
+    // let verification_method = match &params.verification_method {
+    //     ContinueLoginRequestWeb::EmailOTP => APIVerificationMethod::EmailOTP,
+    //     ContinueLoginRequestWeb::AuthenticatorApp => APIVerificationMethod::AuthenticatorApp,
+    // };
+
+    // let request = OTPVerificationRequest::new(
+    //     "".to_string(),
+    //     verification_method,
+    //     "".to_string(),
+    //     "".to_string(),
+    //     "".to_string(),
+    // // );
 
     todo!()
 }
