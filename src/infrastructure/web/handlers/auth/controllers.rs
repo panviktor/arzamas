@@ -9,7 +9,8 @@ use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
 use crate::infrastructure::web::actix_adapter::{get_ip_addr, get_user_agent};
 use crate::infrastructure::web::handlers::auth::auth_request_dto::{
-    ContinueLoginRequestWeb, CreateUserRequestWeb, LoginUserRequestWeb, ValidateEmailRequestWeb,
+    APIVerificationMethodWeb, ContinueLoginRequestWeb, CreateUserRequestWeb, LoginUserRequestWeb,
+    ValidateEmailRequestWeb,
 };
 use actix_web::{web, HttpRequest, HttpResponse};
 use std::sync::Arc;
@@ -184,7 +185,7 @@ pub async fn login(
         .await
         .map_err(|e| e.into_service_error(&req))?;
 
-    Ok(HttpResponse::Created().json(auth))
+    Ok(HttpResponse::Ok().json(auth))
 }
 
 /// Logs in a user with 2-Factor Authentication (2FA).
@@ -221,25 +222,32 @@ pub async fn login(
 )]
 pub async fn login_2fa(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     params: web::Json<ContinueLoginRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
     let user_agent = get_user_agent(&req)?;
     let login_ip = get_ip_addr(&req)?;
 
-    // let verification_method = match &params.verification_method {
-    //     ContinueLoginRequestWeb::EmailOTP => APIVerificationMethod::EmailOTP,
-    //     ContinueLoginRequestWeb::AuthenticatorApp => APIVerificationMethod::AuthenticatorApp,
-    // };
+    let verification_method = match &params.verification_method {
+        APIVerificationMethodWeb::EmailOTP => APIVerificationMethod::EmailOTP,
+        APIVerificationMethodWeb::AuthenticatorApp => APIVerificationMethod::AuthenticatorApp,
+    };
 
-    // let request = OTPVerificationRequest::new(
-    //     "".to_string(),
-    //     verification_method,
-    //     "".to_string(),
-    //     "".to_string(),
-    //     "".to_string(),
-    // // );
+    let request = OTPVerificationRequest::new(
+        params.user_id.to_string(),
+        verification_method,
+        params.code.to_string(),
+        user_agent,
+        login_ip,
+    );
 
-    todo!()
+    let auth = data
+        .user_authentication_service
+        .continue_login(request)
+        .await
+        .map_err(|e| e.into_service_error(&req))?;
+
+    Ok(HttpResponse::Ok().json(auth))
 }
 
 /// Initiates a password reset process for a user.

@@ -161,14 +161,21 @@ where
                 email,
                 message,
                 email_notifications_enabled,
-            } => Err(ApplicationError::ValidationError(format!(
-                "{}: {:?}",
-                message, email
-            ))),
+            } => {
+                if email_notifications_enabled {
+                    let subject = "Initiate login to your account in Arzamas App was Failed";
+                    let message = format!("Reason: {}", message);
 
-            AuthenticationOutcome::AccountTemporarilyLocked { until, message } => Err(
-                ApplicationError::ValidationError(format!("{}: {:?}", message, until)),
-            ),
+                    self.email_service
+                        .send_email(email.value(), &subject, &message)
+                        .await?;
+                }
+
+                Err(ApplicationError::ValidationError(format!(
+                    "{}: {:?}",
+                    message, email
+                )))
+            }
 
             AuthenticationOutcome::PendingVerification { user_id, message } => {
                 Ok(LoginResponse::OTPResponse { user_id, message })
@@ -189,27 +196,55 @@ where
             .map_err(|e| ApplicationError::from(e))?;
 
         match response {
-            AuthenticationOutcome::RequireEmailVerification { .. } => {
-                todo!()
+            AuthenticationOutcome::AuthenticatedWithPreferences {
+                session,
+                email,
+                message,
+                email_notifications_enabled,
+            } => {
+                let payload: UserToken = session.clone().into();
+                let token = generate_token(&payload).await?;
+                self.caching_service
+                    .store_user_token(&session.user_id, &token)
+                    .await?;
+
+                if email_notifications_enabled {
+                    self.email_service
+                        .send_email(email.value(), "Success Login to Arzamas App", &message)
+                        .await?;
+                }
+
+                Ok(LoginResponse::TokenResponse {
+                    token,
+                    token_type: "Bearer".to_string(),
+                })
             }
-            AuthenticationOutcome::RequireAuthenticatorApp { .. } => {
-                todo!()
+            AuthenticationOutcome::AuthenticationFailed {
+                email,
+                message,
+                email_notifications_enabled,
+            } => {
+                if email_notifications_enabled {
+                    let subject = "Initiate login to your account in Arzamas App was Failed";
+                    let message = format!("Reason: {}", message);
+
+                    self.email_service
+                        .send_email(email.value(), &subject, &message)
+                        .await?;
+                }
+
+                Err(ApplicationError::ValidationError(format!(
+                    "{}: {:?}",
+                    message, email
+                )))
             }
-            AuthenticationOutcome::RequireEmailAndAuthenticatorApp { .. } => {
-                todo!()
+            AuthenticationOutcome::PendingVerification { user_id, message } => {
+                Ok(LoginResponse::OTPResponse { user_id, message })
             }
-            AuthenticationOutcome::AuthenticatedWithPreferences { .. } => {
-                todo!()
-            }
-            AuthenticationOutcome::AuthenticationFailed { .. } => {
-                todo!()
-            }
-            AuthenticationOutcome::AccountTemporarilyLocked { .. } => {
-                todo!()
-            }
-            AuthenticationOutcome::PendingVerification { .. } => {
-                todo!()
-            }
+            // Catch-all for any other combinations, typically should not occur
+            _ => Err(ApplicationError::InternalServerError(
+                "Currently login not available".to_string(),
+            )),
         }
     }
 }

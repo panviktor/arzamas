@@ -33,10 +33,6 @@ pub enum AuthenticationOutcome {
         message: String,
         email_notifications_enabled: bool,
     },
-    AccountTemporarilyLocked {
-        until: DateTime<Utc>,
-        message: String,
-    },
     PendingVerification {
         user_id: String,
         message: String,
