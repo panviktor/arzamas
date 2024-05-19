@@ -48,6 +48,5 @@ pub struct UserAuthentication {
     pub security_setting: UserSecuritySettings,
     pub otp: UserOtpToken,
     pub sessions: Vec<UserSession>,
-    pub attempt_count: i32,
     pub login_blocked_until: Option<DateTime<Utc>>,
 }

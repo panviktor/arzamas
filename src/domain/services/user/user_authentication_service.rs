@@ -142,7 +142,7 @@ where
         user: &UserAuthentication,
         message: &str,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        let attempt_count = user.attempt_count + 1;
+        let attempt_count = user.otp.attempt_count + 1;
         let user_id = FindUserByIdDTO::new(&user.user_id);
 
         let block_duration = if attempt_count > 10 {

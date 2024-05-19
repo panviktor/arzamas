@@ -29,8 +29,6 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
             DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
         })?;
 
-        let user_email = user.email.clone().into_inner();
-
         let user_id_clone = user.user_id.clone();
         let user_model = user.into_active_model();
 

@@ -40,7 +40,7 @@ pub struct UserOtpToken {
 
     /// General expiration time for the OTP token session. This might control the entire session's validity
     /// for OTP entry and should be checked before accepting any OTP entries.
-    pub expiry: DateTime<Utc>,
+    pub expiry: Option<DateTime<Utc>>,
 
     /// Count of failed OTP attempts. This can be used to implement rate limiting or account locking mechanisms
     /// after a certain number of failed attempts to prevent brute force attacks.
@@ -69,7 +69,7 @@ impl UserOtpToken {
         otp_app_valid_time: Option<DateTime<Utc>>,
         otp_app_currently_valid: bool,
         otp_app_mnemonic: Option<String>,
-        expiry: DateTime<Utc>,
+        expiry: Option<DateTime<Utc>>,
         attempt_count: i32,
         user_agent: UserAgent,
         ip_address: IPAddress,
