@@ -1,4 +1,5 @@
 use super::m20220101_000001_user_table::User;
+use crate::m20220101_000001_user_otp_token_table::UserOTPToken;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -33,6 +34,7 @@ impl MigrationTrait for Migration {
                             .to(User::Table, User::UserId)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
+                    .col(ColumnDef::new(UserSession::SessionName).string().not_null())
                     .col(
                         ColumnDef::new(UserSession::LoginTimestamp)
                             .timestamp()
@@ -40,6 +42,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(UserSession::IpAddress).string().not_null())
                     .col(ColumnDef::new(UserSession::UserAgent).string().not_null())
+                    .col(ColumnDef::new(UserSession::Expiry).timestamp().not_null())
                     .to_owned(),
             )
             .await
@@ -57,7 +60,9 @@ enum UserSession {
     Id,
     UserId,
     SessionId,
+    SessionName,
     LoginTimestamp,
     IpAddress,
     UserAgent,
+    Expiry,
 }

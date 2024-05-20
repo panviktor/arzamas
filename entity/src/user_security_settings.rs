@@ -15,7 +15,6 @@ pub struct Model {
     pub email_on_success_enabled_at: bool,
     pub email_on_failure_enabled_at: bool,
     pub close_sessions_on_change_password: bool,
-    pub expiry: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
