@@ -1,5 +1,4 @@
 use super::m20220101_000001_user_table::User;
-use crate::m20220101_000001_user_otp_token_table::UserOTPToken;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]

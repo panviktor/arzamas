@@ -2,10 +2,11 @@ use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_otp_token::UserOtpToken;
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
+use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::{DomainError, ValidationError};
 use chrono::{DateTime, TimeZone, Utc};
-use entity::{user, user_otp_token, user_security_settings};
+use entity::{user, user_otp_token, user_security_settings, user_session};
 use sea_orm::ActiveValue::Set;
 
 impl UserRegistration {
@@ -57,7 +58,7 @@ impl TryFrom<user_otp_token::Model> for UserOtpToken {
         // Check for critical missing data
         let user_agent = model
             .user_agent
-            .as_deref() // Properly handling Option<String> to Option<&str>
+            .as_deref()
             .map(UserAgent::new)
             .ok_or_else(|| {
                 DomainError::ValidationError(ValidationError::InvalidData(
@@ -104,5 +105,24 @@ impl From<user_security_settings::Model> for UserSecuritySettings {
             email_on_failure_enabled_at: model.email_on_failure_enabled_at,
             close_sessions_on_change_password: model.close_sessions_on_change_password,
         }
+    }
+}
+
+impl From<user_session::Model> for UserSession {
+    fn from(model: user_session::Model) -> Self {
+        let login_timestamp = Utc.from_utc_datetime(&model.login_timestamp);
+        let user_agent = UserAgent::new(&model.user_agent);
+        let ip_address = IPAddress::new(&model.ip_address);
+        let expiry = Utc.from_utc_datetime(&model.expiry);
+
+        UserSession::new(
+            &model.user_id,
+            &model.session_id,
+            &model.session_name,
+            login_timestamp,
+            &user_agent,
+            &ip_address,
+            expiry,
+        )
     }
 }
