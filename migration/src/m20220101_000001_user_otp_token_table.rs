@@ -35,22 +35,12 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(UserOTPToken::OtpEmailHash).string().null())
                     .col(
-                        ColumnDef::new(UserOTPToken::OtpEmailValidTime)
-                            .timestamp()
-                            .null(),
-                    )
-                    .col(
                         ColumnDef::new(UserOTPToken::OtpEmailCurrentlyValid)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
                     .col(ColumnDef::new(UserOTPToken::OtpAppHash).string().null())
-                    .col(
-                        ColumnDef::new(UserOTPToken::OtpAppValidTime)
-                            .timestamp()
-                            .null(),
-                    )
                     .col(
                         ColumnDef::new(UserOTPToken::OtpAppCurrentlyValid)
                             .boolean()
@@ -93,10 +83,8 @@ pub enum UserOTPToken {
     Id,
     UserId,
     OtpEmailHash,
-    OtpEmailValidTime,
     OtpEmailCurrentlyValid,
     OtpAppHash,
-    OtpAppValidTime,
     OtpAppCurrentlyValid,
     OtpAppMnemonic,
     Expiry,

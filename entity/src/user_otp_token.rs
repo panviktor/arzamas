@@ -10,10 +10,8 @@ pub struct Model {
     #[sea_orm(unique)]
     pub user_id: String,
     pub otp_email_hash: Option<String>,
-    pub otp_email_valid_time: Option<DateTime>,
     pub otp_email_currently_valid: bool,
     pub otp_app_hash: Option<String>,
-    pub otp_app_valid_time: Option<DateTime>,
     pub otp_app_currently_valid: bool,
     pub otp_app_mnemonic: Option<String>,
     pub expiry: Option<DateTime>,

@@ -4,7 +4,7 @@ use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::AuthenticationOutcome;
-use crate::domain::error::{DomainError, ValidationError};
+use crate::domain::error::{DomainError, ExternalServiceError, ValidationError};
 use crate::domain::repositories::user::user_authentication_parameters::{
     ContinueLoginRequestDTO, CreateLoginRequestDTO, DomainVerificationMethod,
 };
@@ -16,6 +16,7 @@ use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
 use crate::domain::services::user::{UserCredentialService, UserValidationService};
 use chrono::{Duration, Utc};
+use totp_rs::{Algorithm, TOTP};
 use uuid::Uuid;
 
 pub struct UserAuthenticationDomainService<R>
@@ -153,13 +154,15 @@ where
             None
         };
 
-        self.user_authentication_repository
-            .block_user_until(&user_id, block_duration)
-            .await?;
+        let update_user_login_attempts = self
+            .user_authentication_repository
+            .update_user_login_attempts(user_id.clone(), attempt_count);
 
-        self.user_authentication_repository
-            .update_user_login_attempts(user_id, attempt_count)
-            .await?;
+        let block_user_until = self
+            .user_authentication_repository
+            .block_user_until(&user_id, block_duration);
+
+        tokio::try_join!(update_user_login_attempts, block_user_until)?;
 
         Ok(AuthenticationOutcome::AuthenticationFailed {
             email: user.email.clone(),
@@ -302,21 +305,42 @@ where
         user_result: &UserAuthentication,
         request: ContinueLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
+        let current_time = Utc::now();
+
+        // Check if the OTP expiry is set and validate against current time
+        if let Some(expiry) = user_result.otp.expiry {
+            if current_time > expiry {
+                // Return an error if the OTP has expired
+                return Err(DomainError::ValidationError(
+                    ValidationError::BusinessRuleViolation("OTP has expired.".to_string()),
+                ));
+            }
+        } else {
+            // Return an error if no expiry is set (critical configuration error)
+            return Err(DomainError::ValidationError(
+                ValidationError::BusinessRuleViolation("Expiry must be set.".to_string()),
+            ));
+        }
+
+        // Determine the verification result based on the method specified in the request
         let verification_result = match &request.verification_method {
-            DomainVerificationMethod::EmailOTP => self.verify_email_otp(user_result, &request.code),
+            DomainVerificationMethod::EmailOTP => {
+                Ok(self.verify_email_otp(user_result, &request.code))
+            }
             DomainVerificationMethod::AuthenticatorApp => {
                 self.verify_authenticator_app(user_result, &request.code)
             }
         };
 
+        // Handle the result of the OTP verification
         match verification_result {
-            true => {
+            Ok(true) => {
                 let user_id = FindUserByIdDTO::new(&user_result.user_id);
                 self.update_verification_status(user_id, &request.verification_method)
                     .await?;
                 self.handle_verification_status(&user_result, request).await
             }
-            false => {
+            Ok(false) | Err(_) => {
                 let message = "Verification failed due to invalid OTP.";
                 self.handle_failed_login_attempt(user_result, message).await
             }
@@ -332,13 +356,30 @@ where
         }
     }
 
-    fn verify_authenticator_app(&self, user: &UserAuthentication, code: &str) -> bool {
-        let token_hash = SharedDomainService::hash_token(code);
-        if let Some(token) = &user.otp.otp_app_hash {
-            token == &token_hash
-        } else {
-            false
-        }
+    fn verify_authenticator_app(
+        &self,
+        user: &UserAuthentication,
+        code: &str,
+    ) -> Result<bool, DomainError> {
+        // let secret = "secret".to_string().into_bytes();
+        // let code = "code";
+        //
+        // let totp = TOTP::new(Algorithm::SHA1, 6, 1, 30, secret).map_err(|e| {
+        //     e.to_string();
+        //     DomainError::ExternalServiceError(ExternalServiceError::Custom(format!(
+        //         "Failed to create TOTP: {}",
+        //         e
+        //     )))
+        // });
+        //
+        // let res = totp.expect("REASON").check_current(code);
+        // if res {
+        //     true
+        // } else {
+        //     false
+        // }
+
+        todo!()
     }
 
     async fn update_verification_status(
@@ -467,13 +508,17 @@ where
             expiry,
         );
 
-        self.user_authentication_repository
-            .save_user_session(&session)
-            .await?;
+        let save_session = self
+            .user_authentication_repository
+            .save_user_session(&session);
+        let reset_attempts = self
+            .user_authentication_repository
+            .update_user_login_attempts(user_id.clone(), 0);
+        let reset_validity = self
+            .user_authentication_repository
+            .reset_otp_validity(user_id);
 
-        self.user_authentication_repository
-            .update_user_login_attempts(user_id, 0)
-            .await?;
+        tokio::try_join!(save_session, reset_attempts, reset_validity)?;
 
         Ok(AuthenticationOutcome::AuthenticatedWithPreferences {
             session,

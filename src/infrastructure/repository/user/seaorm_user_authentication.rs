@@ -9,11 +9,12 @@ use crate::domain::repositories::user::user_shared_parameters::{
 };
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
-use entity::user;
 use entity::user_otp_token;
+use entity::{user, user_session};
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use std::ops::Deref;
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
+};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -64,14 +65,30 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
     }
 
     async fn save_user_session(&self, session: &UserSession) -> Result<(), DomainError> {
-        todo!()
+        let active_model = session.clone().into_active_model();
+        active_model
+            .save(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Create(e.to_string())))?;
+
+        Ok(())
     }
 
     async fn get_user_sessions(
         &self,
         user: FindUserByIdDTO,
     ) -> Result<(Vec<UserSession>), DomainError> {
-        todo!()
+        let session_models = user_session::Entity::find()
+            .filter(user_session::Column::UserId.eq(user.user_id))
+            .order_by_asc(user_session::Column::LoginTimestamp)
+            .all(&*self.db)
+            .await
+            .map_err(|e| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string()))
+            })?;
+        let sessions = session_models.into_iter().map(UserSession::from).collect();
+
+        Ok(sessions)
     }
 
     async fn update_user_login_attempts(
@@ -79,20 +96,9 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         user: FindUserByIdDTO,
         count: i32,
     ) -> Result<(), DomainError> {
-        let user_otp_token = entity::user_otp_token::Entity::find()
-            .filter(user::Column::Username.eq(user.user_id))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-            .ok_or_else(|| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "Otp token not found".to_string(),
-                ))
-            })?;
-
-        let mut active: user_otp_token::ActiveModel = user_otp_token.into();
-        active.attempt_count = Set(count);
-        active
+        let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
+        user_otp_token.attempt_count = Set(count);
+        user_otp_token
             .update(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
@@ -136,22 +142,58 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         ip_address: IPAddress,
         persistent: bool,
     ) -> Result<(), DomainError> {
-        todo!()
+        let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
+
+        user_otp_token.otp_email_currently_valid = Set(false);
+        user_otp_token.otp_app_currently_valid = Set(false);
+        user_otp_token.expiry = Set(Some(expiry.naive_utc()));
+        user_otp_token.otp_email_hash = Set(email_token_hash);
+
+        user_otp_token.user_agent = Set(Some(user_agent.value().to_string()));
+        user_otp_token.ip_address = Set(Some(ip_address.value().to_string()));
+        user_otp_token.long_session = Set(persistent);
+
+        user_otp_token
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
+    }
+
+    async fn reset_otp_validity(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+        let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
+
+        user_otp_token.otp_email_currently_valid = Set(false);
+        user_otp_token.otp_app_currently_valid = Set(false);
+        user_otp_token
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
     }
 
     async fn set_email_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
-        todo!()
+        let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
+        user_otp_token.otp_email_currently_valid = Set(true);
+        user_otp_token
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
     }
 
     async fn set_app_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
-        todo!()
-    }
+        let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
+        user_otp_token.otp_app_currently_valid = Set(true);
+        user_otp_token
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
 
-    async fn reset_2fa_flow_and_login_attempts(
-        &self,
-        user: FindUserByIdDTO,
-    ) -> Result<(), DomainError> {
-        todo!()
+        Ok(())
     }
 }
 
@@ -162,7 +204,7 @@ impl SeaOrmUserAuthenticationRepository {
         user: user::Model,
     ) -> Result<UserAuthentication, DomainError> {
         let otp_token_future = entity::user_otp_token::Entity::find()
-            .filter(entity::user_otp_token::Column::UserId.eq(user.user_id.clone()))
+            .filter(user_otp_token::Column::UserId.eq(user.user_id.clone()))
             .one(&*self.db);
 
         let security_settings_future = entity::user_security_settings::Entity::find()
@@ -170,7 +212,7 @@ impl SeaOrmUserAuthenticationRepository {
             .one(&*self.db);
 
         let sessions_future = entity::user_session::Entity::find()
-            .filter(entity::user_session::Column::UserId.eq(user.user_id.clone()))
+            .filter(user_session::Column::UserId.eq(user.user_id.clone()))
             .all(&*self.db);
 
         let (otp_token_model, user_security_settings, user_sessions) =
@@ -209,5 +251,25 @@ impl SeaOrmUserAuthenticationRepository {
             sessions,
             login_blocked_until,
         })
+    }
+
+    async fn fetch_user_otp_token(
+        &self,
+        user_id: &str,
+    ) -> Result<user_otp_token::ActiveModel, DomainError> {
+        let token_model = entity::user_otp_token::Entity::find()
+            .filter(user_otp_token::Column::UserId.eq(user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))
+            .and_then(|opt_model| {
+                opt_model.ok_or_else(|| {
+                    DomainError::PersistenceError(PersistenceError::Retrieve(
+                        "OTP token not found".to_string(),
+                    ))
+                })
+            })?;
+
+        Ok(token_model.into())
     }
 }

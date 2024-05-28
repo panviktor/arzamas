@@ -1,5 +1,6 @@
 use crate::domain::entities::shared::{Email, Username};
 
+#[derive(Clone, Debug)]
 pub struct FindUserByIdDTO {
     pub user_id: String,
 }

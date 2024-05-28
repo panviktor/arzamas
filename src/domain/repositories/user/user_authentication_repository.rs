@@ -88,15 +88,9 @@ pub trait UserAuthenticationDomainRepository {
     /// Result indicating success or an error if the verification fails.
     async fn set_app_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
 
-    /// Resets the 2FA flow and all login attempts for a user.
-    ///
-    /// # Arguments
-    /// * `user` - DTO containing the user ID.
-    ///
-    /// # Returns
-    /// Result indicating success or an error if the reset fails.
-    async fn reset_2fa_flow_and_login_attempts(
-        &self,
-        user: FindUserByIdDTO,
-    ) -> Result<(), DomainError>;
+    /// Resets the OTP validity flags for both email and app-based tokens for a user.
+    /// This function is called to ensure that no stale or previously valid tokens
+    /// can be used to authenticate, typically after a successful login or when new
+    /// tokens are issued.
+    async fn reset_otp_validity(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
 }

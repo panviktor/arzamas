@@ -5,7 +5,7 @@ use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::{DomainError, ValidationError};
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{TimeZone, Utc};
 use entity::{user, user_otp_token, user_security_settings, user_session};
 use sea_orm::ActiveValue::Set;
 
@@ -13,11 +13,11 @@ impl UserRegistration {
     pub fn into_active_model(self) -> user::ActiveModel {
         user::ActiveModel {
             user_id: Set(self.user_id),
-            email: sea_orm::Set(self.email.into_inner()),
-            username: sea_orm::Set(self.username.into_inner()),
-            pass_hash: sea_orm::Set(self.pass_hash),
-            created_at: sea_orm::Set(self.created_at.naive_utc()),
-            updated_at: sea_orm::Set(self.created_at.naive_utc()),
+            email: Set(self.email.into_inner()),
+            username: Set(self.username.into_inner()),
+            pass_hash: Set(self.pass_hash),
+            created_at: Set(self.created_at.naive_utc()),
+            updated_at: Set(self.created_at.naive_utc()),
 
             ..Default::default()
         }
@@ -43,14 +43,6 @@ impl TryFrom<user_otp_token::Model> for UserOtpToken {
 
     fn try_from(model: user_otp_token::Model) -> Result<Self, Self::Error> {
         // Convert NaiveDateTime to DateTime<Utc> while retaining Option
-        let otp_email_valid_time = model
-            .otp_email_valid_time
-            .map(|naive_dt| Utc.from_utc_datetime(&naive_dt));
-
-        let otp_app_valid_time = model
-            .otp_app_valid_time
-            .map(|naive_dt| Utc.from_utc_datetime(&naive_dt));
-
         let expiry = model
             .expiry
             .map(|naive_dt| Utc.from_utc_datetime(&naive_dt));
@@ -79,10 +71,8 @@ impl TryFrom<user_otp_token::Model> for UserOtpToken {
         Ok(UserOtpToken {
             user_id: model.user_id,
             otp_email_hash: model.otp_email_hash,
-            otp_email_valid_time,
             otp_email_currently_valid: model.otp_email_currently_valid,
             otp_app_hash: model.otp_app_hash,
-            otp_app_valid_time,
             otp_app_currently_valid: model.otp_app_currently_valid,
             otp_app_mnemonic: model.otp_app_mnemonic,
             expiry,
@@ -124,5 +114,20 @@ impl From<user_session::Model> for UserSession {
             &ip_address,
             expiry,
         )
+    }
+}
+
+impl UserSession {
+    pub fn into_active_model(self) -> user_session::ActiveModel {
+        user_session::ActiveModel {
+            session_id: Set(self.session_id),
+            user_id: Set(self.user_id),
+            session_name: Set(self.session_name),
+            login_timestamp: Set(self.login_timestamp.naive_utc()),
+            user_agent: Set(self.user_agent.value().to_string()),
+            ip_address: Set(self.ip_address.value().to_string()),
+            expiry: Set(self.expiry.naive_utc()),
+            ..Default::default()
+        }
     }
 }
