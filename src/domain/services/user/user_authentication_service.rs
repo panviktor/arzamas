@@ -4,7 +4,7 @@ use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::AuthenticationOutcome;
-use crate::domain::error::{DomainError, ExternalServiceError, ValidationError};
+use crate::domain::error::{DomainError, ValidationError};
 use crate::domain::repositories::user::user_authentication_parameters::{
     ContinueLoginRequestDTO, CreateLoginRequestDTO, DomainVerificationMethod,
 };
@@ -16,7 +16,6 @@ use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
 use crate::domain::services::user::{UserCredentialService, UserValidationService};
 use chrono::{Duration, Utc};
-use totp_rs::{Algorithm, TOTP};
 use uuid::Uuid;
 
 pub struct UserAuthenticationDomainService<R>
