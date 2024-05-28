@@ -324,23 +324,21 @@ where
 
         // Determine the verification result based on the method specified in the request
         let verification_result = match &request.verification_method {
-            DomainVerificationMethod::EmailOTP => {
-                Ok(self.verify_email_otp(user_result, &request.code))
-            }
+            DomainVerificationMethod::EmailOTP => self.verify_email_otp(user_result, &request.code),
             DomainVerificationMethod::AuthenticatorApp => {
-                self.verify_authenticator_app(user_result, &request.code)
+                self.verify_authenticator_app(user_result, &request.code)?
             }
         };
 
         // Handle the result of the OTP verification
         match verification_result {
-            Ok(true) => {
+            true => {
                 let user_id = FindUserByIdDTO::new(&user_result.user_id);
                 self.update_verification_status(user_id, &request.verification_method)
                     .await?;
                 self.handle_verification_status(&user_result, request).await
             }
-            Ok(false) | Err(_) => {
+            false => {
                 let message = "Verification failed due to invalid OTP.";
                 self.handle_failed_login_attempt(user_result, message).await
             }
