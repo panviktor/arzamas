@@ -3,10 +3,10 @@ use crate::domain::entities::user::value_objects::UserEmailConfirmation;
 use crate::domain::entities::user::UserBase;
 use crate::domain::error::DomainError;
 use crate::domain::error::PersistenceError;
-use crate::domain::repositories::user::user_shared_parameters::{
+use crate::domain::ports::repositories::user::user_shared_parameters::{
     FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
 };
-use crate::domain::repositories::user::user_shared_repository::UserSharedDomainRepository;
+use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use entity::user;

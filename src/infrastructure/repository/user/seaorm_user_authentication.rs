@@ -3,8 +3,8 @@ use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError};
-use crate::domain::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
-use crate::domain::repositories::user::user_shared_parameters::{
+use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
+use crate::domain::ports::repositories::user::user_shared_parameters::{
     FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
 };
 use async_trait::async_trait;

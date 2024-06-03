@@ -2,10 +2,10 @@ use crate::application::dto::shared::paginated_result::PaginatedResult;
 use crate::domain::entities::note::Note;
 use crate::domain::entities::shared::value_objects::DomainPage;
 use crate::domain::error::{DomainError, PersistenceError};
-use crate::domain::repositories::note::note_parameters::{
+use crate::domain::ports::repositories::note::note_parameters::{
     FindNoteDTO, FindNotesDTO, UpdateNoteDTO,
 };
-use crate::domain::repositories::note::note_repository::NoteDomainRepository;
+use crate::domain::ports::repositories::note::note_repository::NoteDomainRepository;
 use async_trait::async_trait;
 use chrono::Utc;
 use entity::note;

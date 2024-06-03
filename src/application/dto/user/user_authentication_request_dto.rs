@@ -1,6 +1,6 @@
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::user::user_sessions::UserSession;
-use crate::domain::repositories::user::user_authentication_parameters::{
+use crate::domain::ports::repositories::user::user_authentication_parameters::{
     ContinueLoginRequestDTO, DomainVerificationMethod,
 };
 use chrono::{DateTime, Utc};

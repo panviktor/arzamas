@@ -2,7 +2,7 @@ use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::DomainError;
-use crate::domain::repositories::user::user_shared_parameters::{
+use crate::domain::ports::repositories::user::user_shared_parameters::{
     FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
 };
 use async_trait::async_trait;

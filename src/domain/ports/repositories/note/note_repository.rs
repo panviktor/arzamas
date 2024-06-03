@@ -1,7 +1,7 @@
 use crate::domain::entities::note::Note;
 use crate::domain::entities::shared::value_objects::DomainPage;
 use crate::domain::error::DomainError;
-use crate::domain::repositories::note::note_parameters::{
+use crate::domain::ports::repositories::note::note_parameters::{
     CreateNoteDTO, FindNoteDTO, FindNotesDTO, UpdateNoteDTO,
 };
 use async_trait::async_trait;

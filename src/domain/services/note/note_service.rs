@@ -1,10 +1,10 @@
 use crate::domain::entities::note::Note;
 use crate::domain::entities::shared::value_objects::DomainPage;
 use crate::domain::error::DomainError;
-use crate::domain::repositories::note::note_parameters::{
+use crate::domain::ports::repositories::note::note_parameters::{
     CreateNoteDTO, FindNoteDTO, FindNotesDTO, UpdateNoteDTO,
 };
-use crate::domain::repositories::note::note_repository::NoteDomainRepository;
+use crate::domain::ports::repositories::note::note_repository::NoteDomainRepository;
 
 pub struct NoteDomainService<R: NoteDomainRepository> {
     note_repository: R,

@@ -1,6 +1,6 @@
 use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::DomainError;
-use crate::domain::repositories::user::user_shared_parameters::FindUserByIdDTO;
+use crate::domain::ports::repositories::user::user_shared_parameters::FindUserByIdDTO;
 use async_trait::async_trait;
 
 #[async_trait]

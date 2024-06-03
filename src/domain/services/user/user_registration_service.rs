@@ -4,12 +4,12 @@ use crate::domain::entities::user::user_registration::{
 };
 use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::{DomainError, ValidationError};
-use crate::domain::repositories::user::user_registration_parameters::CreateUserDTO;
-use crate::domain::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
-use crate::domain::repositories::user::user_shared_parameters::{
+use crate::domain::ports::repositories::user::user_registration_parameters::CreateUserDTO;
+use crate::domain::ports::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
+use crate::domain::ports::repositories::user::user_shared_parameters::{
     FindUserByEmailDTO, FindUserByIdDTO,
 };
-use crate::domain::repositories::user::user_shared_repository::UserSharedDomainRepository;
+use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::ValidationServiceError;
 use chrono::{Duration, Utc};

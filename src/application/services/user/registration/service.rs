@@ -7,12 +7,12 @@ use crate::domain::entities::shared::{Email, Username};
 
 use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::ports::email::email::EmailPort;
-use crate::domain::repositories::user::user_registration_parameters::CreateUserDTO;
-use crate::domain::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
-use crate::domain::repositories::user::user_shared_parameters::{
+use crate::domain::ports::repositories::user::user_registration_parameters::CreateUserDTO;
+use crate::domain::ports::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
+use crate::domain::ports::repositories::user::user_shared_parameters::{
     FindUserByEmailDTO, FindUserByIdDTO,
 };
-use crate::domain::repositories::user::user_shared_repository::UserSharedDomainRepository;
+use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::user::user_registration_service::UserRegistrationDomainService;
 use std::sync::Arc;
 
