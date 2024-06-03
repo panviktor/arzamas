@@ -1,5 +1,5 @@
-use crate::application::dto::shared::paginated_result::PaginatedResult;
 use crate::domain::entities::note::Note;
+use crate::domain::entities::shared::value_objects::DomainPage;
 use crate::domain::error::DomainError;
 use crate::domain::repositories::note::note_parameters::{
     CreateNoteDTO, FindNoteDTO, FindNotesDTO, UpdateNoteDTO,
@@ -24,7 +24,7 @@ impl<R: NoteDomainRepository> NoteDomainService<R> {
         self.note_repository.find_one(note).await
     }
 
-    pub async fn find_all(&self, note: FindNotesDTO) -> Result<PaginatedResult<Note>, DomainError> {
+    pub async fn find_all(&self, note: FindNotesDTO) -> Result<DomainPage<Note>, DomainError> {
         self.note_repository.find_all(note).await
     }
 

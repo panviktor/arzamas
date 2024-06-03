@@ -1,5 +1,6 @@
 use crate::application::dto::shared::paginated_result::PaginatedResult;
 use crate::domain::entities::note::Note;
+use crate::domain::entities::shared::value_objects::DomainPage;
 use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::repositories::note::note_parameters::{
     FindNoteDTO, FindNotesDTO, UpdateNoteDTO,
@@ -52,7 +53,7 @@ impl NoteDomainRepository for SeaOrmNoteRepository {
         Ok(note_model.into())
     }
 
-    async fn find_all(&self, notes: FindNotesDTO) -> Result<PaginatedResult<Note>, DomainError> {
+    async fn find_all(&self, notes: FindNotesDTO) -> Result<DomainPage<Note>, DomainError> {
         let db_ref = Arc::as_ref(&self.db);
 
         let paginator = note::Entity::find()
@@ -72,12 +73,10 @@ impl NoteDomainRepository for SeaOrmNoteRepository {
 
         let domain_notes = find_notes.into_iter().map(Note::from).collect();
 
-        let result = PaginatedResult {
+        let result = DomainPage {
             items: domain_notes,
             total_items: num_items_and_pages.number_of_items,
             total_pages: num_items_and_pages.number_of_pages,
-            current_page: notes.page,
-            items_per_page: notes.per_page,
         };
 
         Ok(result)

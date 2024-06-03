@@ -55,8 +55,8 @@ impl<R: NoteDomainRepository> NoteApplicationService<R> {
             items: note_responses,
             total_items: paginated_notes.total_items,
             total_pages: paginated_notes.total_pages,
-            current_page: paginated_notes.current_page,
-            items_per_page: paginated_notes.items_per_page,
+            current_page: request.page,
+            items_per_page: per_page,
         })
     }
 
