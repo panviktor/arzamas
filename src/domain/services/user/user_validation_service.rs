@@ -21,17 +21,6 @@ pub enum ValidationServiceError {
     InvalidFormat(String),
 }
 
-impl ValidationServiceError {
-    fn to_string(&self) -> String {
-        match self {
-            ValidationServiceError::TooShort(msg) => msg.clone(),
-            ValidationServiceError::TooLong(msg) => msg.clone(),
-            ValidationServiceError::Mismatch(msg) => msg.clone(),
-            ValidationServiceError::InvalidFormat(msg) => msg.clone(),
-        }
-    }
-}
-
 impl UserValidationService {
     pub fn validate_password(password: &str) -> Result<(), ValidationServiceError> {
         if password.len() < 10 {

@@ -1,5 +1,5 @@
 pub mod controllers;
-pub mod note_dto;
+pub mod note_request_dto;
 use crate::infrastructure::web::middleware::auth::AuthCheckService;
 use crate::infrastructure::web::middleware::rate_limiter;
 use actix_web::web;

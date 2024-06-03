@@ -53,3 +53,59 @@ pub enum ExternalServiceError {
     /// For external service errors not covered by the specific cases above.
     Custom(String),
 }
+
+use std::fmt;
+
+impl fmt::Display for DomainError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DomainError::PersistenceError(e) => write!(f, "{}", e),
+            DomainError::ValidationError(e) => write!(f, "{}", e),
+            DomainError::ExternalServiceError(e) => write!(f, "{}", e),
+            DomainError::NotFound => write!(f, "The requested resource was not found"),
+            DomainError::Unknown(e) => write!(f, "An unknown error occurred: {}", e),
+        }
+    }
+}
+
+impl fmt::Display for PersistenceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PersistenceError::Create(e) => write!(f, "Error creating resource: {}", e),
+            PersistenceError::Retrieve(e) => write!(f, "Error retrieving resource: {}", e),
+            PersistenceError::Update(e) => write!(f, "Error updating resource: {}", e),
+            PersistenceError::Delete(e) => write!(f, "Error deleting resource: {}", e),
+            PersistenceError::Custom(e) => write!(f, "A custom persistence error occurred: {}", e),
+            PersistenceError::Transaction(e) => write!(f, "A transaction error occurred: {}", e),
+        }
+    }
+}
+
+impl fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ValidationError::InvalidData(e) => write!(f, "Invalid data provided: {}", e),
+            ValidationError::BusinessRuleViolation(e) => {
+                write!(f, "Business rule violation: {}", e)
+            }
+            ValidationError::Custom(e) => write!(f, "A custom validation error occurred: {}", e),
+        }
+    }
+}
+
+impl fmt::Display for ExternalServiceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ExternalServiceError::Timeout(e) => write!(f, "Operation timed out: {}", e),
+            ExternalServiceError::Connectivity(e) => {
+                write!(f, "Connectivity issues encountered: {}", e)
+            }
+            ExternalServiceError::ResponseError(e) => {
+                write!(f, "Error parsing response from external service: {}", e)
+            }
+            ExternalServiceError::Custom(e) => {
+                write!(f, "A custom external service error occurred: {}", e)
+            }
+        }
+    }
+}

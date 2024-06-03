@@ -5,7 +5,9 @@ use crate::application::dto::shared::page_query::PageQuery;
 use crate::application::dto::shared::universal_response::UniversalResponse;
 use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
-use crate::infrastructure::web::handlers::notes::note_dto::{NoteIdRequestWeb, NoteRequestWeb};
+use crate::infrastructure::web::handlers::notes::note_request_dto::{
+    NoteIdRequestWeb, NoteRequestWeb,
+};
 use crate::infrastructure::web::middleware::auth::LoginUser;
 use actix_web::{web, HttpRequest, HttpResponse};
 

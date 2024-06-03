@@ -1,6 +1,7 @@
 use crate::core::config::get_config;
-use crate::domain::entities::email::email::EmailError;
+use crate::domain::error::DomainError;
 use crate::domain::ports::email::email::EmailPort;
+use crate::infrastructure::email::error::EmailError;
 use async_trait::async_trait;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
@@ -18,7 +19,7 @@ impl LettreEmailAdapter {
 
 #[async_trait]
 impl EmailPort for LettreEmailAdapter {
-    async fn send_email(&self, to: &str, subject: &str, body: &str) -> Result<(), EmailError> {
+    async fn send_email(&self, to: &str, subject: &str, body: &str) -> Result<(), DomainError> {
         let config = get_config().expect("Failed to read configuration.");
         let from = config.email_settings.email_from;
 

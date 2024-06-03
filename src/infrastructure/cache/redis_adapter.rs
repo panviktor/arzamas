@@ -1,13 +1,9 @@
 use crate::core::config::get_config;
 
-use crate::application::error::response_error::AppResponseError;
-use crate::core::error::{ErrorCode, ServerError};
-use crate::domain::entities::caching::caching::CachingError;
+use crate::domain::error::DomainError;
 use crate::domain::ports::caching::caching::CachingPort;
-use actix_web::http::StatusCode;
 use async_trait::async_trait;
-use deadpool_redis::{CreatePoolError, Pool, PoolError, Runtime};
-use redis::RedisError;
+use deadpool_redis::{CreatePoolError, Pool, Runtime};
 use secrecy::ExposeSecret;
 
 pub fn create_redis_pool() -> Result<Pool, CreatePoolError> {
@@ -24,36 +20,6 @@ pub fn create_redis_pool() -> Result<Pool, CreatePoolError> {
     Ok(pool)
 }
 
-impl From<RedisError> for AppResponseError {
-    fn from(err: RedisError) -> Self {
-        AppResponseError {
-            code: StatusCode::INTERNAL_SERVER_ERROR,
-            path: Option::from("redis".to_string()),
-            message: err.to_string(),
-            show_message: true,
-        }
-    }
-}
-impl From<RedisError> for ServerError {
-    fn from(value: RedisError) -> Self {
-        ServerError {
-            code: ErrorCode::ServerError,
-            message: value.to_string(),
-            show_message: true,
-        }
-    }
-}
-
-impl From<PoolError> for ServerError {
-    fn from(error: PoolError) -> Self {
-        ServerError {
-            code: ErrorCode::ServerError,
-            message: error.to_string(),
-            show_message: true,
-        }
-    }
-}
-
 pub struct RedisAdapter {
     pool: Pool,
 }
@@ -66,11 +32,13 @@ impl RedisAdapter {
 
 #[async_trait]
 impl CachingPort for RedisAdapter {
-    async fn store_user_token(&self, user_id: &str, token: &str) -> Result<(), CachingError> {
+    async fn store_user_token(&self, user_id: &str, token: &str) -> Result<(), DomainError> {
+        //
         todo!()
     }
 
-    async fn get_user_token(&self, user_id: &str) -> Result<String, CachingError> {
+    async fn get_user_token(&self, user_id: &str) -> Result<String, DomainError> {
+        //
         todo!()
     }
 }

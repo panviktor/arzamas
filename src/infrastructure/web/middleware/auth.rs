@@ -1,23 +1,18 @@
-// use crate::modules_deprecated::auth::session::{
-//     get_session_token_service_request, validate_session,
-// };
-/// Module that contains all the auth middleware.
 use actix_http::body::BoxBody;
 use actix_http::HttpMessage;
 use actix_service::{Service, Transform};
 use actix_web::{
     dev,
     dev::{ServiceRequest, ServiceResponse},
-    web, Error, FromRequest, HttpRequest, HttpResponse,
+    Error, FromRequest, HttpRequest,
 };
-use deadpool_redis::Pool;
+
 use futures::future::{err, ok, Ready};
 use futures::Future;
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll};
-use tracing::error;
 
 /// Wrapper for checking that the user is logged in
 /// Checks that there is a valid session cookie sent along with the request.
@@ -98,7 +93,7 @@ where
 
 #[derive(Debug, Clone)]
 pub struct LoginUser {
-    pub(crate) id: String,
+    pub id: String,
 }
 impl FromRequest for LoginUser {
     type Error = Error;

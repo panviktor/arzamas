@@ -1,5 +1,3 @@
-use crate::application::dto::user::user_authentication_request_dto::APIVerificationMethod;
-use crate::domain::repositories::user::user_authentication_parameters::DomainVerificationMethod;
 use serde_derive::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 

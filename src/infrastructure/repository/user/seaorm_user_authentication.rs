@@ -77,7 +77,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
     async fn get_user_sessions(
         &self,
         user: FindUserByIdDTO,
-    ) -> Result<(Vec<UserSession>), DomainError> {
+    ) -> Result<Vec<UserSession>, DomainError> {
         let session_models = user_session::Entity::find()
             .filter(user_session::Column::UserId.eq(user.user_id))
             .order_by_asc(user_session::Column::LoginTimestamp)
@@ -161,19 +161,6 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         Ok(())
     }
 
-    async fn reset_otp_validity(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
-        let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
-
-        user_otp_token.otp_email_currently_valid = Set(false);
-        user_otp_token.otp_app_currently_valid = Set(false);
-        user_otp_token
-            .update(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
-
-        Ok(())
-    }
-
     async fn set_email_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
         let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
         user_otp_token.otp_email_currently_valid = Set(true);
@@ -188,6 +175,19 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
     async fn set_app_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
         let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
         user_otp_token.otp_app_currently_valid = Set(true);
+        user_otp_token
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
+    }
+
+    async fn reset_otp_validity(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+        let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
+
+        user_otp_token.otp_email_currently_valid = Set(false);
+        user_otp_token.otp_app_currently_valid = Set(false);
         user_otp_token
             .update(&*self.db)
             .await
