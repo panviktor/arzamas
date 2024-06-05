@@ -4,9 +4,10 @@ use actix_service::{Service, Transform};
 use actix_web::{
     dev,
     dev::{ServiceRequest, ServiceResponse},
-    Error, FromRequest, HttpRequest,
+    web, Error, FromRequest, HttpRequest, HttpResponse,
 };
 
+use deadpool_redis::Pool;
 use futures::future::{err, ok, Ready};
 use futures::Future;
 use std::cell::RefCell;
@@ -58,15 +59,15 @@ where
         let srv = self.service.clone();
         // Run this async so we can use async functions.
         Box::pin(async move {
-            //     let redis_pool = match req.app_data::<web::Data<Pool>>() {
-            //         Some(pool) => pool,
-            //         None => {
-            //             return Ok(req.into_response(
-            //                 HttpResponse::InternalServerError().json("Auth Redis pool not found!"),
-            //             ));
-            //         }
-            //     };
-            //
+            let redis_pool = match req.app_data::<web::Data<Pool>>() {
+                Some(pool) => pool,
+                None => {
+                    return Ok(req.into_response(
+                        HttpResponse::InternalServerError().json("Auth Redis pool not found!"),
+                    ));
+                }
+            };
+
             //     let is_logged_in = match get_session_token_service_request(&req) {
             //         Some(token) => validate_session(&token, redis_pool)
             //             .await

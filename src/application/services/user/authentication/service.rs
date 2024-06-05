@@ -13,6 +13,7 @@ use crate::domain::ports::repositories::user::user_authentication_parameters::{
 };
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
 use crate::domain::services::user::user_authentication_service::UserAuthenticationDomainService;
+use chrono::{DateTime, Utc};
 use jsonwebtoken::{EncodingKey, Header};
 use secrecy::ExposeSecret;
 use std::sync::Arc;
@@ -82,8 +83,9 @@ where
             } => {
                 let payload: UserToken = session.clone().into();
                 let token = generate_token(&payload).await?;
+                let exp = seconds_until(session.expiry)?;
                 self.caching_service
-                    .store_user_token(&session.user_id, &token)
+                    .store_user_token(&session.user_id, &session.session_id, &token, exp)
                     .await?;
 
                 if email_notifications_enabled {
@@ -204,8 +206,10 @@ where
             } => {
                 let payload: UserToken = session.clone().into();
                 let token = generate_token(&payload).await?;
+                let exp = seconds_until(session.expiry)?;
+
                 self.caching_service
-                    .store_user_token(&session.user_id, &token)
+                    .store_user_token(&session.user_id, &session.session_id, &token, exp)
                     .await?;
 
                 if email_notifications_enabled {
@@ -257,4 +261,26 @@ async fn generate_token(payload: &UserToken) -> Result<String, ApplicationError>
     )
     .map_err(|e| ApplicationError::InternalServerError(e.to_string()))?;
     Ok(result)
+}
+
+fn seconds_until(expiration: DateTime<Utc>) -> Result<u64, ApplicationError> {
+    let now = Utc::now();
+
+    if expiration <= now {
+        Err(ApplicationError::ValidationError(
+            "Expiration time must be in the future".to_string(),
+        ))
+    } else {
+        let duration = expiration - now;
+        let seconds = duration.num_seconds();
+
+        if seconds >= 0 {
+            Ok(seconds as u64)
+        } else {
+            // Logically this branch should never be reached
+            Err(ApplicationError::InternalServerError(
+                "Failed to calculate time duration".to_string(),
+            ))
+        }
+    }
 }
