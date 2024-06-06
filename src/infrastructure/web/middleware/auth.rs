@@ -7,12 +7,19 @@ use actix_web::{
     web, Error, FromRequest, HttpRequest, HttpResponse,
 };
 
+use crate::application::error::error::ApplicationError;
+use crate::application::services::service_container::ServiceContainer;
+use crate::core::constants::core_constants;
+use crate::infrastructure::error::error::InfrastructureError;
+use crate::infrastructure::web::dto::shared::LoginUser;
+use actix_http::header::HeaderValue;
 use deadpool_redis::Pool;
 use futures::future::{err, ok, Ready};
 use futures::Future;
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 /// Wrapper for checking that the user is logged in
@@ -63,47 +70,66 @@ where
                 Some(pool) => pool,
                 None => {
                     return Ok(req.into_response(
-                        HttpResponse::InternalServerError().json("Auth Redis pool not found!"),
+                        HttpResponse::InternalServerError().json("Service Pool not found"),
                     ));
                 }
             };
 
-            //     let is_logged_in = match get_session_token_service_request(&req) {
-            //         Some(token) => validate_session(&token, redis_pool)
-            //             .await
-            //             .unwrap_or_else(|e| {
-            //                 error!("Error validating token: {}", e);
-            //                 None
-            //             }),
-            //         None => None,
-            //     };
-            //
-            //     match is_logged_in {
-            //         Some(user_id) => {
-            //             let user = LoginUser { id: user_id };
-            //             req.extensions_mut().insert(user);
-            //             let ok = srv.call(req).await?;
-            //             Ok(ok)
-            //         }
-            //         None => Ok(req.into_response(HttpResponse::Unauthorized().finish())),
-            //     }
-            todo!()
+            let data = match req.app_data::<web::Data<Arc<ServiceContainer>>>() {
+                Some(data) => data,
+                None => {
+                    return Ok(req.into_response(
+                        HttpResponse::InternalServerError().json("Service container not found"),
+                    ));
+                }
+            };
+
+            match get_session_token_service_request(&req) {
+                Ok(token) => {
+                    match data
+                        .user_authentication_service
+                        .validate_session_for_user(&token)
+                        .await
+                    {
+                        Ok(user_id) => {
+                            let user = LoginUser { id: user_id };
+                            req.extensions_mut().insert(user);
+                            srv.call(req).await
+                        }
+                        Err(e) => {
+                            eprintln!("Session validation error: {:?}", e);
+                            Ok(req.into_response(HttpResponse::InternalServerError().finish()))
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Session validation error: {:?}", e);
+                    Ok(req.into_response(HttpResponse::InternalServerError().finish()))
+                }
+            }
         })
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct LoginUser {
-    pub id: String,
+fn get_session_token_service_request(req: &ServiceRequest) -> Result<String, InfrastructureError> {
+    req.headers()
+        .get(core_constants::AUTHORIZATION)
+        .ok_or(InfrastructureError::NetworkError(
+            "Authorization header not found".to_string(),
+        ))
+        .and_then(|header| extract_token(header))
 }
-impl FromRequest for LoginUser {
-    type Error = Error;
-    type Future = Ready<Result<Self, Self::Error>>;
-
-    fn from_request(req: &HttpRequest, _payload: &mut dev::Payload) -> Self::Future {
-        return match req.extensions().get::<LoginUser>() {
-            Some(user) => ok(user.clone()),
-            None => err(actix_web::error::ErrorBadRequest("ups...")),
-        };
-    }
+fn extract_token(authed_header: &HeaderValue) -> Result<String, InfrastructureError> {
+    authed_header
+        .to_str()
+        .map_err(|_| InfrastructureError::NetworkError("Invalid token format".to_string()))
+        .and_then(|header_str| {
+            if header_str.starts_with(core_constants::BEARER) {
+                Ok(header_str[7..].trim().to_string())
+            } else {
+                Err(InfrastructureError::NetworkError(
+                    "Bearer prefix not found".to_string(),
+                ))
+            }
+        })
 }

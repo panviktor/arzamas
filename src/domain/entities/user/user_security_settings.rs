@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct UserSecuritySettings {
     pub user_id: String,
     pub two_factor_email: bool,

@@ -39,7 +39,10 @@ where
         request: CreateLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let identifier = &request.identifier;
+        println!("identifier: {:?}", identifier);
+
         let user_result = self.identify_user(identifier).await?;
+
         self.check_email_validated(&user_result)?;
         self.check_account_blocked(&user_result)?;
         self.process_login_attempt(&user_result, request).await
@@ -82,6 +85,9 @@ where
             let email = Email::new(identifier);
             UserValidationService::validate_email(&email)?;
             let email_dto = FindUserByEmailDTO::new(email);
+
+            println!("email");
+
             self.user_authentication_repository
                 .get_user_by_email(email_dto)
                 .await
@@ -89,6 +95,9 @@ where
             let username = Username::new(identifier);
             UserValidationService::validate_username(&username)?;
             let username_dto = FindUserByUsernameDTO::new(&username);
+
+            println!("username");
+
             self.user_authentication_repository
                 .get_user_by_username(username_dto)
                 .await
@@ -295,8 +304,17 @@ where
         request: &ContinueLoginRequestDTO,
         user_result: &UserAuthentication,
     ) -> bool {
-        request.user_agent == user_result.otp.user_agent
-            && request.ip_address == user_result.otp.ip_address
+        let user_agent = match &user_result.otp.user_agent {
+            Some(ua) => ua,
+            None => return false,
+        };
+
+        let ip_address = match &user_result.otp.ip_address {
+            Some(ip) => ip,
+            None => return false,
+        };
+
+        &request.user_agent == user_agent && &request.ip_address == ip_address
     }
 
     async fn verify_otp(

@@ -18,7 +18,6 @@ pub struct CreateUserRequestWeb {
 pub struct LoginUserRequestWeb {
     pub identifier: String,
     pub password: String,
-    pub password_confirm: String,
     pub persistent: bool,
 }
 

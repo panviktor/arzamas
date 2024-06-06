@@ -173,7 +173,6 @@ pub async fn login(
     let request = LoginUserRequest::new(
         &params.identifier,
         &params.password,
-        &params.password_confirm,
         &user_agent,
         &login_ip,
         params.persistent,

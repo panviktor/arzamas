@@ -9,7 +9,6 @@ use serde_derive::{Deserialize, Serialize};
 pub struct LoginUserRequest {
     pub identifier: String,
     pub password: String,
-    pub password_confirm: String,
     pub user_agent: String,
     pub ip_address: String,
     pub persistent: bool,
@@ -19,7 +18,6 @@ impl LoginUserRequest {
     pub fn new(
         identifier: &str,
         password: &str,
-        password_confirm: &str,
         user_agent: &str,
         ip_address: &str,
         persistent: bool,
@@ -27,7 +25,6 @@ impl LoginUserRequest {
         Self {
             identifier: identifier.to_string(),
             password: password.to_string(),
-            password_confirm: password_confirm.to_string(),
             user_agent: user_agent.to_string(),
             ip_address: ip_address.to_string(),
             persistent,

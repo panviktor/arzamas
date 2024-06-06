@@ -14,7 +14,7 @@ use crate::domain::ports::repositories::user::user_authentication_parameters::{
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
 use crate::domain::services::user::user_authentication_service::UserAuthenticationDomainService;
 use chrono::{DateTime, Utc};
-use jsonwebtoken::{EncodingKey, Header};
+use jsonwebtoken::{decode, DecodingKey, EncodingKey, Header, Validation};
 use secrecy::ExposeSecret;
 use std::sync::Arc;
 
@@ -51,12 +51,6 @@ where
         &self,
         request: LoginUserRequest,
     ) -> Result<LoginResponse, ApplicationError> {
-        if request.password != request.password_confirm {
-            return Err(ApplicationError::ValidationError(
-                "Passwords do not match.".to_string(),
-            ));
-        }
-
         let user_agent = UserAgent::new(&request.user_agent);
         let ip_address = IPAddress::new(&request.ip_address);
 
@@ -67,6 +61,8 @@ where
             ip_address,
             request.persistent,
         );
+
+        println!("create login: {:?}", create_login);
 
         let create_login = self
             .user_authentication_domain_service
@@ -253,6 +249,28 @@ where
     }
 }
 
+impl<A, E, C> UserAuthenticationApplicationService<A, E, C>
+where
+    A: UserAuthenticationDomainRepository,
+    E: EmailPort,
+    C: CachingPort,
+{
+    pub async fn validate_session_for_user(&self, token: &str) -> Result<String, ApplicationError> {
+        //extract from token - data
+        // validate date
+
+        // self.caching_service.get_user_sessions_tokens(token).await?;
+
+        let decoded_data = decode_token(token)?;
+        let user_id = decoded_data.user_id;
+        let session_id = decoded_data.session_id;
+
+        println!("{} {}", user_id, session_id);
+
+        todo!()
+    }
+}
+
 async fn generate_token(payload: &UserToken) -> Result<String, ApplicationError> {
     let result = jsonwebtoken::encode(
         &Header::default(),
@@ -261,6 +279,17 @@ async fn generate_token(payload: &UserToken) -> Result<String, ApplicationError>
     )
     .map_err(|e| ApplicationError::InternalServerError(e.to_string()))?;
     Ok(result)
+}
+
+fn decode_token(token: &str) -> Result<UserToken, ApplicationError> {
+    let token_data = decode::<UserToken>(
+        token,
+        &DecodingKey::from_secret(APP_SETTINGS.jwt_secret.expose_secret().as_ref()),
+        &Validation::default(),
+    )
+    .map_err(|e| ApplicationError::InternalServerError(e.to_string()))?;
+
+    Ok(token_data.claims)
 }
 
 fn seconds_until(expiration: DateTime<Utc>) -> Result<u64, ApplicationError> {

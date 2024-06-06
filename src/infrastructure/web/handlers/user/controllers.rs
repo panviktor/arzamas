@@ -1,5 +1,5 @@
 use crate::application::error::response_error::AppResponseError;
-use crate::infrastructure::web::middleware::auth::LoginUser;
+use crate::infrastructure::web::dto::shared::LoginUser;
 use actix_web::{HttpRequest, HttpResponse};
 
 /// Retrieves information about the currently logged-in user.

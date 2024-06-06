@@ -3,10 +3,11 @@ use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_otp_token::UserOtpToken;
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
+use crate::domain::entities::user::value_objects::UserEmailConfirmation;
 use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::{DomainError, ValidationError};
 use chrono::{TimeZone, Utc};
-use entity::{user, user_otp_token, user_security_settings, user_session};
+use entity::{user, user_confirmation, user_otp_token, user_security_settings, user_session};
 use sea_orm::ActiveValue::Set;
 
 impl UserRegistration {
@@ -38,37 +39,16 @@ impl From<user::Model> for UserRegistration {
     }
 }
 
-impl TryFrom<user_otp_token::Model> for UserOtpToken {
-    type Error = DomainError;
-
-    fn try_from(model: user_otp_token::Model) -> Result<Self, Self::Error> {
-        // Convert NaiveDateTime to DateTime<Utc> while retaining Option
+impl From<user_otp_token::Model> for UserOtpToken {
+    fn from(model: user_otp_token::Model) -> UserOtpToken {
         let expiry = model
             .expiry
             .map(|naive_dt| Utc.from_utc_datetime(&naive_dt));
 
-        // Check for critical missing data
-        let user_agent = model
-            .user_agent
-            .as_deref()
-            .map(UserAgent::new)
-            .ok_or_else(|| {
-                DomainError::ValidationError(ValidationError::InvalidData(
-                    "User agent missing".to_string(),
-                ))
-            })?;
+        let user_agent = model.user_agent.as_deref().map(UserAgent::new);
+        let ip_address = model.ip_address.as_deref().map(IPAddress::new);
 
-        let ip_address = model
-            .ip_address
-            .as_deref() // Similarly handling Option<String>
-            .map(IPAddress::new)
-            .ok_or_else(|| {
-                DomainError::ValidationError(ValidationError::InvalidData(
-                    "IP address missing".to_string(),
-                ))
-            })?;
-
-        Ok(UserOtpToken {
+        UserOtpToken {
             user_id: model.user_id,
             otp_email_hash: model.otp_email_hash,
             otp_email_currently_valid: model.otp_email_currently_valid,
@@ -80,7 +60,7 @@ impl TryFrom<user_otp_token::Model> for UserOtpToken {
             user_agent,
             ip_address,
             persistent: model.long_session,
-        })
+        }
     }
 }
 

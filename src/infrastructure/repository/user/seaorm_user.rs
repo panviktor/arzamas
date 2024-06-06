@@ -8,10 +8,11 @@ use crate::domain::ports::repositories::user::user_shared_parameters::{
 };
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use entity::user;
-use sea_orm::ColumnTrait;
+use chrono::{DateTime, TimeZone, Utc};
+use entity::{user, user_confirmation};
+use sea_orm::ActiveValue::Set;
 use sea_orm::QueryFilter;
+use sea_orm::{ActiveModelTrait, ColumnTrait};
 use sea_orm::{DatabaseConnection, EntityTrait};
 use std::sync::Arc;
 
@@ -74,24 +75,104 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         token: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError> {
-        todo!()
+        println!("{:?}", &user);
+
+        let user_id = user.user_id;
+
+        let confirmation = entity::prelude::UserConfirmation::find()
+            .filter(user::Column::UserId.eq(user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| DomainError::NotFound)?;
+
+        println!("{:?}", confirmation);
+
+        let mut active: user_confirmation::ActiveModel = confirmation.into();
+        active.otp_hash = Set(Some(token));
+        active.expiry = Set(Some(expiry.naive_utc()));
+
+        active
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
     }
 
     async fn retrieve_email_confirmation_token(
         &self,
-        email: &FindUserByIdDTO,
+        user_id: &FindUserByIdDTO,
     ) -> Result<UserEmailConfirmation, DomainError> {
-        todo!()
+        let confirmation = entity::prelude::UserConfirmation::find()
+            .filter(user::Column::UserId.eq(&user_id.user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| DomainError::NotFound)?;
+
+        let otp_hash = confirmation.otp_hash.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Missing OTP hash".to_string(),
+            ))
+        })?;
+        let expiry = confirmation.expiry.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Missing expiry date".to_string(),
+            ))
+        })?;
+
+        let expiry = Utc.from_utc_datetime(&expiry);
+
+        Ok(UserEmailConfirmation { otp_hash, expiry })
     }
 
-    async fn complete_email_verification(&self, email: FindUserByIdDTO) -> Result<(), DomainError> {
-        todo!()
+    async fn complete_email_verification(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+        let user = entity::user::Entity::find()
+            .filter(user::Column::UserId.eq(user.user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "User for email verification not found.".to_string(),
+                ))
+            })?;
+
+        let mut active: user::ActiveModel = user.into();
+        active.email_validated = Set(false);
+
+        active
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
     }
 
     async fn invalidate_email_verification(
         &self,
         user: FindUserByIdDTO,
     ) -> Result<(), DomainError> {
-        todo!()
+        let user = entity::user::Entity::find()
+            .filter(user::Column::UserId.eq(&user.user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "User for invalidate email verification not found.".to_string(),
+                ))
+            })?;
+
+        let mut active: user::ActiveModel = user.into();
+        active.email_validated = Set(false);
+
+        active
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
     }
 }

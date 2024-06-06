@@ -118,7 +118,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
             .ok_or_else(|| {
                 DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "User not found".to_string(),
+                    "User for blocking not found.".to_string(),
                 ))
             })?;
 
@@ -236,7 +236,7 @@ impl SeaOrmUserAuthenticationRepository {
                     "OTP token not found".to_string(),
                 ))
             })?
-            .try_into()?;
+            .into();
 
         let sessions: Vec<UserSession> = user_sessions.into_iter().map(UserSession::from).collect();
 

@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 ///
 /// This structure is used to validate OTPs entered by users during the login process
 /// and to manage the lifecycle and validity of these tokens.
+#[derive(Debug)]
 pub struct UserOtpToken {
     /// Unique identifier for the user associated with these tokens.
     pub user_id: String,
@@ -43,12 +44,12 @@ pub struct UserOtpToken {
     /// A string representing the user agent of the client during the OTP transaction.
     /// This information can be useful for auditing purposes and to enhance security measures,
     /// helping to determine the legitimacy of the request based on known characteristics of the client's software.
-    pub user_agent: UserAgent,
+    pub user_agent: Option<UserAgent>,
 
     /// The IP address from which the OTP request was made. Recording IP addresses can aid in security audits
     /// and help in identifying suspicious activities or patterns of abuse, such as repeated failed attempts
     /// from the same IP address or unusual locations.
-    pub ip_address: IPAddress,
+    pub ip_address: Option<IPAddress>,
 
     pub persistent: bool,
 }
@@ -63,8 +64,8 @@ impl UserOtpToken {
         otp_app_mnemonic: Option<String>,
         expiry: Option<DateTime<Utc>>,
         attempt_count: i32,
-        user_agent: UserAgent,
-        ip_address: IPAddress,
+        user_agent: Option<UserAgent>,
+        ip_address: Option<IPAddress>,
         persistent: bool,
     ) -> Self {
         Self {

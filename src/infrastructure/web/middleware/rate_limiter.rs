@@ -110,19 +110,15 @@ async fn validate_session(
         RATE_LIMIT_KEY_PREFIX, ip_address, current_minute
     );
 
-    let results: (u64, bool) = redis::pipe()
+    let (count, _): (u64, u64) = redis::pipe()
         .atomic()
         .incr(&rate_limit_key, 1)
         .expire(&rate_limit_key, 60)
-        .query_async::<_, (u64, bool)>(&mut conn)
+        .query_async::<_, (u64, u64)>(&mut conn)
         .await
         .map_err(|e| InfrastructureError::NetworkError(format!("Redis error: {}", e)))?;
 
-    if results.0 > requests_count {
-        Ok(false)
-    } else {
-        Ok(true)
-    }
+    Ok(requests_count > count)
 }
 
 fn get_ip_addr(req: &ServiceRequest) -> Result<String, InfrastructureError> {

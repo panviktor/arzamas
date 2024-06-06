@@ -39,6 +39,7 @@ pub enum AuthenticationOutcome {
     },
 }
 
+#[derive(Debug)]
 pub struct UserAuthentication {
     pub user_id: String,
     pub email: Email,
