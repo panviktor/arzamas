@@ -52,7 +52,6 @@ impl UserCredentialService {
     ) -> Result<bool, CredentialServiceError> {
         // Normalize the input password
         let normalize_password = Self::normalize_string(password);
-
         // Parse the stored password hash
         let parsed_hash = PasswordHash::new(password_hash).map_err(|_| {
             CredentialServiceError::VerificationError("Invalid hash format.".to_string())

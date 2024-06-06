@@ -39,8 +39,6 @@ where
         request: CreateLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let identifier = &request.identifier;
-        println!("identifier: {:?}", identifier);
-
         let user_result = self.identify_user(identifier).await?;
 
         self.check_email_validated(&user_result)?;
@@ -55,7 +53,6 @@ where
         let identifier = &request.identifier;
         let user_result = self.identify_user(identifier).await?;
         self.check_account_blocked(&user_result)?;
-
         if !self.is_request_from_trusted_source(&request, &user_result) {
             let message = "IP address or user agent mismatch.";
             return self
@@ -85,9 +82,6 @@ where
             let email = Email::new(identifier);
             UserValidationService::validate_email(&email)?;
             let email_dto = FindUserByEmailDTO::new(email);
-
-            println!("email");
-
             self.user_authentication_repository
                 .get_user_by_email(email_dto)
                 .await
@@ -95,9 +89,6 @@ where
             let username = Username::new(identifier);
             UserValidationService::validate_username(&username)?;
             let username_dto = FindUserByUsernameDTO::new(&username);
-
-            println!("username");
-
             self.user_authentication_repository
                 .get_user_by_username(username_dto)
                 .await
@@ -138,7 +129,7 @@ where
     ) -> Result<AuthenticationOutcome, DomainError> {
         UserValidationService::validate_password(&request.password)?;
 
-        if !UserCredentialService::credential_validator(&user.pass_hash, &request.password)? {
+        if !UserCredentialService::credential_validator(&request.password, &user.pass_hash)? {
             let message = "Incorrect password.";
             self.handle_failed_login_attempt(user, message).await
         } else {

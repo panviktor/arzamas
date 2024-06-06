@@ -2,19 +2,16 @@ use actix_http::body::BoxBody;
 use actix_http::HttpMessage;
 use actix_service::{Service, Transform};
 use actix_web::{
-    dev,
     dev::{ServiceRequest, ServiceResponse},
-    web, Error, FromRequest, HttpRequest, HttpResponse,
+    web, Error, FromRequest, HttpResponse,
 };
 
-use crate::application::error::error::ApplicationError;
 use crate::application::services::service_container::ServiceContainer;
 use crate::core::constants::core_constants;
 use crate::infrastructure::error::error::InfrastructureError;
 use crate::infrastructure::web::dto::shared::LoginUser;
 use actix_http::header::HeaderValue;
-use deadpool_redis::Pool;
-use futures::future::{err, ok, Ready};
+use futures::future::{ok, Ready};
 use futures::Future;
 use std::cell::RefCell;
 use std::pin::Pin;
@@ -66,15 +63,6 @@ where
         let srv = self.service.clone();
         // Run this async so we can use async functions.
         Box::pin(async move {
-            let redis_pool = match req.app_data::<web::Data<Pool>>() {
-                Some(pool) => pool,
-                None => {
-                    return Ok(req.into_response(
-                        HttpResponse::InternalServerError().json("Service Pool not found"),
-                    ));
-                }
-            };
-
             let data = match req.app_data::<web::Data<Arc<ServiceContainer>>>() {
                 Some(data) => data,
                 None => {

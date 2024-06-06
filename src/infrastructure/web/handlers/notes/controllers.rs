@@ -10,6 +10,7 @@ use crate::infrastructure::web::handlers::notes::note_request_dto::{
     NoteIdRequestWeb, NoteRequestWeb,
 };
 use actix_web::{web, HttpRequest, HttpResponse};
+use std::sync::Arc;
 
 /// Creates a new note.
 ///
@@ -39,7 +40,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 )]
 pub async fn create_note(
     req: HttpRequest,
-    data: web::Data<ServiceContainer>,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
     params: web::Json<NoteRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
@@ -90,7 +91,7 @@ pub async fn create_note(
 )]
 pub async fn get_all_notes(
     req: HttpRequest,
-    data: web::Data<ServiceContainer>,
+    data: web::Data<Arc<ServiceContainer>>,
     query: web::Query<PageQuery>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
@@ -140,7 +141,7 @@ pub async fn get_all_notes(
 )]
 pub async fn get_by_id(
     req: HttpRequest,
-    data: web::Data<ServiceContainer>,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
     query: web::Query<NoteIdRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
@@ -188,7 +189,7 @@ pub async fn get_by_id(
 )]
 pub async fn delete(
     req: HttpRequest,
-    data: web::Data<ServiceContainer>,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
     query: web::Query<NoteIdRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
@@ -237,7 +238,7 @@ pub async fn delete(
 )]
 pub async fn update(
     req: HttpRequest,
-    data: web::Data<ServiceContainer>,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
     note_id: web::Query<NoteIdRequestWeb>,
     body: web::Json<NoteRequestWeb>,

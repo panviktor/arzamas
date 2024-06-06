@@ -59,14 +59,52 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         &self,
         query: FindUserByEmailDTO,
     ) -> Result<UserBase, DomainError> {
-        todo!()
+        let user = entity::prelude::User::find()
+            .filter(user::Column::Email.eq(query.email.value()))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "Base User not found by email.".to_string(),
+                ))
+            })?;
+
+        let user = UserBase {
+            user_id: user.user_id,
+            email: Email::new(&user.email),
+            username: user.username,
+            email_validated: user.email_validated,
+            created_at: Utc.from_utc_datetime(&user.created_at),
+            updated_at: Utc.from_utc_datetime(&user.updated_at),
+        };
+        Ok(user)
     }
 
     async fn get_base_user_by_username(
         &self,
         query: FindUserByUsernameDTO,
     ) -> Result<UserBase, DomainError> {
-        todo!()
+        let user = entity::prelude::User::find()
+            .filter(user::Column::Username.eq(query.username.value()))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "Base User not found by username.".to_string(),
+                ))
+            })?;
+
+        let user = UserBase {
+            user_id: user.user_id,
+            email: Email::new(&user.email),
+            username: user.username,
+            email_validated: user.email_validated,
+            created_at: Utc.from_utc_datetime(&user.created_at),
+            updated_at: Utc.from_utc_datetime(&user.updated_at),
+        };
+        Ok(user)
     }
 
     async fn store_email_confirmation_token(
@@ -75,18 +113,13 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         token: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError> {
-        println!("{:?}", &user);
-
         let user_id = user.user_id;
-
         let confirmation = entity::prelude::UserConfirmation::find()
-            .filter(user::Column::UserId.eq(user_id))
+            .filter(user_confirmation::Column::UserId.eq(user_id))
             .one(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
             .ok_or_else(|| DomainError::NotFound)?;
-
-        println!("{:?}", confirmation);
 
         let mut active: user_confirmation::ActiveModel = confirmation.into();
         active.otp_hash = Set(Some(token));
@@ -105,7 +138,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         user_id: &FindUserByIdDTO,
     ) -> Result<UserEmailConfirmation, DomainError> {
         let confirmation = entity::prelude::UserConfirmation::find()
-            .filter(user::Column::UserId.eq(&user_id.user_id))
+            .filter(user_confirmation::Column::UserId.eq(&user_id.user_id))
             .one(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
@@ -140,7 +173,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
             })?;
 
         let mut active: user::ActiveModel = user.into();
-        active.email_validated = Set(false);
+        active.email_validated = Set(true);
 
         active
             .update(&*self.db)

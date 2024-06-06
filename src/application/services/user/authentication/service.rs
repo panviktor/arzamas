@@ -5,6 +5,7 @@ use crate::application::dto::user::user_authentication_response_dto::LoginRespon
 use crate::application::error::error::ApplicationError;
 use crate::core::config::APP_SETTINGS;
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
+use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::AuthenticationOutcome;
 use crate::domain::ports::caching::caching::CachingPort;
 use crate::domain::ports::email::email::EmailPort;
@@ -14,7 +15,8 @@ use crate::domain::ports::repositories::user::user_authentication_parameters::{
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
 use crate::domain::services::user::user_authentication_service::UserAuthenticationDomainService;
 use chrono::{DateTime, Utc};
-use jsonwebtoken::{decode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::errors::ErrorKind;
+use jsonwebtoken::{decode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use secrecy::ExposeSecret;
 use std::sync::Arc;
 
@@ -62,8 +64,6 @@ where
             request.persistent,
         );
 
-        println!("create login: {:?}", create_login);
-
         let create_login = self
             .user_authentication_domain_service
             .initiate_login(create_login)
@@ -77,11 +77,14 @@ where
                 message,
                 email_notifications_enabled,
             } => {
-                let payload: UserToken = session.clone().into();
-                let token = generate_token(&payload).await?;
-                let exp = seconds_until(session.expiry)?;
+                let payload = create_user_token(session).await?;
+                let exp = payload.exp;
+                let user_id = payload.user_id.clone();
+                let session_id = payload.session_id.clone();
+                let token = generate_token(payload).await?;
+
                 self.caching_service
-                    .store_user_token(&session.user_id, &session.session_id, &token, exp)
+                    .store_user_token(&user_id, &session_id, &token, exp)
                     .await?;
 
                 if email_notifications_enabled {
@@ -200,12 +203,14 @@ where
                 message,
                 email_notifications_enabled,
             } => {
-                let payload: UserToken = session.clone().into();
-                let token = generate_token(&payload).await?;
-                let exp = seconds_until(session.expiry)?;
+                let payload = create_user_token(session).await?;
+                let exp = payload.exp;
+                let user_id = payload.user_id.clone();
+                let session_id = payload.session_id.clone();
+                let token = generate_token(payload).await?;
 
                 self.caching_service
-                    .store_user_token(&session.user_id, &session.session_id, &token, exp)
+                    .store_user_token(&user_id, &session_id, &token, exp)
                     .await?;
 
                 if email_notifications_enabled {
@@ -256,24 +261,27 @@ where
     C: CachingPort,
 {
     pub async fn validate_session_for_user(&self, token: &str) -> Result<String, ApplicationError> {
-        //extract from token - data
-        // validate date
+        let decoded_token = decode_token(token)?;
+        let user_id = &decoded_token.user_id;
+        let active_tokens = self
+            .caching_service
+            .get_user_sessions_tokens(user_id)
+            .await?;
 
-        // self.caching_service.get_user_sessions_tokens(token).await?;
-
-        let decoded_data = decode_token(token)?;
-        let user_id = decoded_data.user_id;
-        let session_id = decoded_data.session_id;
-
-        println!("{} {}", user_id, session_id);
-
-        todo!()
+        if active_tokens.contains(&token.to_string()) {
+            Ok(user_id.to_string())
+        } else {
+            Err(ApplicationError::ValidationError(
+                "Invalid session token".to_string(),
+            ))
+        }
     }
 }
 
-async fn generate_token(payload: &UserToken) -> Result<String, ApplicationError> {
+async fn generate_token(payload: UserToken) -> Result<String, ApplicationError> {
+    let header = Header::new(Algorithm::HS512);
     let result = jsonwebtoken::encode(
-        &Header::default(),
+        &header,
         &payload,
         &EncodingKey::from_secret(APP_SETTINGS.jwt_secret.expose_secret().as_ref()),
     )
@@ -282,14 +290,25 @@ async fn generate_token(payload: &UserToken) -> Result<String, ApplicationError>
 }
 
 fn decode_token(token: &str) -> Result<UserToken, ApplicationError> {
-    let token_data = decode::<UserToken>(
+    let token = decode::<UserToken>(
         token,
         &DecodingKey::from_secret(APP_SETTINGS.jwt_secret.expose_secret().as_ref()),
-        &Validation::default(),
+        &Validation::new(Algorithm::HS512),
     )
-    .map_err(|e| ApplicationError::InternalServerError(e.to_string()))?;
+    .map_err(|e| match e.kind() {
+        ErrorKind::InvalidToken => ApplicationError::ValidationError("Invalid token".to_string()),
+        ErrorKind::ExpiredSignature => {
+            ApplicationError::ValidationError("Token has expired".to_string())
+        }
+        ErrorKind::InvalidIssuer => ApplicationError::ValidationError("Invalid issuer".to_string()),
+        ErrorKind::InvalidAudience => {
+            ApplicationError::ValidationError("Invalid audience".to_string())
+        }
+        _ => ApplicationError::InternalServerError(e.to_string()),
+    })
+    .map(|token_data| token_data.claims)?;
 
-    Ok(token_data.claims)
+    Ok(token)
 }
 
 fn seconds_until(expiration: DateTime<Utc>) -> Result<u64, ApplicationError> {
@@ -312,4 +331,19 @@ fn seconds_until(expiration: DateTime<Utc>) -> Result<u64, ApplicationError> {
             ))
         }
     }
+}
+
+async fn create_user_token(session: UserSession) -> Result<UserToken, ApplicationError> {
+    let exp_seconds = seconds_until(session.expiry)?;
+    let exp = Utc::now().timestamp() as u64 + exp_seconds;
+    let payload = UserToken {
+        user_id: session.user_id,
+        session_id: session.session_id,
+        session_name: session.session_name,
+        login_timestamp: session.login_timestamp,
+        user_agent: session.user_agent.into_inner(),
+        ip_address: session.ip_address.into_inner(),
+        exp,
+    };
+    Ok(payload)
 }
