@@ -1,6 +1,8 @@
 use crate::application::error::response_error::AppResponseError;
+use crate::application::services::service_container::ServiceContainer;
 use crate::infrastructure::web::dto::shared::LoginUser;
-use actix_web::{HttpRequest, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
+use std::sync::Arc;
 
 /// Retrieves information about the currently logged-in user.
 ///
@@ -37,7 +39,11 @@ use actix_web::{HttpRequest, HttpResponse};
         ("token" = [])
     )
 )]
-pub async fn about_me(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
+pub async fn about_me(
+    req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
+    user: LoginUser,
+) -> Result<HttpResponse, AppResponseError> {
     // let info = try_about_me(&req, &user.id).await?;
     // Ok(HttpResponse::Ok().json(info))
     todo!()
@@ -79,7 +85,10 @@ pub async fn about_me(req: HttpRequest, user: LoginUser) -> Result<HttpResponse,
         ("token" = [])
     )
 )]
-pub async fn logout(req: HttpRequest) -> Result<HttpResponse, AppResponseError> {
+pub async fn logout(
+    req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
+) -> Result<HttpResponse, AppResponseError> {
     // try_remove_active_session_token(&req).await?;
     // let response = UniversalResponse::new(
     //     "Logout Successful".to_string(),
@@ -127,6 +136,7 @@ pub async fn logout(req: HttpRequest) -> Result<HttpResponse, AppResponseError> 
 )]
 pub async fn logout_all(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
     // try_remove_all_sessions_token(&req, &user.id).await?;
@@ -183,7 +193,10 @@ pub async fn logout_all(
         ("token" = [])
     )
 )]
-pub async fn current_session(req: HttpRequest) -> Result<HttpResponse, AppResponseError> {
+pub async fn current_session(
+    req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
+) -> Result<HttpResponse, AppResponseError> {
     // let session = try_current_active_session(&req).await?;
     // Ok(HttpResponse::Ok().json(session))
     todo!()
@@ -236,6 +249,7 @@ pub async fn current_session(req: HttpRequest) -> Result<HttpResponse, AppRespon
 )]
 pub async fn all_sessions(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
     // let sessions = try_active_sessions(&req, &user.id).await?;
@@ -292,6 +306,7 @@ pub async fn all_sessions(
 )]
 pub async fn change_password(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
     // params: web::Json<ChangePasswordParams>,
 ) -> Result<HttpResponse, AppResponseError> {
@@ -350,6 +365,7 @@ pub async fn change_password(
 )]
 pub async fn change_email(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
     // params: web::Json<ChangeEmailParams>,
 ) -> Result<HttpResponse, AppResponseError> {
@@ -396,6 +412,7 @@ pub async fn change_email(
 )]
 pub async fn resend_verify_email(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
     // try_resend_verify_email(&req, &user.id).await?;
@@ -453,6 +470,7 @@ pub async fn resend_verify_email(
 )]
 pub async fn get_security_settings(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
     // let info = try_get_security_settings(&req, &user.id).await?;
@@ -476,6 +494,7 @@ pub async fn get_security_settings(
 )]
 pub async fn update_security_settings(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
     // params: web::Json<SecuritySettingsUpdate>,
 ) -> Result<HttpResponse, AppResponseError> {
@@ -523,6 +542,7 @@ pub async fn update_security_settings(
 )]
 pub async fn add_email_2fa(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
     // try_add_email_2fa(&req, &user.id).await?;
@@ -573,6 +593,7 @@ pub async fn add_email_2fa(
 )]
 pub async fn remove_email_2fa(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
     // try_remove_email_2fa(&req, &user.id).await?;
@@ -624,7 +645,11 @@ pub async fn remove_email_2fa(
         ("token" = [])
     )
 )]
-pub async fn add_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, AppResponseError> {
+pub async fn add_2fa(
+    req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
+    user: LoginUser,
+) -> Result<HttpResponse, AppResponseError> {
     // let json = try_2fa_add(&req, &user.id).await?;
     // Ok(HttpResponse::Ok().json(json))
     todo!()
@@ -669,6 +694,7 @@ pub async fn add_2fa(req: HttpRequest, user: LoginUser) -> Result<HttpResponse, 
 )]
 pub async fn activate_2fa(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
     // params: web::Json<MnemonicConfirmation>,
 ) -> Result<HttpResponse, AppResponseError> {
@@ -727,6 +753,7 @@ pub async fn activate_2fa(
 )]
 pub async fn reset_2fa(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
     // let json = try_2fa_reset(&req, &user.id).await?;
@@ -772,6 +799,7 @@ pub async fn reset_2fa(
 )]
 pub async fn remove_2fa(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
     // try_2fa_remove(&req, &user.id).await?;

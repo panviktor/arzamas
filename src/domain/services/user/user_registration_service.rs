@@ -79,6 +79,7 @@ where
     }
 
     pub async fn delete_user(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+        // FIXME - add email notification
         self.user_registration_repository.delete_user(user).await
     }
 

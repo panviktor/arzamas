@@ -3,7 +3,7 @@ use actix_http::HttpMessage;
 use actix_service::{Service, Transform};
 use actix_web::{
     dev::{ServiceRequest, ServiceResponse},
-    web, Error, FromRequest, HttpResponse,
+    web, Error, HttpResponse,
 };
 
 use crate::application::services::service_container::ServiceContainer;

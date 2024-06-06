@@ -1,4 +1,4 @@
-pub mod shared;
+pub mod shared_service;
 
-pub use self::shared::SharedDomainError;
-pub use self::shared::SharedDomainService;
+pub use self::shared_service::SharedDomainError;
+pub use self::shared_service::SharedDomainService;

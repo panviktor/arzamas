@@ -6,7 +6,7 @@ use crate::domain::ports::caching::caching::CachingPort;
 use crate::infrastructure::cache::error::CachingError;
 use async_trait::async_trait;
 use deadpool_redis::{CreatePoolError, Pool, Runtime};
-use redis::{AsyncCommands, AsyncIter, RedisError};
+use redis::{AsyncCommands, AsyncIter};
 use secrecy::ExposeSecret;
 
 pub fn create_redis_pool() -> Result<Pool, CreatePoolError> {
