@@ -1,3 +1,6 @@
+use crate::application::dto::user::user_shared_response_dto::BaseUserResponse;
+
+use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -40,4 +43,23 @@ pub struct SecuritySettingsUpdateWeb {
     pub email_on_success_enter: Option<bool>,
     pub email_on_failure_enter: Option<bool>,
     pub close_sessions_on_change_password: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+pub struct BaseUserResponseWeb {
+    pub user_id: String,
+    pub email: String,
+    pub username: String,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<BaseUserResponse> for BaseUserResponseWeb {
+    fn from(user: BaseUserResponse) -> Self {
+        Self {
+            user_id: user.user_id,
+            email: user.email,
+            username: user.username,
+            created_at: user.created_at,
+        }
+    }
 }

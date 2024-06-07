@@ -1,6 +1,7 @@
+use serde_derive::Serialize;
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum ApplicationError {
     ValidationError(String),
     NotFound(String),

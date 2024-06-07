@@ -1,3 +1,6 @@
+use crate::domain::entities::user::UserBase;
+use crate::domain::error::DomainError;
+use crate::domain::ports::repositories::user::user_shared_parameters::FindUserByIdDTO;
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use std::sync::Arc;
 
@@ -14,12 +17,7 @@ where
     pub fn new(user_repository: Arc<U>) -> Self {
         Self { user_repository }
     }
-
-    // get base user info
-
-    // * setup user status
-
-    // * user config (not security)
-
-    // * ...
+    pub async fn get_user_info(&self, user: FindUserByIdDTO) -> Result<UserBase, DomainError> {
+        self.user_repository.get_base_user_by_id(user).await
+    }
 }

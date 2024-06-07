@@ -1,4 +1,6 @@
-#[derive(Debug)]
+use serde_derive::Serialize;
+
+#[derive(Debug, Serialize)]
 pub enum InfrastructureError {
     /// Errors from database operations
     DatabaseError(String),

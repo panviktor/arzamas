@@ -224,8 +224,8 @@ pub async fn delete(
     put,
     path = "/api/note/update",
     request_body = NoteRequestWeb,
-    params(
-    NoteIdRequestWeb
+        params(
+            NoteIdRequestWeb
     ),
     responses(
         (status = 200, description = "Note was updated", body = UniversalResponse),

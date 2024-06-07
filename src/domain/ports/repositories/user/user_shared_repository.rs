@@ -22,6 +22,8 @@ pub trait UserSharedDomainRepository {
         query: FindUserByUsernameDTO,
     ) -> Result<UserBase, DomainError>;
 
+    async fn get_base_user_by_id(&self, query: FindUserByIdDTO) -> Result<UserBase, DomainError>;
+
     async fn store_email_confirmation_token(
         &self,
         user: FindUserByIdDTO,

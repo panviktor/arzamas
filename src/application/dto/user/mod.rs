@@ -6,8 +6,8 @@ pub mod user_authentication_request_dto;
 pub mod user_authentication_response_dto;
 pub mod user_registration_request_dto;
 pub mod user_registration_response_dto;
-mod user_shared_request_dto;
-mod user_shared_response_dto;
+pub mod user_shared_request_dto;
+pub mod user_shared_response_dto;
 
 impl From<UserRegistrationError> for ApplicationError {
     fn from(error: UserRegistrationError) -> Self {

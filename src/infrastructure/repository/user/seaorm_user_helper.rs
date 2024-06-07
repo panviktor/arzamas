@@ -3,11 +3,9 @@ use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_otp_token::UserOtpToken;
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
-use crate::domain::entities::user::value_objects::UserEmailConfirmation;
-use crate::domain::entities::user::UserRegistration;
-use crate::domain::error::{DomainError, ValidationError};
+use crate::domain::entities::user::{UserBase, UserRegistration};
 use chrono::{TimeZone, Utc};
-use entity::{user, user_confirmation, user_otp_token, user_security_settings, user_session};
+use entity::{user, user_otp_token, user_security_settings, user_session};
 use sea_orm::ActiveValue::Set;
 
 impl UserRegistration {
@@ -108,6 +106,19 @@ impl UserSession {
             ip_address: Set(self.ip_address.value().to_string()),
             expiry: Set(self.expiry.naive_utc()),
             ..Default::default()
+        }
+    }
+}
+
+impl From<user::Model> for UserBase {
+    fn from(user: user::Model) -> Self {
+        UserBase {
+            user_id: user.user_id,
+            email: Email::new(&user.email),
+            username: user.username,
+            email_validated: user.email_validated,
+            created_at: Utc.from_utc_datetime(&user.created_at),
+            updated_at: Utc.from_utc_datetime(&user.updated_at),
         }
     }
 }

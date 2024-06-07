@@ -85,15 +85,11 @@ where
                             srv.call(req).await
                         }
                         Err(e) => {
-                            eprintln!("Session validation error: {:?}", e);
-                            Ok(req.into_response(HttpResponse::InternalServerError().finish()))
+                            Ok(req.into_response(HttpResponse::InternalServerError().json(e)))
                         }
                     }
                 }
-                Err(e) => {
-                    eprintln!("Session validation error: {:?}", e);
-                    Ok(req.into_response(HttpResponse::InternalServerError().finish()))
-                }
+                Err(e) => Ok(req.into_response(HttpResponse::InternalServerError().json(e))),
             }
         })
     }
@@ -113,7 +109,14 @@ fn extract_token(authed_header: &HeaderValue) -> Result<String, InfrastructureEr
         .map_err(|_| InfrastructureError::NetworkError("Invalid token format".to_string()))
         .and_then(|header_str| {
             if header_str.starts_with(core_constants::BEARER) {
-                Ok(header_str[7..].trim().to_string())
+                let token = &header_str[core_constants::BEARER.len()..].trim();
+                if token.is_empty() {
+                    Err(InfrastructureError::NetworkError(
+                        "Token is empty".to_string(),
+                    ))
+                } else {
+                    Ok(token.to_string())
+                }
             } else {
                 Err(InfrastructureError::NetworkError(
                     "Bearer prefix not found".to_string(),

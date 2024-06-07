@@ -70,15 +70,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
                 ))
             })?;
 
-        let user = UserBase {
-            user_id: user.user_id,
-            email: Email::new(&user.email),
-            username: user.username,
-            email_validated: user.email_validated,
-            created_at: Utc.from_utc_datetime(&user.created_at),
-            updated_at: Utc.from_utc_datetime(&user.updated_at),
-        };
-        Ok(user)
+        Ok(user.into())
     }
 
     async fn get_base_user_by_username(
@@ -96,15 +88,22 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
                 ))
             })?;
 
-        let user = UserBase {
-            user_id: user.user_id,
-            email: Email::new(&user.email),
-            username: user.username,
-            email_validated: user.email_validated,
-            created_at: Utc.from_utc_datetime(&user.created_at),
-            updated_at: Utc.from_utc_datetime(&user.updated_at),
-        };
-        Ok(user)
+        Ok(user.into())
+    }
+
+    async fn get_base_user_by_id(&self, query: FindUserByIdDTO) -> Result<UserBase, DomainError> {
+        let user = entity::prelude::User::find()
+            .filter(user::Column::UserId.eq(query.user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "Base User not found by user id.".to_string(),
+                ))
+            })?;
+
+        Ok(user.into())
     }
 
     async fn store_email_confirmation_token(

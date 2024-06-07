@@ -1,3 +1,4 @@
+use crate::application::dto::user::user_shared_request_dto::UserByIdRequest;
 use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
 use crate::infrastructure::web::dto::shared::LoginUser;
@@ -44,9 +45,14 @@ pub async fn about_me(
     data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
-    // let info = try_about_me(&req, &user.id).await?;
-    // Ok(HttpResponse::Ok().json(info))
-    todo!()
+    let request = UserByIdRequest::new(&user.id);
+    let response = data
+        .user_information_service
+        .get_user_information(request)
+        .await
+        .map_err(|e| e.into_service_error(&req))?;
+
+    Ok(HttpResponse::Ok().json(response))
 }
 
 /// Logs out the user from the current session.
