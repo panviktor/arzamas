@@ -11,6 +11,10 @@ pub struct Model {
     pub user_id: String,
     pub otp_hash: Option<String>,
     pub expiry: Option<DateTime>,
+    pub user_agent: Option<String>,
+    pub ip_address: Option<String>,
+    pub attempt_count: i32,
+    pub restore_blocked_until: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

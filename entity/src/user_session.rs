@@ -15,6 +15,7 @@ pub struct Model {
     pub ip_address: String,
     pub user_agent: String,
     pub expiry: DateTime,
+    pub valid: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
