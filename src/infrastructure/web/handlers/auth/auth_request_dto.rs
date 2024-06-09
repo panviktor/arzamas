@@ -33,8 +33,19 @@ pub enum APIVerificationMethodWeb {
     AuthenticatorApp,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct ValidateEmailRequestWeb {
     pub email: String,
     pub email_token: String,
+}
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct UserRecoveryRequestWeb {
+    pub identifier: String,
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct UserCompleteRecoveryRequestWeb {
+    pub token: String,
+    pub new_password: String,
+    pub password_confirm: String,
 }

@@ -3,7 +3,8 @@ use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_recovery_password::UserRecoveryPasswd;
 use crate::domain::error::{DomainError, ValidationError};
 use crate::domain::ports::repositories::user::user_recovery_password_parameters::{
-    RecoveryPasswdRequestDTO, RecoveryPasswdResponse,
+    RecoveryPasswdRequestDTO, RecoveryPasswdResponse, UserCompleteRecoveryRequestDTO,
+    UserRecoveryPasswdOutcome,
 };
 use crate::domain::ports::repositories::user::user_recovery_password_repository::UserRecoveryPasswdDomainRepository;
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
@@ -15,12 +16,13 @@ use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
 use crate::domain::services::user::UserValidationService;
 use chrono::{Duration, Utc};
 use std::sync::Arc;
+use utoipa::openapi::request_body::RequestBody;
 
 pub struct UserRecoveryPasswordDomainService<R, S>
 where
     R: UserRecoveryPasswdDomainRepository,
 {
-    user_recovery_passwd_repository: Arc<R>,
+    user_recovery_passwd_repository: R,
     user_security_settings_repository: Arc<S>,
 }
 
@@ -30,7 +32,7 @@ where
     S: UserSecuritySettingsDomainRepository,
 {
     pub fn new(
-        user_recovery_passwd_repository: Arc<R>,
+        user_recovery_passwd_repository: R,
         user_security_settings_repository: Arc<S>,
     ) -> Self {
         Self {
@@ -47,6 +49,13 @@ where
         let user_result = self.identify_user(identifier).await?;
         self.check_account_blocked(&user_result)?;
         self.process_recovery_attempt(user_result, request).await
+    }
+
+    pub async fn complete_recovery(
+        &self,
+        request: UserCompleteRecoveryRequestDTO,
+    ) -> Result<UserRecoveryPasswdOutcome, DomainError> {
+        todo!()
     }
 }
 

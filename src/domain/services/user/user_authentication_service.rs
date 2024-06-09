@@ -23,14 +23,14 @@ pub struct UserAuthenticationDomainService<R>
 where
     R: UserAuthenticationDomainRepository,
 {
-    user_authentication_repository: Arc<R>,
+    user_authentication_repository: R,
 }
 
 impl<R> UserAuthenticationDomainService<R>
 where
     R: UserAuthenticationDomainRepository,
 {
-    pub fn new(user_authentication_repository: Arc<R>) -> Self {
+    pub fn new(user_authentication_repository: R) -> Self {
         Self {
             user_authentication_repository,
         }

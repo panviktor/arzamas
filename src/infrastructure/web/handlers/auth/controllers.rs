@@ -2,6 +2,9 @@ use crate::application::dto::shared::universal_response::UniversalResponse;
 use crate::application::dto::user::user_authentication_request_dto::{
     APIVerificationMethod, LoginUserRequest, OTPVerificationRequest,
 };
+use crate::application::dto::user::user_recovery_request_dto::{
+    UserCompleteRecoveryRequest, UserRecoveryRequest,
+};
 use crate::application::dto::user::user_registration_request_dto::{
     CreateUserRequest, ValidateEmailRequest,
 };
@@ -10,7 +13,7 @@ use crate::application::services::service_container::ServiceContainer;
 use crate::infrastructure::web::actix_adapter::{get_ip_addr, get_user_agent};
 use crate::infrastructure::web::handlers::auth::auth_request_dto::{
     APIVerificationMethodWeb, ContinueLoginRequestWeb, CreateUserRequestWeb, LoginUserRequestWeb,
-    ValidateEmailRequestWeb,
+    UserCompleteRecoveryRequestWeb, UserRecoveryRequestWeb, ValidateEmailRequestWeb,
 };
 use actix_web::{web, HttpRequest, HttpResponse};
 use std::sync::Arc;
@@ -285,16 +288,23 @@ pub async fn login_2fa(
 pub async fn forgot_password(
     req: HttpRequest,
     data: web::Data<Arc<ServiceContainer>>,
-    // params: web::Json<ForgotPasswordParams>,
+    params: web::Json<UserRecoveryRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
-    // try_send_restore_email(&req, params.0).await?;
-    // let response = UniversalResponse::new(
-    //     "A password reset request has been sent.".to_string(),
-    //     None,
-    //     true,
-    // );
-    // Ok(HttpResponse::Ok().json(response))
-    todo!()
+    let user_agent = get_user_agent(&req)?;
+    let login_ip = get_ip_addr(&req)?;
+
+    let request = UserRecoveryRequest::new(&params.identifier, user_agent, login_ip);
+    data.user_recovery_service
+        .initiate_recovery(request)
+        .await
+        .map_err(|e| e.into_service_error(&req))?;
+
+    let response = UniversalResponse::new(
+        "Password recovery instructions have been sent to your email.".to_string(),
+        None,
+        true,
+    );
+    Ok(HttpResponse::Ok().json(response))
 }
 
 /// Handles the password reset process for a user.
@@ -343,10 +353,25 @@ pub async fn forgot_password(
 pub async fn password_reset(
     req: HttpRequest,
     data: web::Data<Arc<ServiceContainer>>,
-    // params: web::Json<ResetPasswordParams>,
+    params: web::Json<UserCompleteRecoveryRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
-    // try_reset_password(&req, params.0).await?;
-    // let response = UniversalResponse::new("Password successfully reset.".to_string(), None, true);
-    // Ok(HttpResponse::Ok().json(response))
-    todo!()
+    let user_agent = get_user_agent(&req)?;
+    let login_ip = get_ip_addr(&req)?;
+
+    let request = UserCompleteRecoveryRequest::new(
+        &params.token,
+        &params.new_password,
+        &params.password_confirm,
+        user_agent,
+        login_ip,
+    );
+
+    let response = data
+        .user_recovery_service
+        .complete_recovery(request)
+        .await
+        .map_err(|e| e.into_service_error(&req))?;
+
+    let response = UniversalResponse::new(response.title, response.subtitle, true);
+    Ok(HttpResponse::Ok().json(response))
 }

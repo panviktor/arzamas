@@ -31,3 +31,14 @@ impl From<UserBase> for BaseUserResponse {
         }
     }
 }
+
+pub struct UniversalApplicationResponse {
+    pub title: String,
+    pub subtitle: Option<String>,
+}
+
+impl UniversalApplicationResponse {
+    pub fn new(title: String, subtitle: Option<String>) -> Self {
+        Self { title, subtitle }
+    }
+}
