@@ -46,7 +46,7 @@ pub async fn create_note(
 ) -> Result<HttpResponse, AppResponseError> {
     let note = CreateNoteRequest::new(&user.id, &params.text);
     let _ = data
-        .note_application_service
+        .note_service
         .create_note(note)
         .await
         .map_err(|e| e.into_service_error(&req))?;
@@ -98,7 +98,7 @@ pub async fn get_all_notes(
     let request = GetAllNotesRequest::new(&user.id, query.page, query.per_page);
 
     let result = data
-        .note_application_service
+        .note_service
         .get_all_notes(request)
         .await
         .map_err(|e| e.into_service_error(&req))?;
@@ -147,7 +147,7 @@ pub async fn get_by_id(
 ) -> Result<HttpResponse, AppResponseError> {
     let request = NoteByIdRequest::new(&user.id, &query.id);
     let result = data
-        .note_application_service
+        .note_service
         .get_note_by_id(request)
         .await
         .map_err(|e| e.into_service_error(&req))?;
@@ -194,7 +194,7 @@ pub async fn delete(
     query: web::Query<NoteIdRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
     let request = NoteByIdRequest::new(&user.id, &query.id);
-    data.note_application_service
+    data.note_service
         .delete_note(request)
         .await
         .map_err(|e| e.into_service_error(&req))?;
@@ -244,7 +244,7 @@ pub async fn update(
     body: web::Json<NoteRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
     let request = UpdateNoteRequest::new(&user.id, &note_id.id, &body.text);
-    data.note_application_service
+    data.note_service
         .update_note(request)
         .await
         .map_err(|e| e.into_service_error(&req))?;

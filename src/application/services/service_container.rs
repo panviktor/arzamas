@@ -21,32 +21,27 @@ use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
 pub struct ServiceContainer {
-    pub note_application_service: Arc<NoteApplicationService<SeaOrmNoteRepository>>,
-    pub user_registration_service: Arc<
-        UserRegistrationApplicationService<
-            SeaOrmUserRegistrationRepository,
-            SeaOrmUserSharedRepository,
-            LettreEmailAdapter,
-        >,
-    >,
-    pub user_authentication_service: Arc<
-        UserAuthenticationApplicationService<
-            SeaOrmUserAuthenticationRepository,
-            LettreEmailAdapter,
-            RedisAdapter,
-        >,
+    pub user_registration_service: UserRegistrationApplicationService<
+        SeaOrmUserRegistrationRepository,
+        SeaOrmUserSharedRepository,
+        LettreEmailAdapter,
     >,
 
-    pub user_information_service:
-        Arc<UserInformationApplicationService<SeaOrmUserSharedRepository>>,
-
-    pub user_security_service: Arc<
-        UserSecurityApplicationService<
-            SeaOrmUserSecurityRepository,
-            LettreEmailAdapter,
-            RedisAdapter,
-        >,
+    pub user_authentication_service: UserAuthenticationApplicationService<
+        SeaOrmUserAuthenticationRepository,
+        LettreEmailAdapter,
+        RedisAdapter,
     >,
+
+    pub user_information_service: UserInformationApplicationService<SeaOrmUserSharedRepository>,
+
+    pub user_security_service: UserSecurityApplicationService<
+        SeaOrmUserSecurityRepository,
+        LettreEmailAdapter,
+        RedisAdapter,
+    >,
+
+    pub note_service: NoteApplicationService<SeaOrmNoteRepository>,
 }
 
 impl ServiceContainer {
@@ -60,54 +55,58 @@ impl ServiceContainer {
         let email_service = Arc::new(LettreEmailAdapter::new(email_transport));
         let redis_service = Arc::new(RedisAdapter::new(redis_pool));
 
-        let note_repository = SeaOrmNoteRepository::new(db_arc.clone());
-        let note_domain_service = NoteDomainService::new(note_repository);
-        let note_application_service = Arc::new(NoteApplicationService::new(note_domain_service));
-
+        // Shared
         let user_shared_repository = Arc::new(SeaOrmUserSharedRepository::new(db_arc.clone()));
-        let user_registration_repository = SeaOrmUserRegistrationRepository::new(db_arc.clone());
 
+        // User registration services
+        let user_registration_repository = SeaOrmUserRegistrationRepository::new(db_arc.clone());
         let user_registration_domain_service = UserRegistrationDomainService::new(
             user_registration_repository,
             user_shared_repository.clone(),
         );
-        let user_registration_service = Arc::new(UserRegistrationApplicationService::new(
+        let user_registration_service = UserRegistrationApplicationService::new(
             user_registration_domain_service,
             email_service.clone(),
-        ));
+        );
 
+        // User authentication services
         let user_authentication_repository =
             Arc::new(SeaOrmUserAuthenticationRepository::new(db_arc.clone()));
         let user_authentication_domain_service =
             UserAuthenticationDomainService::new(user_authentication_repository.clone());
-
-        let user_authentication_service = Arc::new(UserAuthenticationApplicationService::new(
+        let user_authentication_service = UserAuthenticationApplicationService::new(
             user_authentication_domain_service,
             redis_service.clone(),
             email_service.clone(),
-        ));
+        );
 
+        // User information services
         let user_information_domain_service =
             UserInformationDomainService::new(user_shared_repository.clone());
-        let user_information_service = Arc::new(UserInformationApplicationService::new(
-            user_information_domain_service,
-        ));
+        let user_information_service =
+            UserInformationApplicationService::new(user_information_domain_service);
 
+        // User security services
         let user_security_repository = Arc::new(SeaOrmUserSecurityRepository::new(db_arc.clone()));
         let user_security_domain_service =
             UserSecuritySettingsDomainService::new(user_security_repository);
-        let user_security_service = Arc::new(UserSecurityApplicationService::new(
+        let user_security_service = UserSecurityApplicationService::new(
             user_security_domain_service,
             redis_service.clone(),
             email_service.clone(),
-        ));
+        );
+
+        // Note services
+        let note_repository = SeaOrmNoteRepository::new(db_arc.clone());
+        let note_domain_service = NoteDomainService::new(note_repository);
+        let note_service = NoteApplicationService::new(note_domain_service);
 
         ServiceContainer {
-            note_application_service,
             user_registration_service,
             user_authentication_service,
             user_information_service,
             user_security_service,
+            note_service,
         }
     }
 }

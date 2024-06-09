@@ -3,7 +3,7 @@ use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use chrono::{DateTime, Utc};
 
-pub struct UserRestorePasswd {
+pub struct UserRecoveryPasswd {
     pub user_id: String,
     pub email: Email,
     pub username: Username,

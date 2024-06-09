@@ -2,13 +2,13 @@ use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, User
 use crate::domain::entities::shared::{Email, Username};
 use chrono::{DateTime, Utc};
 
-pub struct RestorePasswdRequestDTO {
+pub struct RecoveryPasswdRequestDTO {
     pub identifier: String,
     pub user_agent: UserAgent,
     pub ip_address: IPAddress,
 }
 
-pub struct RestorePasswdResponse {
+pub struct RecoveryPasswdResponse {
     pub user_id: String,
     pub email: Email,
     pub username: Username,
