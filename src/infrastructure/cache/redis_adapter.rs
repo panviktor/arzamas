@@ -89,6 +89,40 @@ impl CachingPort for RedisAdapter {
 
         let tokens: Vec<String> = tokens.into_iter().filter_map(|x| x).collect();
 
+        if tokens.is_empty() {
+            return Err(CachingError::NotFound("No sessions found for user".to_string()).into());
+        }
+
         Ok(tokens)
+    }
+
+    async fn invalidate_sessions(&self, user_id: &str) -> Result<(), DomainError> {
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| CachingError::ConnectionFailure(e.to_string()))?;
+
+        let keys_pattern = format!("{}:*", user_id);
+        let mut iter: AsyncIter<String> = conn
+            .scan_match(&keys_pattern)
+            .await
+            .map_err(|e| CachingError::ConnectionFailure(e.to_string()))?;
+
+        let mut keys = Vec::new();
+        while let Some(key) = iter.next().await {
+            keys.push(key);
+        }
+        if keys.is_empty() {
+            return Err(CachingError::NotFound("No sessions found for user".to_string()).into());
+        }
+
+        drop(iter);
+
+        conn.del(keys)
+            .await
+            .map_err(|e| CachingError::ConnectionFailure(e.to_string()))?;
+
+        Ok(())
     }
 }

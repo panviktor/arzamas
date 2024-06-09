@@ -2,16 +2,19 @@ use crate::application::services::note::service::NoteApplicationService;
 use crate::application::services::user::authentication::service::UserAuthenticationApplicationService;
 use crate::application::services::user::information::service::UserInformationApplicationService;
 use crate::application::services::user::registration::service::UserRegistrationApplicationService;
+use crate::application::services::user::security::service::UserSecurityApplicationService;
 use crate::domain::services::note::note_service::NoteDomainService;
 use crate::domain::services::user::user_authentication_service::UserAuthenticationDomainService;
 use crate::domain::services::user::user_information_service::UserInformationDomainService;
 use crate::domain::services::user::user_registration_service::UserRegistrationDomainService;
+use crate::domain::services::user::user_security_settings_service::UserSecuritySettingsDomainService;
 use crate::infrastructure::cache::redis_adapter::RedisAdapter;
 use crate::infrastructure::email::lettre_email_adapter::LettreEmailAdapter;
 use crate::infrastructure::repository::note::seaorm_note::SeaOrmNoteRepository;
 use crate::infrastructure::repository::user::seaorm_user::SeaOrmUserSharedRepository;
 use crate::infrastructure::repository::user::seaorm_user_authentication::SeaOrmUserAuthenticationRepository;
 use crate::infrastructure::repository::user::seaorm_user_registration::SeaOrmUserRegistrationRepository;
+use crate::infrastructure::repository::user::seaorm_user_security::SeaOrmUserSecurityRepository;
 use deadpool_redis::Pool;
 use lettre::AsyncSmtpTransport;
 use sea_orm::DatabaseConnection;
@@ -36,6 +39,14 @@ pub struct ServiceContainer {
 
     pub user_information_service:
         Arc<UserInformationApplicationService<SeaOrmUserSharedRepository>>,
+
+    pub user_security_service: Arc<
+        UserSecurityApplicationService<
+            SeaOrmUserSecurityRepository,
+            LettreEmailAdapter,
+            RedisAdapter,
+        >,
+    >,
 }
 
 impl ServiceContainer {
@@ -82,11 +93,21 @@ impl ServiceContainer {
             user_information_domain_service,
         ));
 
+        let user_security_repository = Arc::new(SeaOrmUserSecurityRepository::new(db_arc.clone()));
+        let user_security_domain_service =
+            UserSecuritySettingsDomainService::new(user_security_repository);
+        let user_security_service = Arc::new(UserSecurityApplicationService::new(
+            user_security_domain_service,
+            redis_service.clone(),
+            email_service.clone(),
+        ));
+
         ServiceContainer {
             note_application_service,
             user_registration_service,
             user_authentication_service,
             user_information_service,
+            user_security_service,
         }
     }
 }

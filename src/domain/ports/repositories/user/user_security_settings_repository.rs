@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait UserSecuritySettingsDomainRepository {
-    async fn logout_all_sessions(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
+    async fn invalidate_sessions(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
 }
 
 //verify-email

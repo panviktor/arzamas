@@ -1,3 +1,4 @@
+use crate::application::dto::shared::universal_response::UniversalResponse;
 use crate::application::dto::user::user_shared_request_dto::UserByIdRequest;
 use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
@@ -145,14 +146,17 @@ pub async fn logout_all(
     data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
-    // try_remove_all_sessions_token(&req, &user.id).await?;
-    // let response = UniversalResponse::new(
-    //     "Logout Successful".to_string(),
-    //     Some("You have been logged out from all sessions".to_string()),
-    //     true,
-    // );
-    // Ok(HttpResponse::Ok().json(response))
-    todo!()
+    let request = UserByIdRequest::new(&user.id);
+    data.user_security_service
+        .logout_all_sessions(request)
+        .await
+        .map_err(|e| e.into_service_error(&req))?;
+    let response = UniversalResponse::new(
+        "User logged out from all active sessions successfully.".to_string(),
+        None,
+        true,
+    );
+    Ok(HttpResponse::Ok().json(response))
 }
 
 /// Retrieves the current user's session information.
