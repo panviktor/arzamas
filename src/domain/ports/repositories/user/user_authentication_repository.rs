@@ -32,7 +32,7 @@ pub trait UserAuthenticationDomainRepository {
     async fn update_user_login_attempts(
         &self,
         user: FindUserByIdDTO,
-        count: i32,
+        count: i64,
     ) -> Result<(), DomainError>;
 
     /// Blocks a user from logging in until a specified time.

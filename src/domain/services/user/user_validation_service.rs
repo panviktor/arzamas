@@ -1,5 +1,7 @@
+use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::error::{DomainError, ValidationError};
+use chrono::{DateTime, Utc};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::fmt;
@@ -19,10 +21,11 @@ pub enum ValidationServiceError {
     TooLong(String),
     Mismatch(String),
     InvalidFormat(String),
+    BusinessRuleViolation(String),
 }
 
 impl UserValidationService {
-    pub fn validate_password(password: &str) -> Result<(), ValidationServiceError> {
+    pub fn validate_passwd(password: &str) -> Result<(), ValidationServiceError> {
         if password.len() < 10 {
             Err(ValidationServiceError::TooShort(
                 "Password must be at least 10 characters.".to_string(),
@@ -67,18 +70,47 @@ impl UserValidationService {
             Ok(())
         }
     }
+
+    pub fn validate_blocked_time(
+        time: Option<DateTime<Utc>>,
+        msg: &str,
+    ) -> Result<(), ValidationServiceError> {
+        if let Some(blocked_until) = time {
+            let now = Utc::now();
+            if now < blocked_until {
+                let friendly_date = blocked_until.format("%Y-%m-%d %H:%M:%S UTC").to_string();
+                return Err(ValidationServiceError::BusinessRuleViolation(format!(
+                    "{}: {}",
+                    msg, friendly_date
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn validate_ip_ua(
+        request_user_agent: &UserAgent,
+        request_ip_address: &IPAddress,
+        stored_user_agent: Option<&UserAgent>,
+        stored_ip_address: Option<&IPAddress>,
+    ) -> bool {
+        match (stored_user_agent, stored_ip_address) {
+            (Some(ua), Some(ip)) => request_user_agent == ua && request_ip_address == ip,
+            _ => false,
+        }
+    }
 }
 
 impl From<ValidationServiceError> for DomainError {
     fn from(error: ValidationServiceError) -> Self {
-        match error {
+        let msg = match error {
             ValidationServiceError::TooShort(msg)
             | ValidationServiceError::TooLong(msg)
             | ValidationServiceError::Mismatch(msg)
-            | ValidationServiceError::InvalidFormat(msg) => {
-                DomainError::ValidationError(ValidationError::InvalidData(msg))
-            }
-        }
+            | ValidationServiceError::BusinessRuleViolation(msg)
+            | ValidationServiceError::InvalidFormat(msg) => msg,
+        };
+        DomainError::ValidationError(ValidationError::InvalidData(msg))
     }
 }
 
@@ -89,6 +121,7 @@ impl fmt::Display for ValidationServiceError {
             | ValidationServiceError::TooLong(msg)
             | ValidationServiceError::Mismatch(msg)
             | ValidationServiceError::InvalidFormat(msg) => write!(f, "{}", msg),
+            ValidationServiceError::BusinessRuleViolation(msg) => write!(f, "{}", msg),
         }
     }
 }

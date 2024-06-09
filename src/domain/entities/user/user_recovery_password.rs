@@ -11,5 +11,6 @@ pub struct UserRecoveryPasswd {
     pub ip_address: Option<IPAddress>,
     pub security_setting: UserSecuritySettings,
     pub pass_hash: Option<String>,
+    pub attempt_count: i64,
     pub restore_blocked_until: Option<DateTime<Utc>>,
 }

@@ -1,3 +1,4 @@
+use crate::domain::entities::email::EmailMessage;
 use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_recovery_password::UserRecoveryPasswd;
@@ -16,7 +17,6 @@ use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
 use crate::domain::services::user::UserValidationService;
 use chrono::{Duration, Utc};
 use std::sync::Arc;
-use utoipa::openapi::request_body::RequestBody;
 
 pub struct UserRecoveryPasswordDomainService<R, S>
 where
@@ -55,6 +55,58 @@ where
         &self,
         request: UserCompleteRecoveryRequestDTO,
     ) -> Result<UserRecoveryPasswdOutcome, DomainError> {
+        UserValidationService::validate_passwd(&request.new_password)?;
+
+        let recovery_request = self
+            .user_recovery_passwd_repository
+            .get_recovery_token(request.token)
+            .await?;
+
+        UserValidationService::validate_blocked_time(
+            recovery_request.restore_blocked_until,
+            "Recovery account is locked until",
+        )?;
+
+        let user_id = FindUserByIdDTO::new(&recovery_request.user_id);
+
+        if !UserValidationService::validate_ip_ua(
+            &request.user_agent,
+            &request.ip_address,
+            recovery_request.user_agent.as_ref(),
+            recovery_request.ip_address.as_ref(),
+        ) {
+            let total_attempt_count = recovery_request.attempt_count + 1;
+
+            let block_duration = if total_attempt_count > 10 {
+                Some(Utc::now() + Duration::hours(1))
+            } else if total_attempt_count > 5 {
+                Some(Utc::now() + Duration::minutes(10))
+            } else {
+                None
+            };
+
+            let block_future = self
+                .user_recovery_passwd_repository
+                .block_user_restore_until(&user_id, block_duration);
+
+            let attempts_future = self
+                .user_recovery_passwd_repository
+                .update_user_restore_attempts(&user_id, total_attempt_count);
+
+            tokio::try_join!(block_future, attempts_future)?;
+
+            return Ok(UserRecoveryPasswdOutcome::InvalidToken {
+                user_id: recovery_request.user_id,
+                email: recovery_request.email,
+                message: "Recovery failed because the IP address or user agent does not match the original request.".to_string(),
+                email_notifications_enabled: recovery_request
+                    .security_setting
+                    .email_on_failure_enabled_at,
+            });
+        }
+
+        // user_security_settings_repository . set new passwd ! (not imp yet)
+
         todo!()
     }
 }
@@ -103,17 +155,17 @@ where
         user: UserRecoveryPasswd,
         request: RecoveryPasswdRequestDTO,
     ) -> Result<RecoveryPasswdResponse, DomainError> {
-        let duration = Duration::minutes(10);
-        let token = SharedDomainService::generate_token(6)?;
-        let token_hash = SharedDomainService::hash_token(&token);
+        let duration = Duration::minutes(15);
+        let token = SharedDomainService::generate_token(32)?;
         let user_id_dto = FindUserByIdDTO::new(&user.user_id);
         let expiry = Utc::now() + duration;
+        let token = EmailToken(token);
 
         self.user_recovery_passwd_repository
             .prepare_user_restore_passwd(
                 user_id_dto,
                 expiry,
-                token_hash,
+                token.clone(),
                 request.user_agent,
                 request.ip_address,
             )
@@ -123,8 +175,21 @@ where
             user_id: user.user_id.to_string(),
             email: user.email,
             username: user.username,
-            token: EmailToken(token),
+            token,
             expiry,
         })
+    }
+
+    fn is_request_from_trusted_source(
+        &self,
+        request: &UserCompleteRecoveryRequestDTO,
+        user_result: &UserRecoveryPasswd,
+    ) -> bool {
+        UserValidationService::validate_ip_ua(
+            &request.user_agent,
+            &request.ip_address,
+            user_result.user_agent.as_ref(),
+            user_result.ip_address.as_ref(),
+        )
     }
 }

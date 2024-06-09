@@ -1,4 +1,4 @@
-use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
+use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
 use crate::domain::entities::user::user_recovery_password::UserRecoveryPasswd;
 use crate::domain::error::DomainError;
 use crate::domain::ports::repositories::user::user_recovery_password_repository::UserRecoveryPasswdDomainRepository;
@@ -39,8 +39,8 @@ impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
 
     async fn update_user_restore_attempts(
         &self,
-        user: FindUserByIdDTO,
-        count: i32,
+        user: &FindUserByIdDTO,
+        count: i64,
     ) -> Result<(), DomainError> {
         todo!()
     }
@@ -53,11 +53,18 @@ impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
         todo!()
     }
 
+    async fn get_recovery_token(
+        &self,
+        token: EmailToken,
+    ) -> Result<UserRecoveryPasswd, DomainError> {
+        todo!()
+    }
+
     async fn prepare_user_restore_passwd(
         &self,
         user: FindUserByIdDTO,
         expiry: DateTime<Utc>,
-        email_token_hash: String,
+        token: EmailToken,
         user_agent: UserAgent,
         ip_address: IPAddress,
     ) -> Result<(), DomainError> {

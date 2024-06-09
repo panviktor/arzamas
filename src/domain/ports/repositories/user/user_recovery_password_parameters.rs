@@ -1,4 +1,3 @@
-use crate::domain::entities::email::EmailMessage;
 use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
 use crate::domain::entities::shared::{Email, Username};
 use chrono::{DateTime, Utc};
@@ -28,7 +27,7 @@ pub struct RecoveryPasswdResponse {
 }
 
 pub struct UserCompleteRecoveryRequestDTO {
-    pub token: String,
+    pub token: EmailToken,
     pub new_password: String,
     pub user_agent: UserAgent,
     pub ip_address: IPAddress,
@@ -36,7 +35,7 @@ pub struct UserCompleteRecoveryRequestDTO {
 
 impl UserCompleteRecoveryRequestDTO {
     pub fn new(
-        token: String,
+        token: EmailToken,
         new_password: String,
         user_agent: UserAgent,
         ip_address: IPAddress,
@@ -54,13 +53,13 @@ pub enum UserRecoveryPasswdOutcome {
     ValidToken {
         user_id: String,
         email: Email,
-        message: EmailMessage,
+        message: String,
         close_sessions_on_change_password: bool,
     },
     InvalidToken {
         user_id: String,
         email: Email,
-        message: EmailMessage,
+        message: String,
         email_notifications_enabled: bool,
     },
 }

@@ -1,8 +1,10 @@
 use crate::domain::error::{DomainError, ExternalServiceError};
 use chrono::Utc;
-use getrandom::getrandom;
 use hex::encode;
+use rand::distributions::Alphanumeric;
+use rand::Rng;
 use sha2::{Digest, Sha256, Sha512};
+use std::iter;
 use uuid::Uuid;
 
 pub struct SharedDomainService;
@@ -10,6 +12,7 @@ pub struct SharedDomainService;
 #[derive(Debug, Clone)]
 pub enum SharedDomainError {
     TokenGenerationError(String),
+    TokenTooShort(String),
 }
 
 impl SharedDomainError {
@@ -18,11 +21,19 @@ impl SharedDomainError {
     }
 }
 impl SharedDomainService {
-    /// Generate a generic 32 byte token, and convert it to a hex string.
-    pub fn generate_token(long: usize) -> Result<String, SharedDomainError> {
-        let mut token = vec![0u8; long];
-        getrandom(&mut token).map_err(SharedDomainError::from_getrandom_error)?;
-        Ok(encode(&token))
+    pub fn generate_token(length: usize) -> Result<String, SharedDomainError> {
+        if length < 10 {
+            return Err(SharedDomainError::TokenTooShort(
+                "Token length should be at least 10 characters.".to_string(),
+            ));
+        }
+
+        let token: String = iter::repeat_with(|| rand::thread_rng().sample(Alphanumeric))
+            .take(length)
+            .map(char::from)
+            .collect();
+
+        Ok(token)
     }
 
     pub fn generate_unique_id() -> String {
@@ -52,7 +63,8 @@ impl SharedDomainService {
 impl From<SharedDomainError> for DomainError {
     fn from(error: SharedDomainError) -> Self {
         match error {
-            SharedDomainError::TokenGenerationError(msg) => {
+            SharedDomainError::TokenTooShort(msg)
+            | SharedDomainError::TokenGenerationError(msg) => {
                 DomainError::ExternalServiceError(ExternalServiceError::Custom(msg))
             }
         }

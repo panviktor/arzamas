@@ -15,7 +15,7 @@ pub struct Model {
     pub otp_app_currently_valid: bool,
     pub otp_app_mnemonic: Option<String>,
     pub expiry: Option<DateTime>,
-    pub attempt_count: i32,
+    pub attempt_count: i64,
     pub user_agent: Option<String>,
     pub ip_address: Option<String>,
     pub long_session: bool,

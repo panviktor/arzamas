@@ -54,7 +54,7 @@ impl UserRegistration {
             .map_err(UserRegistrationError::InvalidEmail)?;
         UserValidationService::validate_username(&username)
             .map_err(UserRegistrationError::InvalidUsername)?;
-        UserValidationService::validate_password(&password)
+        UserValidationService::validate_passwd(&password)
             .map_err(UserRegistrationError::InvalidPassword)?;
 
         let pass_hash = UserCredentialService::generate_password_hash(&password)

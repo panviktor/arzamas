@@ -80,7 +80,7 @@ impl UserAgent {
         Self(user_agent.to_string())
     }
 
-    pub fn value(&self) -> &String {
+    pub fn value(&self) -> &str {
         &self.0
     }
 
@@ -103,7 +103,7 @@ impl IPAddress {
         Self(ip_address.to_string())
     }
 
-    pub fn value(&self) -> &String {
+    pub fn value(&self) -> &str {
         &self.0
     }
 

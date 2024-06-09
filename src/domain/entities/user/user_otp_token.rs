@@ -39,7 +39,7 @@ pub struct UserOtpToken {
 
     /// Count of failed OTP attempts. This can be used to implement rate limiting or account locking mechanisms
     /// after a certain number of failed attempts to prevent brute force attacks.
-    pub attempt_count: i32,
+    pub attempt_count: i64,
 
     /// A string representing the user agent of the client during the OTP transaction.
     /// This information can be useful for auditing purposes and to enhance security measures,
@@ -63,7 +63,7 @@ impl UserOtpToken {
         otp_app_currently_valid: bool,
         otp_app_mnemonic: Option<String>,
         expiry: Option<DateTime<Utc>>,
-        attempt_count: i32,
+        attempt_count: i64,
         user_agent: Option<UserAgent>,
         ip_address: Option<IPAddress>,
         persistent: bool,

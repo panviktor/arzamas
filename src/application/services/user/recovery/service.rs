@@ -4,7 +4,7 @@ use crate::application::dto::user::user_recovery_request_dto::{
 };
 use crate::application::dto::user::user_shared_response_dto::UniversalApplicationResponse;
 use crate::application::error::error::ApplicationError;
-use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
+use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
 use crate::domain::ports::caching::caching::CachingPort;
 use crate::domain::ports::email::email::EmailPort;
 use crate::domain::ports::repositories::user::user_recovery_password_parameters::{
@@ -98,9 +98,10 @@ where
 
         let user_agent = UserAgent::new(&request.user_agent);
         let ip_address = IPAddress::new(&request.ip_address);
+        let email_token = EmailToken::new(&request.token);
 
         let domain_request = UserCompleteRecoveryRequestDTO::new(
-            request.token,
+            email_token,
             request.new_password,
             user_agent,
             ip_address,

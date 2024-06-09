@@ -94,7 +94,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
     async fn update_user_login_attempts(
         &self,
         user: FindUserByIdDTO,
-        count: i32,
+        count: i64,
     ) -> Result<(), DomainError> {
         let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
         user_otp_token.attempt_count = Set(count);

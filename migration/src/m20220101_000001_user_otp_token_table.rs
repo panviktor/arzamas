@@ -51,7 +51,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserOTPToken::Expiry).timestamp().null())
                     .col(
                         ColumnDef::new(UserOTPToken::AttemptCount)
-                            .integer()
+                            .big_unsigned()
                             .not_null()
                             .default(0),
                     )

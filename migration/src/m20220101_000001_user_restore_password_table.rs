@@ -33,7 +33,11 @@ impl MigrationTrait for Migration {
                             .to(User::Table, User::UserId)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserRestorePassword::OTPHash).string().null())
+                    .col(
+                        ColumnDef::new(UserRestorePassword::RecoveryToken)
+                            .string()
+                            .null(),
+                    )
                     .col(
                         ColumnDef::new(UserRestorePassword::Expiry)
                             .timestamp()
@@ -51,7 +55,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(UserRestorePassword::AttemptCount)
-                            .integer()
+                            .big_unsigned()
                             .not_null()
                             .default(0),
                     )
@@ -79,7 +83,7 @@ pub enum UserRestorePassword {
     Id,
     Table,
     UserId,
-    OTPHash,
+    RecoveryToken,
     UserAgent,
     IpAddress,
     Expiry,

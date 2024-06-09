@@ -16,7 +16,6 @@ use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
 use crate::domain::services::user::{UserCredentialService, UserValidationService};
 use chrono::{Duration, Utc};
-use std::sync::Arc;
 use uuid::Uuid;
 
 pub struct UserAuthenticationDomainService<R>
@@ -43,7 +42,10 @@ where
         let user_result = self.identify_user(identifier).await?;
 
         self.check_email_validated(&user_result)?;
-        self.check_account_blocked(&user_result)?;
+        UserValidationService::validate_blocked_time(
+            user_result.login_blocked_until,
+            "Your account is locked until",
+        )?;
         self.process_login_attempt(&user_result, request).await
     }
 
@@ -53,7 +55,10 @@ where
     ) -> Result<AuthenticationOutcome, DomainError> {
         let identifier = &request.identifier;
         let user_result = self.identify_user(identifier).await?;
-        self.check_account_blocked(&user_result)?;
+        UserValidationService::validate_blocked_time(
+            user_result.login_blocked_until,
+            "Your account is locked until",
+        )?;
         if !self.is_request_from_trusted_source(&request, &user_result) {
             let message = "IP address or user agent mismatch.";
             return self
@@ -96,22 +101,6 @@ where
         }
     }
 
-    fn check_account_blocked(&self, user_result: &UserAuthentication) -> Result<(), DomainError> {
-        if let Some(blocked_until) = user_result.login_blocked_until {
-            let now = Utc::now();
-            if now < blocked_until {
-                let friendly_date = blocked_until.format("%Y-%m-%d %H:%M:%S UTC").to_string();
-                return Err(DomainError::ValidationError(
-                    ValidationError::BusinessRuleViolation(format!(
-                        "Your account is locked until {}",
-                        friendly_date
-                    )),
-                ));
-            }
-        }
-        Ok(())
-    }
-
     fn check_email_validated(&self, user_result: &UserAuthentication) -> Result<(), DomainError> {
         if !user_result.email_validated {
             return Err(DomainError::ValidationError(
@@ -128,7 +117,7 @@ where
         user: &UserAuthentication,
         request: CreateLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        UserValidationService::validate_password(&request.password)?;
+        UserValidationService::validate_passwd(&request.password)?;
 
         if !UserCredentialService::credential_validator(&request.password, &user.pass_hash)? {
             let message = "Incorrect password.";
@@ -143,7 +132,7 @@ where
         user: &UserAuthentication,
         message: &str,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        let attempt_count = user.otp.attempt_count + 1;
+        let attempt_count: i64 = user.otp.attempt_count + 1;
         let user_id = FindUserByIdDTO::new(&user.user_id);
 
         let block_duration = if attempt_count > 10 {
@@ -272,7 +261,7 @@ where
         ip_address: IPAddress,
         persistent: bool,
     ) -> Result<EmailToken, DomainError> {
-        let token = SharedDomainService::generate_token(6)?;
+        let token = SharedDomainService::generate_token(16)?;
         let confirmation_token = EmailToken::new(&token);
         let confirmation_token_hash = SharedDomainService::hash_token(&token);
 
@@ -296,17 +285,12 @@ where
         request: &ContinueLoginRequestDTO,
         user_result: &UserAuthentication,
     ) -> bool {
-        let user_agent = match &user_result.otp.user_agent {
-            Some(ua) => ua,
-            None => return false,
-        };
-
-        let ip_address = match &user_result.otp.ip_address {
-            Some(ip) => ip,
-            None => return false,
-        };
-
-        &request.user_agent == user_agent && &request.ip_address == ip_address
+        UserValidationService::validate_ip_ua(
+            &request.user_agent,
+            &request.ip_address,
+            user_result.otp.user_agent.as_ref(),
+            user_result.otp.ip_address.as_ref(),
+        )
     }
 
     async fn verify_otp(

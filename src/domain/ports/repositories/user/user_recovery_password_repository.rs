@@ -1,4 +1,4 @@
-use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
+use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
 use crate::domain::entities::user::user_recovery_password::UserRecoveryPasswd;
 use crate::domain::error::DomainError;
 use crate::domain::ports::repositories::user::user_shared_parameters::{
@@ -21,8 +21,8 @@ pub trait UserRecoveryPasswdDomainRepository {
 
     async fn update_user_restore_attempts(
         &self,
-        user: FindUserByIdDTO,
-        count: i32,
+        user: &FindUserByIdDTO,
+        count: i64,
     ) -> Result<(), DomainError>;
 
     async fn block_user_restore_until(
@@ -31,11 +31,16 @@ pub trait UserRecoveryPasswdDomainRepository {
         expiry: Option<DateTime<Utc>>,
     ) -> Result<(), DomainError>;
 
+    async fn get_recovery_token(
+        &self,
+        token: EmailToken,
+    ) -> Result<UserRecoveryPasswd, DomainError>;
+
     async fn prepare_user_restore_passwd(
         &self,
         user: FindUserByIdDTO,
         expiry: DateTime<Utc>,
-        email_token_hash: String,
+        token: EmailToken,
         user_agent: UserAgent,
         ip_address: IPAddress,
     ) -> Result<(), DomainError>;

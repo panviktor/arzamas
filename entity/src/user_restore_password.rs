@@ -9,11 +9,11 @@ pub struct Model {
     pub id: i64,
     #[sea_orm(unique)]
     pub user_id: String,
-    pub otp_hash: Option<String>,
+    pub recovery_token: Option<String>,
     pub expiry: Option<DateTime>,
     pub user_agent: Option<String>,
     pub ip_address: Option<String>,
-    pub attempt_count: i32,
+    pub attempt_count: i64,
     pub restore_blocked_until: Option<DateTime>,
 }
 
