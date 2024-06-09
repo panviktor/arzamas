@@ -1,6 +1,6 @@
 use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::entities::user::user_registration::{
-    UserRegistrationError, UserRegistrationOutcome,
+    UserRegistrationError, UserRegistrationResponse,
 };
 use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::{DomainError, ValidationError};
@@ -39,7 +39,7 @@ where
     pub async fn create_user(
         &self,
         user: CreateUserDTO,
-    ) -> Result<UserRegistrationOutcome, DomainError> {
+    ) -> Result<UserRegistrationResponse, DomainError> {
         if self.user_repository.exists_with_email(&user.email).await? {
             return Err(UserRegistrationError::InvalidEmail(
                 ValidationServiceError::InvalidFormat("Email already exists".to_string()),
@@ -72,7 +72,7 @@ where
             .store_email_confirmation_token(user_id, confirmation_token_hash, expiry)
             .await?;
 
-        Ok(UserRegistrationOutcome {
+        Ok(UserRegistrationResponse {
             user,
             email_validation_token: confirmation_token,
         })

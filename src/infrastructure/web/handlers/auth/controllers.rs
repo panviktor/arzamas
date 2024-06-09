@@ -284,6 +284,7 @@ pub async fn login_2fa(
 )]
 pub async fn forgot_password(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     // params: web::Json<ForgotPasswordParams>,
 ) -> Result<HttpResponse, AppResponseError> {
     // try_send_restore_email(&req, params.0).await?;
@@ -341,6 +342,7 @@ pub async fn forgot_password(
 )]
 pub async fn password_reset(
     req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
     // params: web::Json<ResetPasswordParams>,
 ) -> Result<HttpResponse, AppResponseError> {
     // try_reset_password(&req, params.0).await?;

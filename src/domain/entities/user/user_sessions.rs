@@ -10,6 +10,7 @@ pub struct UserSession {
     pub user_agent: UserAgent,
     pub ip_address: IPAddress,
     pub expiry: DateTime<Utc>,
+    pub valid: bool,
 }
 
 impl UserSession {
@@ -30,6 +31,7 @@ impl UserSession {
             ip_address: ip_address.clone(),
             user_agent: user_agent.clone(),
             expiry,
+            valid: true,
         }
     }
 }

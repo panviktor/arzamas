@@ -42,6 +42,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserSession::IpAddress).string().not_null())
                     .col(ColumnDef::new(UserSession::UserAgent).string().not_null())
                     .col(ColumnDef::new(UserSession::Expiry).timestamp().not_null())
+                    .col(
+                        ColumnDef::new(UserSession::Valid)
+                            .boolean()
+                            .not_null()
+                            .default(true),
+                    )
                     .to_owned(),
             )
             .await
@@ -64,4 +70,5 @@ enum UserSession {
     IpAddress,
     UserAgent,
     Expiry,
+    Valid,
 }

@@ -1,6 +1,11 @@
-pub trait UserSecuritySettingsDomainRepository {}
+use crate::domain::error::DomainError;
+use crate::domain::ports::repositories::user::user_shared_parameters::FindUserByIdDTO;
+use async_trait::async_trait;
 
-//about-me ??
+#[async_trait]
+pub trait UserSecuritySettingsDomainRepository {
+    async fn logout_all_sessions(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
+}
 
 //verify-email
 //logout

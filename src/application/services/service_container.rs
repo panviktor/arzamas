@@ -66,9 +66,9 @@ impl ServiceContainer {
         ));
 
         let user_authentication_repository =
-            SeaOrmUserAuthenticationRepository::new(db_arc.clone());
+            Arc::new(SeaOrmUserAuthenticationRepository::new(db_arc.clone()));
         let user_authentication_domain_service =
-            UserAuthenticationDomainService::new(user_authentication_repository);
+            UserAuthenticationDomainService::new(user_authentication_repository.clone());
 
         let user_authentication_service = Arc::new(UserAuthenticationApplicationService::new(
             user_authentication_domain_service,

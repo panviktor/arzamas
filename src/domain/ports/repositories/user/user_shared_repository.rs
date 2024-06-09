@@ -39,4 +39,6 @@ pub trait UserSharedDomainRepository {
 
     async fn invalidate_email_verification(&self, user: FindUserByIdDTO)
         -> Result<(), DomainError>;
+
+    async fn logout_from_sessions(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
 }

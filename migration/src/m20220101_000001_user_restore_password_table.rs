@@ -39,6 +39,27 @@ impl MigrationTrait for Migration {
                             .timestamp()
                             .null(),
                     )
+                    .col(
+                        ColumnDef::new(UserRestorePassword::UserAgent)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserRestorePassword::IpAddress)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserRestorePassword::AttemptCount)
+                            .integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(UserRestorePassword::RestoreBlockedUntil)
+                            .timestamp()
+                            .null(),
+                    )
                     .to_owned(),
             )
             .await
@@ -59,5 +80,9 @@ pub enum UserRestorePassword {
     Table,
     UserId,
     OTPHash,
+    UserAgent,
+    IpAddress,
     Expiry,
+    AttemptCount,
+    RestoreBlockedUntil,
 }

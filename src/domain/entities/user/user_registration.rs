@@ -16,7 +16,7 @@ pub struct UserRegistration {
     pub created_at: DateTime<Utc>,
 }
 
-pub struct UserRegistrationOutcome {
+pub struct UserRegistrationResponse {
     pub user: UserRegistration,
     pub email_validation_token: EmailToken,
 }

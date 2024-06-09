@@ -16,20 +16,21 @@ use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
 use crate::domain::services::user::{UserCredentialService, UserValidationService};
 use chrono::{Duration, Utc};
+use std::sync::Arc;
 use uuid::Uuid;
 
 pub struct UserAuthenticationDomainService<R>
 where
     R: UserAuthenticationDomainRepository,
 {
-    user_authentication_repository: R,
+    user_authentication_repository: Arc<R>,
 }
 
 impl<R> UserAuthenticationDomainService<R>
 where
     R: UserAuthenticationDomainRepository,
 {
-    pub fn new(user_authentication_repository: R) -> Self {
+    pub fn new(user_authentication_repository: Arc<R>) -> Self {
         Self {
             user_authentication_repository,
         }
