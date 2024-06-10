@@ -37,18 +37,11 @@ impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
         todo!()
     }
 
-    async fn update_user_restore_attempts(
+    async fn update_user_restore_attempts_and_block(
         &self,
         user: &FindUserByIdDTO,
         count: i64,
-    ) -> Result<(), DomainError> {
-        todo!()
-    }
-
-    async fn block_user_restore_until(
-        &self,
-        user: &FindUserByIdDTO,
-        expiry: Option<DateTime<Utc>>,
+        block_until: Option<DateTime<Utc>>,
     ) -> Result<(), DomainError> {
         todo!()
     }

@@ -5,6 +5,12 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait UserSecuritySettingsDomainRepository {
     async fn invalidate_sessions(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
+
+    async fn set_new_password(
+        &self,
+        user: &FindUserByIdDTO,
+        pass_hash: String,
+    ) -> Result<(), DomainError>;
 }
 
 //verify-email

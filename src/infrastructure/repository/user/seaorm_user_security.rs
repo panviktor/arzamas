@@ -31,4 +31,12 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
             })?;
         Ok(())
     }
+
+    async fn set_new_password(
+        &self,
+        user: &FindUserByIdDTO,
+        pass_hash: String,
+    ) -> Result<(), DomainError> {
+        todo!()
+    }
 }

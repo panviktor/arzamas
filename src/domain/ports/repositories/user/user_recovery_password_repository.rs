@@ -19,16 +19,11 @@ pub trait UserRecoveryPasswdDomainRepository {
         query: FindUserByUsernameDTO,
     ) -> Result<UserRecoveryPasswd, DomainError>;
 
-    async fn update_user_restore_attempts(
+    async fn update_user_restore_attempts_and_block(
         &self,
         user: &FindUserByIdDTO,
         count: i64,
-    ) -> Result<(), DomainError>;
-
-    async fn block_user_restore_until(
-        &self,
-        user: &FindUserByIdDTO,
-        expiry: Option<DateTime<Utc>>,
+        block_until: Option<DateTime<Utc>>,
     ) -> Result<(), DomainError>;
 
     async fn get_recovery_token(

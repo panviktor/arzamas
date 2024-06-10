@@ -14,7 +14,7 @@ use crate::domain::ports::repositories::user::user_shared_parameters::{
 };
 use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
-use crate::domain::services::user::UserValidationService;
+use crate::domain::services::user::{UserCredentialService, UserValidationService};
 use chrono::{Duration, Utc};
 use std::sync::Arc;
 
@@ -85,15 +85,13 @@ where
                 None
             };
 
-            let block_future = self
-                .user_recovery_passwd_repository
-                .block_user_restore_until(&user_id, block_duration);
-
-            let attempts_future = self
-                .user_recovery_passwd_repository
-                .update_user_restore_attempts(&user_id, total_attempt_count);
-
-            tokio::try_join!(block_future, attempts_future)?;
+            self.user_recovery_passwd_repository
+                .update_user_restore_attempts_and_block(
+                    &user_id,
+                    total_attempt_count,
+                    block_duration,
+                )
+                .await?;
 
             return Ok(UserRecoveryPasswdOutcome::InvalidToken {
                 user_id: recovery_request.user_id,
@@ -105,9 +103,25 @@ where
             });
         }
 
-        // user_security_settings_repository . set new passwd ! (not imp yet)
+        let reset_future = self
+            .user_recovery_passwd_repository
+            .update_user_restore_attempts_and_block(&user_id, 0, None);
 
-        todo!()
+        let pass_hash = UserCredentialService::generate_password_hash(&request.new_password)?;
+        let setup_future = self
+            .user_security_settings_repository
+            .set_new_password(&user_id, pass_hash);
+
+        tokio::try_join!(reset_future, setup_future)?;
+
+        Ok(UserRecoveryPasswdOutcome::ValidToken {
+            user_id: recovery_request.user_id,
+            email: recovery_request.email,
+            message: "Password has been successfully reset.".to_string(),
+            close_sessions_on_change_password: recovery_request
+                .security_setting
+                .close_sessions_on_change_password,
+        })
     }
 }
 
