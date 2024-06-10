@@ -11,17 +11,17 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(UserRestorePassword::Table)
+                    .table(UserRecoveryPassword::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(UserRestorePassword::Id)
+                        ColumnDef::new(UserRecoveryPassword::Id)
                             .big_integer()
                             .auto_increment()
                             .not_null()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(UserRestorePassword::UserId)
+                        ColumnDef::new(UserRecoveryPassword::UserId)
                             .string()
                             .not_null()
                             .unique_key(),
@@ -29,38 +29,38 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_restore_password_user_id")
-                            .from(UserRestorePassword::Table, UserRestorePassword::UserId)
+                            .from(UserRecoveryPassword::Table, UserRecoveryPassword::UserId)
                             .to(User::Table, User::UserId)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(
-                        ColumnDef::new(UserRestorePassword::RecoveryToken)
+                        ColumnDef::new(UserRecoveryPassword::RecoveryToken)
                             .string()
                             .null(),
                     )
                     .col(
-                        ColumnDef::new(UserRestorePassword::Expiry)
+                        ColumnDef::new(UserRecoveryPassword::Expiry)
                             .timestamp()
                             .null(),
                     )
                     .col(
-                        ColumnDef::new(UserRestorePassword::UserAgent)
+                        ColumnDef::new(UserRecoveryPassword::UserAgent)
                             .string()
                             .null(),
                     )
                     .col(
-                        ColumnDef::new(UserRestorePassword::IpAddress)
+                        ColumnDef::new(UserRecoveryPassword::IpAddress)
                             .string()
                             .null(),
                     )
                     .col(
-                        ColumnDef::new(UserRestorePassword::AttemptCount)
+                        ColumnDef::new(UserRecoveryPassword::AttemptCount)
                             .big_unsigned()
                             .not_null()
                             .default(0),
                     )
                     .col(
-                        ColumnDef::new(UserRestorePassword::RestoreBlockedUntil)
+                        ColumnDef::new(UserRecoveryPassword::RestoreBlockedUntil)
                             .timestamp()
                             .null(),
                     )
@@ -72,14 +72,14 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Replace the sample below with your own migration scripts
         manager
-            .drop_table(Table::drop().table(UserRestorePassword::Table).to_owned())
+            .drop_table(Table::drop().table(UserRecoveryPassword::Table).to_owned())
             .await
     }
 }
 
 /// Learn more at https://docs.rs/sea-query#iden
 #[derive(Iden)]
-pub enum UserRestorePassword {
+pub enum UserRecoveryPassword {
     Id,
     Table,
     UserId,

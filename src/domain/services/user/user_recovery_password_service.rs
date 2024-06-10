@@ -1,4 +1,3 @@
-use crate::domain::entities::email::EmailMessage;
 use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_recovery_password::UserRecoveryPasswd;

@@ -5,6 +5,6 @@ pub mod prelude;
 pub mod user;
 pub mod user_confirmation;
 pub mod user_otp_token;
-pub mod user_restore_password;
+pub mod user_recovery_password;
 pub mod user_security_settings;
 pub mod user_session;

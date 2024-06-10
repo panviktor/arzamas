@@ -14,3 +14,29 @@ pub struct UserRecoveryPasswd {
     pub attempt_count: i64,
     pub restore_blocked_until: Option<DateTime<Utc>>,
 }
+
+impl UserRecoveryPasswd {
+    pub fn new(
+        user_id: String,
+        email: Email,
+        username: Username,
+        user_agent: Option<UserAgent>,
+        ip_address: Option<IPAddress>,
+        security_setting: UserSecuritySettings,
+        pass_hash: Option<String>,
+        attempt_count: i64,
+        restore_blocked_until: Option<DateTime<Utc>>,
+    ) -> Self {
+        Self {
+            user_id,
+            email,
+            username,
+            user_agent,
+            ip_address,
+            security_setting,
+            pass_hash,
+            attempt_count,
+            restore_blocked_until,
+        }
+    }
+}

@@ -1,4 +1,3 @@
-use crate::application::dto::user::user_authentication_response_dto::LoginResponse;
 use crate::application::dto::user::user_recovery_request_dto::{
     UserCompleteRecoveryRequest, UserRecoveryRequest,
 };
