@@ -1,6 +1,7 @@
 use crate::domain::error::DomainError;
 use crate::domain::ports::repositories::user::user_shared_parameters::FindUserByIdDTO;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
 #[async_trait]
 pub trait UserSecuritySettingsDomainRepository {
@@ -10,6 +11,7 @@ pub trait UserSecuritySettingsDomainRepository {
         &self,
         user: &FindUserByIdDTO,
         pass_hash: String,
+        update_time: DateTime<Utc>,
     ) -> Result<(), DomainError>;
 }
 

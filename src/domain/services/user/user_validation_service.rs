@@ -125,3 +125,55 @@ impl fmt::Display for ValidationServiceError {
         }
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_ip_ua_both_match() {
+        let request_user_agent = UserAgent::new("Mozilla/5.0");
+        let request_ip_address = IPAddress::new("192.168.1.1");
+
+        let stored_user_agent = UserAgent::new("Mozilla/5.0");
+        let stored_ip_address = IPAddress::new("192.168.1.1");
+
+        assert!(UserValidationService::validate_ip_ua(
+            &request_user_agent,
+            &request_ip_address,
+            Some(&stored_user_agent),
+            Some(&stored_ip_address)
+        ));
+    }
+
+    #[test]
+    fn test_validate_ip_ua_user_agent_does_not_match() {
+        let request_user_agent = UserAgent::new("Mozilla/5.0");
+        let request_ip_address = IPAddress::new("192.168.1.1");
+
+        let stored_user_agent = UserAgent::new("DifferentUserAgent");
+        let stored_ip_address = IPAddress::new("192.168.1.1");
+
+        assert!(!UserValidationService::validate_ip_ua(
+            &request_user_agent,
+            &request_ip_address,
+            Some(&stored_user_agent),
+            Some(&stored_ip_address)
+        ));
+    }
+
+    #[test]
+    fn test_validate_ip_ua_ip_address_does_not_match() {
+        let request_user_agent = UserAgent::new("Mozilla/5.0");
+        let request_ip_address = IPAddress::new("192.168.1.1");
+
+        let stored_user_agent = UserAgent::new("Mozilla/5.0");
+        let stored_ip_address = IPAddress::new("10.0.0.1");
+
+        assert!(!UserValidationService::validate_ip_ua(
+            &request_user_agent,
+            &request_ip_address,
+            Some(&stored_user_agent),
+            Some(&stored_ip_address)
+        ));
+    }
+}

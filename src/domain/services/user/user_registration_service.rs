@@ -59,7 +59,7 @@ where
         }
 
         let user = UserRegistration::create(user.email, user.username, user.password)?;
-        let token = SharedDomainService::generate_token(16)?;
+        let token = SharedDomainService::generate_token(64)?;
         let confirmation_token = EmailToken::new(&token);
         let confirmation_token_hash = SharedDomainService::hash_token(&token);
 

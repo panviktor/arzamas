@@ -43,7 +43,7 @@ impl SharedDomainService {
         let utc_time = Utc::now();
         // Concatenate the UUID with the date and time in ISO-8601 format
         let id_str = format!("{}-{}", uuid, utc_time.to_rfc3339());
-        // Compute a SHA-256 hash of the concatenated string
+        // Compute a Sha512 hash of the concatenated string
         let mut hasher = Sha512::new();
         hasher.update(id_str.as_bytes());
         encode(hasher.finalize())
@@ -68,5 +68,67 @@ impl From<SharedDomainError> for DomainError {
                 DomainError::ExternalServiceError(ExternalServiceError::Custom(msg))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_token_too_short() {
+        let result = SharedDomainService::generate_token(5);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_generate_token_valid_length() {
+        let length = 10;
+        let result = SharedDomainService::generate_token(length);
+        assert!(result.is_ok());
+
+        let token = result.unwrap();
+        assert_eq!(token.len(), length);
+        // Ensure the token contains only alphanumeric characters
+        assert!(token.chars().all(char::is_alphanumeric));
+    }
+
+    #[test]
+    fn test_generate_token_longer_valid_length() {
+        let length = 30;
+        let result = SharedDomainService::generate_token(length);
+        assert!(result.is_ok());
+
+        let token = result.unwrap();
+        assert_eq!(token.len(), length);
+        // Ensure the token contains only alphanumeric characters
+        assert!(token.chars().all(char::is_alphanumeric));
+    }
+
+    #[test]
+    fn test_hash_token() {
+        let token = "test_token";
+        let expected_hash = "cc0af97287543b65da2c7e1476426021826cab166f1e063ed012b855ff819656";
+
+        let hash = SharedDomainService::hash_token(token);
+        assert_eq!(hash, expected_hash);
+
+        // Hashing the same token should always produce the same result
+        let hash_again = SharedDomainService::hash_token(token);
+        assert_eq!(hash, hash_again);
+    }
+
+    #[test]
+    fn test_validate_hash() {
+        let token = "test_token";
+        let hash = SharedDomainService::hash_token(token);
+
+        // The token should validate against its own hash
+        let is_valid = SharedDomainService::validate_hash(token, &hash);
+        assert!(is_valid);
+
+        // A different token should not validate against the hash
+        let is_invalid = SharedDomainService::validate_hash("different_token", &hash);
+        assert!(!is_invalid);
     }
 }

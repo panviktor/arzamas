@@ -58,8 +58,10 @@ where
 
         let recovery_request = self
             .user_recovery_passwd_repository
-            .get_recovery_token(request.token)
+            .get_recovery_token(&request.token)
             .await?;
+
+        self.check_token_expiry(&recovery_request).await?;
 
         UserValidationService::validate_blocked_time(
             recovery_request.restore_blocked_until,
@@ -68,81 +70,11 @@ where
 
         let user_id = FindUserByIdDTO::new(&recovery_request.user_id);
 
-        if !UserValidationService::validate_ip_ua(
-            &request.user_agent,
-            &request.ip_address,
-            recovery_request.user_agent.as_ref(),
-            recovery_request.ip_address.as_ref(),
-        ) {
-            let total_attempt_count = recovery_request.attempt_count + 1;
+        self.validate_ip_ua(&request, &recovery_request, &user_id)
+            .await?;
 
-            let block_duration = if total_attempt_count > 10 {
-                Some(Utc::now() + Duration::hours(1))
-            } else if total_attempt_count > 5 {
-                Some(Utc::now() + Duration::minutes(10))
-            } else {
-                None
-            };
-
-            self.user_recovery_passwd_repository
-                .update_user_restore_attempts_and_block(
-                    &user_id,
-                    total_attempt_count,
-                    block_duration,
-                )
-                .await?;
-
-            return Ok(UserRecoveryPasswdOutcome::InvalidToken {
-                email: recovery_request.email,
-                message: "Recovery failed because the IP address or user agent does not match the original request.".to_string(),
-                email_notifications_enabled: recovery_request
-                    .security_setting
-                    .email_on_failure_enabled_at,
-            });
-        }
-
-        let reset_future = self
-            .user_recovery_passwd_repository
-            .update_user_restore_attempts_and_block(&user_id, 0, None);
-
-        let pass_hash = UserCredentialService::generate_password_hash(&request.new_password)?;
-        let setup_future = self
-            .user_security_settings_repository
-            .set_new_password(&user_id, pass_hash);
-
-        let session_invalidation_future = async {
-            if recovery_request
-                .security_setting
-                .close_sessions_on_change_password
-            {
-                self.user_security_settings_repository
-                    .invalidate_sessions(&user_id)
-                    .await
-            } else {
-                Ok(())
-            }
-        };
-
-        tokio::try_join!(reset_future, setup_future, session_invalidation_future)?;
-
-        let message = if recovery_request
-            .security_setting
-            .close_sessions_on_change_password
-        {
-            "Your password has been successfully reset and all active sessions have been closed for security purposes."
-        } else {
-            "Your password has been successfully reset.\
-             Please remember to manually close any active sessions to ensure your account's security."
-        };
-
-        Ok(UserRecoveryPasswdOutcome::ValidToken {
-            user_id: recovery_request.user_id,
-            email: recovery_request.email,
-            message: message.to_string(),
-            close_sessions_on_change_password: recovery_request
-                .security_setting
-                .close_sessions_on_change_password,
-        })
+        self.reset_password_and_invalidate_sessions(&request, recovery_request, user_id)
+            .await
     }
 }
 
@@ -215,16 +147,126 @@ where
         })
     }
 
-    fn is_request_from_trusted_source(
+    async fn check_token_expiry(
+        &self,
+        recovery_request: &UserRecoveryPasswd,
+    ) -> Result<(), DomainError> {
+        if let Some(expiry) = recovery_request.expiry {
+            if expiry < Utc::now() {
+                let total_attempt_count = recovery_request.attempt_count + 1;
+
+                let block_duration = if total_attempt_count > 10 {
+                    Some(Utc::now() + Duration::hours(1))
+                } else if total_attempt_count > 5 {
+                    Some(Utc::now() + Duration::minutes(10))
+                } else {
+                    None
+                };
+
+                self.user_recovery_passwd_repository
+                    .update_user_restore_attempts_and_block(
+                        &FindUserByIdDTO::new(&recovery_request.user_id),
+                        total_attempt_count,
+                        block_duration,
+                    )
+                    .await?;
+
+                return Err(DomainError::ValidationError(
+                    ValidationError::BusinessRuleViolation(
+                        "The recovery token has expired. Please request a new one.".to_string(),
+                    ),
+                ));
+            }
+        }
+        Ok(())
+    }
+    async fn validate_ip_ua(
         &self,
         request: &UserCompleteRecoveryRequestDTO,
-        user_result: &UserRecoveryPasswd,
-    ) -> bool {
-        UserValidationService::validate_ip_ua(
+        recovery_request: &UserRecoveryPasswd,
+        user_id: &FindUserByIdDTO,
+    ) -> Result<(), DomainError> {
+        if !UserValidationService::validate_ip_ua(
             &request.user_agent,
             &request.ip_address,
-            user_result.user_agent.as_ref(),
-            user_result.ip_address.as_ref(),
-        )
+            recovery_request.user_agent.as_ref(),
+            recovery_request.ip_address.as_ref(),
+        ) {
+            let total_attempt_count = recovery_request.attempt_count + 1;
+
+            let block_duration = if total_attempt_count > 10 {
+                Some(Utc::now() + Duration::hours(1))
+            } else if total_attempt_count > 5 {
+                Some(Utc::now() + Duration::minutes(10))
+            } else {
+                None
+            };
+
+            self.user_recovery_passwd_repository
+                .update_user_restore_attempts_and_block(
+                    &user_id,
+                    total_attempt_count,
+                    block_duration,
+                )
+                .await?;
+
+            return Err(DomainError::ValidationError(
+                ValidationError::BusinessRuleViolation(
+                    "Recovery failed because the IP address or user agent does not match the original request.".to_string(),
+                ),
+            ));
+        }
+        Ok(())
+    }
+    async fn reset_password_and_invalidate_sessions(
+        &self,
+        request: &UserCompleteRecoveryRequestDTO,
+        recovery_request: UserRecoveryPasswd,
+        user_id: FindUserByIdDTO,
+    ) -> Result<UserRecoveryPasswdOutcome, DomainError> {
+        let reset_future = self
+            .user_recovery_passwd_repository
+            .update_user_restore_attempts_and_block(&user_id, 0, None);
+
+        let pass_hash = UserCredentialService::generate_password_hash(&request.new_password)?;
+        let setup_future = self.user_security_settings_repository.set_new_password(
+            &user_id,
+            pass_hash,
+            Utc::now(),
+        );
+
+        let session_invalidation_future = async {
+            if recovery_request
+                .security_setting
+                .close_sessions_on_change_password
+            {
+                self.user_security_settings_repository
+                    .invalidate_sessions(&user_id)
+                    .await
+            } else {
+                Ok(())
+            }
+        };
+
+        tokio::try_join!(reset_future, setup_future, session_invalidation_future)?;
+
+        let message = if recovery_request
+            .security_setting
+            .close_sessions_on_change_password
+        {
+            "Your password has been successfully reset and all active sessions have been closed for security purposes."
+        } else {
+            "Your password has been successfully reset.\
+         Please remember to manually close any active sessions to ensure your account's security."
+        };
+
+        Ok(UserRecoveryPasswdOutcome::ValidToken {
+            user_id: recovery_request.user_id,
+            email: recovery_request.email,
+            message: message.to_string(),
+            close_sessions_on_change_password: recovery_request
+                .security_setting
+                .close_sessions_on_change_password,
+        })
     }
 }

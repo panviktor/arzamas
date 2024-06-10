@@ -55,9 +55,9 @@ pub async fn create_note(
     Ok(HttpResponse::Created().json(response))
 }
 
-/// Retrieves all note.
+/// Retrieves all notes.
 ///
-/// This function is an API endpoint for fetching all note available to the logged-in user.
+/// This function is an API endpoint for fetching all notes available to the logged-in user.
 /// It takes an HTTP request, pagination query parameters, and the logged-in user's details as input.
 ///
 /// The API responds with an HTTP response. If the note are retrieved successfully,

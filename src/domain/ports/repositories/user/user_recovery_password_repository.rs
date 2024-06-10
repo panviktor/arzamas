@@ -28,7 +28,7 @@ pub trait UserRecoveryPasswdDomainRepository {
 
     async fn get_recovery_token(
         &self,
-        token: EmailToken,
+        token: &EmailToken,
     ) -> Result<UserRecoveryPasswd, DomainError>;
 
     async fn prepare_user_restore_passwd(

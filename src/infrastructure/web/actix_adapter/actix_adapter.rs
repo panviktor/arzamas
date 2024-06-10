@@ -15,12 +15,14 @@ pub fn get_user_agent(req: &HttpRequest) -> Result<String, AppResponseError> {
 }
 
 pub fn get_ip_addr(req: &HttpRequest) -> Result<String, AppResponseError> {
-    req.peer_addr().map(|ip| ip.to_string()).ok_or_else(|| {
-        AppResponseError::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Some(req.path().to_string()),
-            "Failed to retrieve IP address. IP address is unavailable.".to_string(),
-            false,
-        )
-    })
+    req.peer_addr()
+        .map(|ip| ip.ip().to_string())
+        .ok_or_else(|| {
+            AppResponseError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Some(req.path().to_string()),
+                "Failed to retrieve IP address. IP address is unavailable.".to_string(),
+                false,
+            )
+        })
 }

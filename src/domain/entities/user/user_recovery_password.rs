@@ -11,6 +11,7 @@ pub struct UserRecoveryPasswd {
     pub ip_address: Option<IPAddress>,
     pub security_setting: UserSecuritySettings,
     pub pass_hash: Option<String>,
+    pub expiry: Option<DateTime<Utc>>,
     pub attempt_count: i64,
     pub restore_blocked_until: Option<DateTime<Utc>>,
 }
@@ -24,6 +25,7 @@ impl UserRecoveryPasswd {
         ip_address: Option<IPAddress>,
         security_setting: UserSecuritySettings,
         pass_hash: Option<String>,
+        expiry: Option<DateTime<Utc>>,
         attempt_count: i64,
         restore_blocked_until: Option<DateTime<Utc>>,
     ) -> Self {
@@ -35,6 +37,7 @@ impl UserRecoveryPasswd {
             ip_address,
             security_setting,
             pass_hash,
+            expiry,
             attempt_count,
             restore_blocked_until,
         }

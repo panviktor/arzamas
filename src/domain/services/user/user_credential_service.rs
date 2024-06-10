@@ -32,7 +32,7 @@ impl UserCredentialService {
     pub fn generate_user_id() -> Result<String, CredentialServiceError> {
         let random_suffix: String = rand::thread_rng()
             .sample_iter(&Alphanumeric)
-            .take(3)
+            .take(5)
             .map(char::from)
             .collect();
 
@@ -88,5 +88,19 @@ impl From<CredentialServiceError> for DomainError {
                 ExternalServiceError::Custom(format!("Verification error: {}", msg)),
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_generate_user_id() {
+        let result = UserCredentialService::generate_user_id();
+        assert!(result.is_ok());
+
+        let user_id = result.unwrap();
+        assert_eq!(user_id.len(), 37);
+        assert!(user_id.chars().all(char::is_alphanumeric));
     }
 }

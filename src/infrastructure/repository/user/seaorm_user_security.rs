@@ -2,9 +2,13 @@ use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
 use crate::domain::ports::repositories::user::user_shared_parameters::FindUserByIdDTO;
 use async_trait::async_trait;
-use entity::user_session;
+use chrono::{DateTime, Utc};
+use entity::{user, user_session};
 use sea_orm::sea_query::Expr;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::ActiveValue::Set;
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
+};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -36,7 +40,27 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         &self,
         user: &FindUserByIdDTO,
         pass_hash: String,
+        update_time: DateTime<Utc>,
     ) -> Result<(), DomainError> {
-        todo!()
+        let user_model = entity::user::Entity::find()
+            .filter(user::Column::UserId.eq(&user.user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "User not found".to_string(),
+                ))
+            })?;
+
+        let mut active = user_model.into_active_model();
+        active.pass_hash = Set(pass_hash);
+        active.updated_at = Set(update_time.naive_utc());
+        active
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
     }
 }
