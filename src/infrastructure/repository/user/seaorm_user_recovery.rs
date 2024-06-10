@@ -89,6 +89,35 @@ impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
         Ok(())
     }
 
+    async fn reset_restore_attempts_and_block(
+        &self,
+        user: &FindUserByIdDTO,
+    ) -> Result<(), DomainError> {
+        let recovery = entity::user_recovery_password::Entity::find()
+            .filter(user_recovery_password::Column::UserId.eq(user.user_id.clone()))
+            .one(&*self.db)
+            .await?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "User not found for recovery.".to_string(),
+                ))
+            })?;
+        let mut active = recovery.into_active_model();
+        active.restore_blocked_until = Set(None);
+        active.attempt_count = Set(0);
+        active.expiry = Set(None);
+        active.user_agent = Set(None);
+        active.ip_address = Set(None);
+        active.recovery_token = Set(None);
+
+        active
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
+    }
+
     async fn get_recovery_token(
         &self,
         token: &EmailToken,

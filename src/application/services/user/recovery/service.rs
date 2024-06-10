@@ -129,7 +129,7 @@ where
 
                 Ok(UniversalApplicationResponse {
                     title: "Password Reset Successful".to_string(),
-                    subtitle: Some("Your password has been successfully reset.".to_string()),
+                    subtitle: Some(message.to_string()),
                 })
             }
             UserRecoveryPasswdOutcome::InvalidToken {

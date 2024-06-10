@@ -226,7 +226,7 @@ where
     ) -> Result<UserRecoveryPasswdOutcome, DomainError> {
         let reset_future = self
             .user_recovery_passwd_repository
-            .update_user_restore_attempts_and_block(&user_id, 0, None);
+            .reset_restore_attempts_and_block(&user_id);
 
         let pass_hash = UserCredentialService::generate_password_hash(&request.new_password)?;
         let setup_future = self.user_security_settings_repository.set_new_password(

@@ -26,6 +26,11 @@ pub trait UserRecoveryPasswdDomainRepository {
         block_until: Option<DateTime<Utc>>,
     ) -> Result<(), DomainError>;
 
+    async fn reset_restore_attempts_and_block(
+        &self,
+        user: &FindUserByIdDTO,
+    ) -> Result<(), DomainError>;
+
     async fn get_recovery_token(
         &self,
         token: &EmailToken,
