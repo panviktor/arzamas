@@ -94,7 +94,6 @@ where
                 .await?;
 
             return Ok(UserRecoveryPasswdOutcome::InvalidToken {
-                user_id: recovery_request.user_id,
                 email: recovery_request.email,
                 message: "Recovery failed because the IP address or user agent does not match the original request.".to_string(),
                 email_notifications_enabled: recovery_request
@@ -112,12 +111,35 @@ where
             .user_security_settings_repository
             .set_new_password(&user_id, pass_hash);
 
-        tokio::try_join!(reset_future, setup_future)?;
+        let session_invalidation_future = async {
+            if recovery_request
+                .security_setting
+                .close_sessions_on_change_password
+            {
+                self.user_security_settings_repository
+                    .invalidate_sessions(&user_id)
+                    .await
+            } else {
+                Ok(())
+            }
+        };
+
+        tokio::try_join!(reset_future, setup_future, session_invalidation_future)?;
+
+        let message = if recovery_request
+            .security_setting
+            .close_sessions_on_change_password
+        {
+            "Your password has been successfully reset and all active sessions have been closed for security purposes."
+        } else {
+            "Your password has been successfully reset.\
+             Please remember to manually close any active sessions to ensure your account's security."
+        };
 
         Ok(UserRecoveryPasswdOutcome::ValidToken {
             user_id: recovery_request.user_id,
             email: recovery_request.email,
-            message: "Password has been successfully reset.".to_string(),
+            message: message.to_string(),
             close_sessions_on_change_password: recovery_request
                 .security_setting
                 .close_sessions_on_change_password,

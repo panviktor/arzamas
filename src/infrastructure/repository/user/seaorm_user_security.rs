@@ -20,7 +20,7 @@ impl SeaOrmUserSecurityRepository {
 
 #[async_trait]
 impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
-    async fn invalidate_sessions(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+    async fn invalidate_sessions(&self, user: &FindUserByIdDTO) -> Result<(), DomainError> {
         user_session::Entity::update_many()
             .col_expr(user_session::Column::Valid, Expr::value(false))
             .filter(user_session::Column::UserId.eq(user.user_id.to_string()))

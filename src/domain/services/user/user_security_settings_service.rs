@@ -22,7 +22,7 @@ where
 
     pub async fn invalidate_sessions(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
         self.user_security_settings_repository
-            .invalidate_sessions(user)
+            .invalidate_sessions(&user)
             .await
     }
 }

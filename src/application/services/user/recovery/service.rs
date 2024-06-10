@@ -112,8 +112,6 @@ where
             .complete_recovery(domain_request)
             .await?;
 
-        //    //"Your password has been successfully reset.".to_string(),
-
         match outcome {
             UserRecoveryPasswdOutcome::ValidToken {
                 user_id,
@@ -121,15 +119,32 @@ where
                 message,
                 close_sessions_on_change_password,
             } => {
-                todo!()
+                if close_sessions_on_change_password {
+                    self.caching_service.invalidate_sessions(&user_id).await?;
+                }
+
+                self.email_service
+                    .send_email(email.value(), "Arzamas App", &message)
+                    .await
+                    .map_err(|e| ApplicationError::ExternalServiceError(e.to_string()))?;
+
+                Ok(UniversalApplicationResponse {
+                    title: "Password Reset Successful".to_string(),
+                    subtitle: Some("Your password has been successfully reset.".to_string()),
+                })
             }
             UserRecoveryPasswdOutcome::InvalidToken {
-                user_id,
                 email,
                 message,
                 email_notifications_enabled,
             } => {
-                todo!()
+                if email_notifications_enabled {
+                    self.email_service
+                        .send_email(email.value(), "Arzamas App", &message)
+                        .await
+                        .map_err(|e| ApplicationError::ExternalServiceError(e.to_string()))?;
+                }
+                Err(ApplicationError::ValidationError(message))
             }
         }
     }

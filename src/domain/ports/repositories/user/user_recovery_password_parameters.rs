@@ -57,7 +57,6 @@ pub enum UserRecoveryPasswdOutcome {
         close_sessions_on_change_password: bool,
     },
     InvalidToken {
-        user_id: String,
         email: Email,
         message: String,
         email_notifications_enabled: bool,
