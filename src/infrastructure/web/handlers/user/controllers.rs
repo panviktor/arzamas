@@ -2,6 +2,7 @@ use crate::application::dto::shared::universal_response::UniversalResponse;
 use crate::application::dto::user::user_shared_request_dto::UserByIdRequest;
 use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
+use crate::infrastructure::web::actix_adapter::actix_adapter::extract_session_token_from_request;
 use crate::infrastructure::web::dto::shared::LoginUser;
 use actix_web::{web, HttpRequest, HttpResponse};
 use std::sync::Arc;
@@ -95,15 +96,20 @@ pub async fn about_me(
 pub async fn logout(
     req: HttpRequest,
     data: web::Data<Arc<ServiceContainer>>,
+    user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
-    // try_remove_active_session_token(&req).await?;
-    // let response = UniversalResponse::new(
-    //     "Logout Successful".to_string(),
-    //     Some("You have been logged out from the current session".to_string()),
-    //     true,
-    // );
-    // Ok(HttpResponse::Ok().json(response))
-    todo!()
+    let user = UserByIdRequest::new(&user.id);
+    let current_session = extract_session_token_from_request(&req)?;
+    data.user_security_service
+        .logout_current_session(user, current_session)
+        .await
+        .map_err(|e| e.into_service_error(&req))?;
+    let response = UniversalResponse::new(
+        "You have successfully logged out of the current active session.".to_string(),
+        None,
+        true,
+    );
+    Ok(HttpResponse::Ok().json(response))
 }
 
 /// Logs out the user from all active sessions.
@@ -152,7 +158,7 @@ pub async fn logout_all(
         .await
         .map_err(|e| e.into_service_error(&req))?;
     let response = UniversalResponse::new(
-        "User logged out from all active sessions successfully.".to_string(),
+        "You have successfully logged out of all active sessions.".to_string(),
         None,
         true,
     );

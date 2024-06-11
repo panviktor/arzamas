@@ -49,4 +49,13 @@ where
             .await?;
         Ok(())
     }
+
+    pub async fn logout_current_session(
+        &self,
+        user: UserByIdRequest,
+        session_token: String,
+    ) -> Result<(), ApplicationError> {
+        let user = FindUserByIdDTO::new(&user.user_id);
+        todo!()
+    }
 }
