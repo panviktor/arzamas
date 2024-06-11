@@ -13,6 +13,7 @@ use crate::domain::ports::repositories::user::user_authentication_parameters::{
     ContinueLoginRequestDTO, CreateLoginRequestDTO,
 };
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
+use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::user::user_authentication_service::UserAuthenticationDomainService;
 use chrono::{DateTime, Utc};
 use jsonwebtoken::errors::ErrorKind;
@@ -20,25 +21,27 @@ use jsonwebtoken::{decode, Algorithm, DecodingKey, EncodingKey, Header, Validati
 use secrecy::ExposeSecret;
 use std::sync::Arc;
 
-pub struct UserAuthenticationApplicationService<A, E, C>
+pub struct UserAuthenticationApplicationService<A, S, E, C>
 where
     A: UserAuthenticationDomainRepository,
+    S: UserSharedDomainRepository,
     E: EmailPort,
     C: CachingPort,
 {
-    user_authentication_domain_service: UserAuthenticationDomainService<A>,
+    user_authentication_domain_service: UserAuthenticationDomainService<A, S>,
     caching_service: Arc<C>,
     email_service: Arc<E>,
 }
 
-impl<A, E, C> UserAuthenticationApplicationService<A, E, C>
+impl<A, S, E, C> UserAuthenticationApplicationService<A, S, E, C>
 where
     A: UserAuthenticationDomainRepository,
+    S: UserSharedDomainRepository,
     E: EmailPort,
     C: CachingPort,
 {
     pub fn new(
-        user_authentication_domain_service: UserAuthenticationDomainService<A>,
+        user_authentication_domain_service: UserAuthenticationDomainService<A, S>,
         caching_service: Arc<C>,
         email_service: Arc<E>,
     ) -> Self {
@@ -163,8 +166,8 @@ where
                 message,
                 email_notifications_enabled,
             } => {
+                let subject = "Initiate login to your account in Arzamas App was Failed";
                 if email_notifications_enabled {
-                    let subject = "Initiate login to your account in Arzamas App was Failed";
                     let message = format!("Reason: {}", message);
 
                     self.email_service
@@ -173,13 +176,32 @@ where
                 }
 
                 Err(ApplicationError::ValidationError(format!(
-                    "{}: {:?}",
-                    message, email
+                    "{}: {}",
+                    subject, message
                 )))
             }
 
             AuthenticationOutcome::PendingVerification { user_id, message } => {
                 Ok(LoginResponse::OTPResponse { user_id, message })
+            }
+
+            AuthenticationOutcome::UserEmailConfirmation { email, token } => {
+                let subject = "Login Attempt Failed for Your Arzamas App Account";
+                let message = format!(
+                    "The login attempt failed because email verification is required.\
+                     A new token has been sent: {}",
+                    token.into_inner()
+                );
+
+                self.email_service
+                    .send_email(email.value(), subject, &message)
+                    .await
+                    .map_err(|e| ApplicationError::ExternalServiceError(e.to_string()))?;
+
+                Err(ApplicationError::ValidationError(format!(
+                    "{}: Email verification is required",
+                    subject
+                )))
             }
         }
     }
@@ -254,9 +276,10 @@ where
     }
 }
 
-impl<A, E, C> UserAuthenticationApplicationService<A, E, C>
+impl<A, S, E, C> UserAuthenticationApplicationService<A, S, E, C>
 where
     A: UserAuthenticationDomainRepository,
+    S: UserSharedDomainRepository,
     E: EmailPort,
     C: CachingPort,
 {

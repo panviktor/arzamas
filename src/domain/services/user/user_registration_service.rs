@@ -79,7 +79,7 @@ where
     }
 
     pub async fn delete_user(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
-        // FIXME - add email notification
+        // FIXME - add email confirmation
         self.user_registration_repository.delete_user(user).await
     }
 
@@ -109,7 +109,9 @@ where
                     .await
             } else {
                 Err(DomainError::ValidationError(ValidationError::InvalidData(
-                    "Token has expired.".to_string(),
+                    "Token has expired. \
+                    You need to log in to the app to generate a new confirmation token."
+                        .to_string(),
                 )))
             }
         } else {

@@ -32,6 +32,7 @@ pub struct ServiceContainer {
 
     pub user_authentication_service: UserAuthenticationApplicationService<
         SeaOrmUserAuthenticationRepository,
+        SeaOrmUserSharedRepository,
         LettreEmailAdapter,
         RedisAdapter,
     >,
@@ -82,8 +83,10 @@ impl ServiceContainer {
         // User authentication services
         let user_authentication_repository =
             SeaOrmUserAuthenticationRepository::new(db_arc.clone());
-        let user_authentication_domain_service =
-            UserAuthenticationDomainService::new(user_authentication_repository.clone());
+        let user_authentication_domain_service = UserAuthenticationDomainService::new(
+            user_authentication_repository.clone(),
+            user_shared_repository.clone(),
+        );
         let user_authentication_service = UserAuthenticationApplicationService::new(
             user_authentication_domain_service,
             redis_service.clone(),

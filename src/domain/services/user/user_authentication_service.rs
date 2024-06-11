@@ -12,26 +12,32 @@ use crate::domain::ports::repositories::user::user_authentication_repository::Us
 use crate::domain::ports::repositories::user::user_shared_parameters::{
     FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
 };
+use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
 use crate::domain::services::user::{UserCredentialService, UserValidationService};
 use chrono::{Duration, Utc};
+use std::sync::Arc;
 use uuid::Uuid;
 
-pub struct UserAuthenticationDomainService<R>
+pub struct UserAuthenticationDomainService<A, S>
 where
-    R: UserAuthenticationDomainRepository,
+    A: UserAuthenticationDomainRepository,
+    S: UserSharedDomainRepository,
 {
-    user_authentication_repository: R,
+    user_authentication_repository: A,
+    user_repository: Arc<S>,
 }
 
-impl<R> UserAuthenticationDomainService<R>
+impl<A, S> UserAuthenticationDomainService<A, S>
 where
-    R: UserAuthenticationDomainRepository,
+    A: UserAuthenticationDomainRepository,
+    S: UserSharedDomainRepository,
 {
-    pub fn new(user_authentication_repository: R) -> Self {
+    pub fn new(user_authentication_repository: A, user_repository: Arc<S>) -> Self {
         Self {
             user_authentication_repository,
+            user_repository,
         }
     }
     pub async fn initiate_login(
@@ -41,7 +47,10 @@ where
         let identifier = &request.identifier;
         let user_result = self.identify_user(identifier).await?;
 
-        self.check_email_validated(&user_result)?;
+        if !user_result.email_validated {
+            return self.handle_unvalidated_email(user_result).await;
+        }
+
         UserValidationService::validate_blocked_time(
             user_result.login_blocked_until,
             "Your account is locked until",
@@ -69,9 +78,10 @@ where
     }
 }
 
-impl<R> UserAuthenticationDomainService<R>
+impl<R, U> UserAuthenticationDomainService<R, U>
 where
     R: UserAuthenticationDomainRepository,
+    U: UserSharedDomainRepository,
 {
     fn generate_session_name() -> String {
         use rand::seq::SliceRandom;
@@ -99,17 +109,6 @@ where
                 .get_user_by_username(username_dto)
                 .await
         }
-    }
-
-    fn check_email_validated(&self, user_result: &UserAuthentication) -> Result<(), DomainError> {
-        if !user_result.email_validated {
-            return Err(DomainError::ValidationError(
-                ValidationError::BusinessRuleViolation(
-                    "Your account email not validated yet!".to_string(),
-                ),
-            ));
-        }
-        Ok(())
     }
 
     async fn process_login_attempt(
@@ -171,7 +170,8 @@ where
         ) {
             (true, true) => {
                 // Both two-factor authentication methods are enabled
-                // Handle case where both email and authenticator app verification are required
+                // Handle case
+                // where both email and authenticator app verification is required
                 let duration = Duration::minutes(10);
                 let confirmation_token = self
                     .generate_and_prepare_token(
@@ -516,6 +516,49 @@ where
             email: user.email.clone(),
             message: "Login successful.".to_string(),
             email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
+        })
+    }
+
+    async fn handle_unvalidated_email(
+        &self,
+        user_result: UserAuthentication,
+    ) -> Result<AuthenticationOutcome, DomainError> {
+        let user_id = FindUserByIdDTO::new(&user_result.user_id);
+        let now = Utc::now();
+        let confirmation = self
+            .user_repository
+            .retrieve_email_confirmation_token(&user_id)
+            .await?;
+
+        if now > confirmation.expiry {
+            self.generate_new_confirmation_token(user_id, user_result.email)
+                .await
+        } else {
+            Err(DomainError::ValidationError(
+                ValidationError::BusinessRuleViolation(
+                    "Your account email is not validated yet!".to_string(),
+                ),
+            ))
+        }
+    }
+
+    async fn generate_new_confirmation_token(
+        &self,
+        user_id: FindUserByIdDTO,
+        email: Email,
+    ) -> Result<AuthenticationOutcome, DomainError> {
+        let token = SharedDomainService::generate_token(64)?;
+        let confirmation_token = EmailToken::new(&token);
+        let confirmation_token_hash = SharedDomainService::hash_token(&token);
+        let expiry = Utc::now() + Duration::days(1);
+
+        self.user_repository
+            .store_email_confirmation_token(user_id.clone(), confirmation_token_hash, expiry)
+            .await?;
+
+        Ok(AuthenticationOutcome::UserEmailConfirmation {
+            email,
+            token: confirmation_token,
         })
     }
 }
