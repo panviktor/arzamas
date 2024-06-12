@@ -1,5 +1,7 @@
 use crate::application::dto::user::user_shared_request_dto::UserByIdRequest;
+use crate::application::dto::user::user_shared_response_dto::UniversalApplicationResponse;
 use crate::application::error::error::ApplicationError;
+use crate::application::services::user::shared::shared_service::SharedService;
 use crate::domain::ports::caching::caching::CachingPort;
 use crate::domain::ports::email::email::EmailPort;
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
@@ -53,9 +55,20 @@ where
     pub async fn logout_current_session(
         &self,
         user: UserByIdRequest,
-        session_token: String,
-    ) -> Result<(), ApplicationError> {
+        session_token: &str,
+    ) -> Result<UniversalApplicationResponse, ApplicationError> {
         let user = FindUserByIdDTO::new(&user.user_id);
-        todo!()
+        let decoded_token = SharedService::decode_token(session_token)?;
+        self.caching_service
+            .invalidate_session(&user.user_id, &decoded_token.session_id)
+            .await?;
+        self.user_security_domain_service
+            .invalidate_session(user, &decoded_token.session_id)
+            .await?;
+
+        Ok(UniversalApplicationResponse::new(
+            "You have successfully logged out of the current active session.".to_string(),
+            None,
+        ))
     }
 }

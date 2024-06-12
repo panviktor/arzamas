@@ -3,6 +3,7 @@ use crate::application::dto::user::user_authentication_request_dto::{
 };
 use crate::application::dto::user::user_authentication_response_dto::LoginResponse;
 use crate::application::error::error::ApplicationError;
+use crate::application::services::user::shared::shared_service::SharedService;
 use crate::core::config::APP_SETTINGS;
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::user::user_sessions::UserSession;
@@ -84,7 +85,7 @@ where
                 let exp = payload.exp;
                 let user_id = payload.user_id.clone();
                 let session_id = payload.session_id.clone();
-                let token = generate_token(payload).await?;
+                let token = SharedService::generate_token(payload).await?;
 
                 self.caching_service
                     .store_user_token(&user_id, &session_id, &token, exp)
@@ -229,7 +230,7 @@ where
                 let exp = payload.exp;
                 let user_id = payload.user_id.clone();
                 let session_id = payload.session_id.clone();
-                let token = generate_token(payload).await?;
+                let token = SharedService::generate_token(payload).await?;
 
                 self.caching_service
                     .store_user_token(&user_id, &session_id, &token, exp)
@@ -284,7 +285,7 @@ where
     C: CachingPort,
 {
     pub async fn validate_session_for_user(&self, token: &str) -> Result<String, ApplicationError> {
-        let decoded_token = decode_token(token)?;
+        let decoded_token = SharedService::decode_token(token)?;
         let user_id = &decoded_token.user_id;
         let active_tokens = self
             .caching_service
@@ -299,39 +300,6 @@ where
             ))
         }
     }
-}
-
-async fn generate_token(payload: UserToken) -> Result<String, ApplicationError> {
-    let header = Header::new(Algorithm::HS512);
-    let result = jsonwebtoken::encode(
-        &header,
-        &payload,
-        &EncodingKey::from_secret(APP_SETTINGS.jwt_secret.expose_secret().as_ref()),
-    )
-    .map_err(|e| ApplicationError::InternalServerError(e.to_string()))?;
-    Ok(result)
-}
-
-fn decode_token(token: &str) -> Result<UserToken, ApplicationError> {
-    let token = decode::<UserToken>(
-        token,
-        &DecodingKey::from_secret(APP_SETTINGS.jwt_secret.expose_secret().as_ref()),
-        &Validation::new(Algorithm::HS512),
-    )
-    .map_err(|e| match e.kind() {
-        ErrorKind::InvalidToken => ApplicationError::ValidationError("Invalid token".to_string()),
-        ErrorKind::ExpiredSignature => {
-            ApplicationError::ValidationError("Token has expired".to_string())
-        }
-        ErrorKind::InvalidIssuer => ApplicationError::ValidationError("Invalid issuer".to_string()),
-        ErrorKind::InvalidAudience => {
-            ApplicationError::ValidationError("Invalid audience".to_string())
-        }
-        _ => ApplicationError::InternalServerError(e.to_string()),
-    })
-    .map(|token_data| token_data.claims)?;
-
-    Ok(token)
 }
 
 fn seconds_until(expiration: DateTime<Utc>) -> Result<u64, ApplicationError> {

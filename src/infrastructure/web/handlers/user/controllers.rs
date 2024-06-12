@@ -100,15 +100,13 @@ pub async fn logout(
 ) -> Result<HttpResponse, AppResponseError> {
     let user = UserByIdRequest::new(&user.id);
     let current_session = extract_session_token_from_request(&req)?;
-    data.user_security_service
-        .logout_current_session(user, current_session)
+    let response = data
+        .user_security_service
+        .logout_current_session(user, &current_session)
         .await
         .map_err(|e| e.into_service_error(&req))?;
-    let response = UniversalResponse::new(
-        "You have successfully logged out of the current active session.".to_string(),
-        None,
-        true,
-    );
+
+    let response = UniversalResponse::new(response.title, response.subtitle, true);
     Ok(HttpResponse::Ok().json(response))
 }
 

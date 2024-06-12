@@ -125,4 +125,25 @@ impl CachingPort for RedisAdapter {
 
         Ok(())
     }
+
+    async fn invalidate_session(&self, user_id: &str, session_id: &str) -> Result<(), DomainError> {
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| CachingError::ConnectionFailure(e.to_string()))?;
+
+        let key = format!("{}:{}", user_id, session_id);
+
+        let result: u32 = conn
+            .del(&key)
+            .await
+            .map_err(|e| CachingError::ConnectionFailure(e.to_string()))?;
+
+        if result == 0 {
+            return Err(CachingError::NotFound("Session not found".to_string()).into());
+        }
+
+        Ok(())
+    }
 }

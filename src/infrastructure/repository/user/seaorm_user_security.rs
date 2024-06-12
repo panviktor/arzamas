@@ -3,11 +3,12 @@ use crate::domain::ports::repositories::user::user_security_settings_repository:
 use crate::domain::ports::repositories::user::user_shared_parameters::FindUserByIdDTO;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use entity::{user, user_session};
+use entity::{note, user, user_session};
 use sea_orm::sea_query::Expr;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait,
+    QueryFilter,
 };
 use std::sync::Arc;
 
@@ -27,7 +28,7 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
     async fn invalidate_sessions(&self, user: &FindUserByIdDTO) -> Result<(), DomainError> {
         user_session::Entity::update_many()
             .col_expr(user_session::Column::Valid, Expr::value(false))
-            .filter(user_session::Column::UserId.eq(user.user_id.to_string()))
+            .filter(user_session::Column::UserId.eq(&user.user_id))
             .exec(&*self.db)
             .await
             .map_err(|e| {
@@ -56,6 +57,34 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         let mut active = user_model.into_active_model();
         active.pass_hash = Set(pass_hash);
         active.updated_at = Set(update_time.naive_utc());
+        active
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
+    }
+
+    async fn invalidate_session(
+        &self,
+        user: &FindUserByIdDTO,
+        session_id: &str,
+    ) -> Result<(), DomainError> {
+        let session = user_session::Entity::find()
+            .filter(user_session::Column::UserId.eq(&user.user_id))
+            .filter(user_session::Column::SessionId.eq(session_id))
+            .one(&*self.db)
+            .await
+            .map_err(|_| {
+                DomainError::PersistenceError(PersistenceError::Delete(
+                    "Database error occurred".to_string(),
+                ))
+            })?
+            .ok_or_else(|| DomainError::NotFound)?;
+
+        let mut active = session.into_active_model();
+        active.valid = Set(false);
+
         active
             .update(&*self.db)
             .await

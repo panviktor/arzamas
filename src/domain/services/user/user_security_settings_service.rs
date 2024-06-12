@@ -25,6 +25,16 @@ where
             .invalidate_sessions(&user)
             .await
     }
+
+    pub async fn invalidate_session(
+        &self,
+        user: FindUserByIdDTO,
+        session_id: &str,
+    ) -> Result<(), DomainError> {
+        self.user_security_settings_repository
+            .invalidate_session(&user, session_id)
+            .await
+    }
 }
 
 impl<S> UserSecuritySettingsDomainService<S> where S: UserSecuritySettingsDomainRepository {}
