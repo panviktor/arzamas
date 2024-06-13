@@ -8,6 +8,8 @@ pub mod user_recovery_request_dto;
 pub mod user_recovery_response_dto;
 pub mod user_registration_request_dto;
 pub mod user_registration_response_dto;
+pub mod user_security_request_dto;
+pub mod user_security_response_dto;
 pub mod user_shared_request_dto;
 pub mod user_shared_response_dto;
 

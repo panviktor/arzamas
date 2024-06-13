@@ -1,3 +1,4 @@
+use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
 use crate::domain::ports::repositories::user::user_shared_parameters::FindUserByIdDTO;
@@ -25,18 +26,6 @@ impl SeaOrmUserSecurityRepository {
 
 #[async_trait]
 impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
-    async fn invalidate_sessions(&self, user: &FindUserByIdDTO) -> Result<(), DomainError> {
-        user_session::Entity::update_many()
-            .col_expr(user_session::Column::Valid, Expr::value(false))
-            .filter(user_session::Column::UserId.eq(&user.user_id))
-            .exec(&*self.db)
-            .await
-            .map_err(|e| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string()))
-            })?;
-        Ok(())
-    }
-
     async fn set_new_password(
         &self,
         user: &FindUserByIdDTO,
@@ -91,5 +80,56 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
 
         Ok(())
+    }
+
+    async fn invalidate_sessions(&self, user: &FindUserByIdDTO) -> Result<(), DomainError> {
+        user_session::Entity::update_many()
+            .col_expr(user_session::Column::Valid, Expr::value(false))
+            .filter(user_session::Column::UserId.eq(&user.user_id))
+            .exec(&*self.db)
+            .await
+            .map_err(|e| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string()))
+            })?;
+        Ok(())
+    }
+
+    async fn get_user_session(
+        &self,
+        user: &FindUserByIdDTO,
+        session_id: &str,
+    ) -> Result<UserSession, DomainError> {
+        let session = user_session::Entity::find()
+            .filter(user_session::Column::UserId.eq(&user.user_id))
+            .filter(user_session::Column::SessionId.eq(session_id))
+            .one(&*self.db)
+            .await
+            .map_err(|_| {
+                DomainError::PersistenceError(PersistenceError::Delete(
+                    "Database error occurred".to_string(),
+                ))
+            })?
+            .ok_or_else(|| DomainError::NotFound)?;
+        Ok(session.into())
+    }
+
+    async fn get_user_sessions(
+        &self,
+        user: &FindUserByIdDTO,
+    ) -> Result<Vec<UserSession>, DomainError> {
+        let sessions: Vec<UserSession> = user_session::Entity::find()
+            .filter(user_session::Column::UserId.eq(&user.user_id))
+            .all(&*self.db)
+            .await
+            .map_err(|_| {
+                DomainError::PersistenceError(PersistenceError::Delete(
+                    "Database error occurred".to_string(),
+                ))
+            })?
+            .into_iter()
+            .map(UserSession::from)
+            .collect();
+
+        Ok(sessions)
     }
 }

@@ -91,6 +91,7 @@ impl From<user_session::Model> for UserSession {
             &user_agent,
             &ip_address,
             expiry,
+            model.valid,
         )
     }
 }

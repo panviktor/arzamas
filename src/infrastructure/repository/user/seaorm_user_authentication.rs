@@ -74,23 +74,6 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         Ok(())
     }
 
-    async fn get_user_sessions(
-        &self,
-        user: FindUserByIdDTO,
-    ) -> Result<Vec<UserSession>, DomainError> {
-        let session_models = user_session::Entity::find()
-            .filter(user_session::Column::UserId.eq(user.user_id))
-            .order_by_asc(user_session::Column::LoginTimestamp)
-            .all(&*self.db)
-            .await
-            .map_err(|e| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string()))
-            })?;
-        let sessions = session_models.into_iter().map(UserSession::from).collect();
-
-        Ok(sessions)
-    }
-
     async fn update_user_login_attempts(
         &self,
         user: FindUserByIdDTO,

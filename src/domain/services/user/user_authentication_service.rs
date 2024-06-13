@@ -497,6 +497,7 @@ where
             &user_agent,
             &ip_address,
             expiry,
+            true,
         );
 
         let save_session = self

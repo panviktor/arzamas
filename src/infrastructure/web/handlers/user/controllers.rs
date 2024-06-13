@@ -4,6 +4,9 @@ use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
 use crate::infrastructure::web::actix_adapter::actix_adapter::extract_session_token_from_request;
 use crate::infrastructure::web::dto::shared::LoginUser;
+use crate::infrastructure::web::handlers::user::user_dto::{
+    BaseUserResponseWeb, UserSessionResponseWeb,
+};
 use actix_web::{web, HttpRequest, HttpResponse};
 use std::sync::Arc;
 
@@ -48,11 +51,12 @@ pub async fn about_me(
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
     let request = UserByIdRequest::new(&user.id);
-    let response = data
+    let response: BaseUserResponseWeb = data
         .user_information_service
         .get_user_information(request)
         .await
-        .map_err(|e| e.into_service_error(&req))?;
+        .map_err(|e| e.into_service_error(&req))?
+        .into();
 
     Ok(HttpResponse::Ok().json(response))
 }
@@ -150,9 +154,9 @@ pub async fn logout_all(
     data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
-    let request = UserByIdRequest::new(&user.id);
+    let user = UserByIdRequest::new(&user.id);
     data.user_security_service
-        .logout_all_sessions(request)
+        .logout_all_sessions(user)
         .await
         .map_err(|e| e.into_service_error(&req))?;
     let response = UniversalResponse::new(
@@ -167,9 +171,9 @@ pub async fn logout_all(
 ///
 /// This function is an API endpoint that provides information about the current active session for a user.
 /// It requires an authenticated request with a valid session token. The function decodes the token,
-/// validates its authenticity and expiration, and returns the session details encapsulated in a `UserToken` structure.
+/// validates its authenticity and expiration, and returns the session details encapsulated in a `UserSessionResponseWeb` structure.
 ///
-/// The `UserToken` structure includes details such as the user ID, session ID, issue and expiration timestamps,
+/// The `UserSessionResponseWeb` structure includes details such as the user ID, session ID, issue and expiration timestamps,
 /// as well as login IP and user agent of the session.
 ///
 /// # Arguments
@@ -199,7 +203,7 @@ pub async fn logout_all(
     get,
     path = "/api/user/current-session",
     responses(
-        (status = 200, description = "User session information retrieved successfully", body = UserToken),
+        (status = 200, description = "User session information retrieved successfully", body = UserSessionResponseWeb),
         (status = 401, description = "Unauthorized"),
         (status = 429, description = "Too Many Requests"),
     ),
@@ -210,10 +214,19 @@ pub async fn logout_all(
 pub async fn current_session(
     req: HttpRequest,
     data: web::Data<Arc<ServiceContainer>>,
+    user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
-    // let session = try_current_active_session(&req).await?;
-    // Ok(HttpResponse::Ok().json(session))
-    todo!()
+    let user = UserByIdRequest::new(&user.id);
+    let current_session = extract_session_token_from_request(&req)?;
+
+    let response: UserSessionResponseWeb = data
+        .user_security_service
+        .get_user_session(user, &current_session)
+        .await
+        .map_err(|e| e.into_service_error(&req))?
+        .into();
+
+    Ok(HttpResponse::Ok().json(response))
 }
 
 /// Retrieves all active sessions for the current user.
@@ -266,9 +279,18 @@ pub async fn all_sessions(
     data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
-    // let sessions = try_active_sessions(&req, &user.id).await?;
-    // Ok(HttpResponse::Ok().json(sessions))
-    todo!()
+    let user = UserByIdRequest::new(&user.id);
+
+    let response: Vec<UserSessionResponseWeb> = data
+        .user_security_service
+        .get_user_sessions(user)
+        .await
+        .map_err(|e| e.into_service_error(&req))?
+        .into_iter()
+        .map(UserSessionResponseWeb::from)
+        .collect();
+
+    Ok(HttpResponse::Ok().json(response))
 }
 
 /// Changes the password of the currently logged-in user.
@@ -324,9 +346,12 @@ pub async fn change_password(
     user: LoginUser,
     // params: web::Json<ChangePasswordParams>,
 ) -> Result<HttpResponse, AppResponseError> {
+    let user = UserByIdRequest::new(&user.id);
+
     // try_change_password(&req, &user.id, params.0).await?;
     // let response = UniversalResponse::new("Password Changed Successfully".to_string(), None, true);
     // Ok(HttpResponse::Ok().json(response))
+    //
     todo!()
 }
 
@@ -382,7 +407,9 @@ pub async fn change_email(
     data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
     // params: web::Json<ChangeEmailParams>,
+    //
 ) -> Result<HttpResponse, AppResponseError> {
+    let user = UserByIdRequest::new(&user.id);
     // try_change_email(&req, &user.id, params.0).await?;
     // let response = UniversalResponse::new("Email Changed Successfully".to_string(), None, true);
     // Ok(HttpResponse::Ok().json(response))
@@ -429,10 +456,12 @@ pub async fn resend_verify_email(
     data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
+    let user = UserByIdRequest::new(&user.id);
     // try_resend_verify_email(&req, &user.id).await?;
     // let response =
     //     UniversalResponse::new("Email Verify Resend Successfully".to_string(), None, true);
     // Ok(HttpResponse::Ok().json(response))
+    //
     todo!()
 }
 

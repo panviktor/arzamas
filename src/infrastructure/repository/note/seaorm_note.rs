@@ -1,4 +1,3 @@
-use crate::application::dto::shared::paginated_result::PaginatedResult;
 use crate::domain::entities::note::Note;
 use crate::domain::entities::shared::value_objects::DomainPage;
 use crate::domain::error::{DomainError, PersistenceError};

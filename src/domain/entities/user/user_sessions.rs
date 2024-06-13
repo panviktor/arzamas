@@ -22,6 +22,7 @@ impl UserSession {
         user_agent: &UserAgent,
         ip_address: &IPAddress,
         expiry: DateTime<Utc>,
+        valid: bool,
     ) -> Self {
         Self {
             user_id: user_id.to_string(),
@@ -31,7 +32,7 @@ impl UserSession {
             ip_address: ip_address.clone(),
             user_agent: user_agent.clone(),
             expiry,
-            valid: true,
+            valid,
         }
     }
 }

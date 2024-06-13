@@ -1,5 +1,6 @@
 use crate::application::dto::user::user_shared_response_dto::BaseUserResponse;
 
+use crate::application::dto::user::user_security_response_dto::UserSessionResponse;
 use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -60,6 +61,31 @@ impl From<BaseUserResponse> for BaseUserResponseWeb {
             email: user.email,
             username: user.username,
             created_at: user.created_at,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
+pub struct UserSessionResponseWeb {
+    pub session_id: String,
+    pub session_name: String,
+    pub login_timestamp: DateTime<Utc>,
+    pub ip_address: String,
+    pub user_agent: String,
+    pub expiry: DateTime<Utc>,
+    pub valid: bool,
+}
+
+impl From<UserSessionResponse> for UserSessionResponseWeb {
+    fn from(session: UserSessionResponse) -> Self {
+        UserSessionResponseWeb {
+            session_id: session.session_id,
+            session_name: session.session_name,
+            login_timestamp: session.login_timestamp,
+            ip_address: session.ip_address,
+            user_agent: session.user_agent,
+            expiry: session.expiry,
+            valid: session.valid,
         }
     }
 }

@@ -1,3 +1,4 @@
+use crate::application::dto::user::user_security_response_dto::UserSessionResponse;
 use crate::application::dto::user::user_shared_request_dto::UserByIdRequest;
 use crate::application::dto::user::user_shared_response_dto::UniversalApplicationResponse;
 use crate::application::error::error::ApplicationError;
@@ -70,5 +71,34 @@ where
             "You have successfully logged out of the current active session.".to_string(),
             None,
         ))
+    }
+    pub async fn get_user_session(
+        &self,
+        user: UserByIdRequest,
+        session_token: &str,
+    ) -> Result<UserSessionResponse, ApplicationError> {
+        let user = FindUserByIdDTO::new(&user.user_id);
+        let decoded_token = SharedService::decode_token(session_token)?;
+        let session = self
+            .user_security_domain_service
+            .get_user_session(user, &decoded_token.session_id)
+            .await?
+            .into();
+        Ok(session)
+    }
+
+    pub async fn get_user_sessions(
+        &self,
+        user: UserByIdRequest,
+    ) -> Result<Vec<UserSessionResponse>, ApplicationError> {
+        let user = FindUserByIdDTO::new(&user.user_id);
+        let sessions = self
+            .user_security_domain_service
+            .get_user_sessions(user)
+            .await?
+            .into_iter()
+            .map(UserSessionResponse::from)
+            .collect();
+        Ok(sessions)
     }
 }
