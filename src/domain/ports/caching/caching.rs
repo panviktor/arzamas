@@ -1,6 +1,4 @@
 use crate::domain::error::DomainError;
-use crate::infrastructure::cache::error::CachingError;
-use std::format;
 
 #[async_trait::async_trait]
 pub trait CachingPort {

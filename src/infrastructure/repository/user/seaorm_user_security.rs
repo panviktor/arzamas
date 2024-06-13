@@ -4,7 +4,7 @@ use crate::domain::ports::repositories::user::user_security_settings_repository:
 use crate::domain::ports::repositories::user::user_shared_parameters::FindUserByIdDTO;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use entity::{note, user, user_session};
+use entity::{user, user_session};
 use sea_orm::sea_query::Expr;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{

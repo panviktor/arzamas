@@ -1,20 +1,7 @@
-use crate::application::dto::shared::paginated_result::PaginatedResultNotes;
-use crate::application::dto::shared::universal_response::UniversalResponse;
 pub use utoipa::{
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
     Modify, OpenApi,
 };
-
-use crate::application::error::response_error::ServiceErrorSerialized;
-
-// use crate::modules::user;
-// use crate::modules::user::models::{
-//     AboutMeInformation, AuthenticationAppInformation, ChangeEmailParams, ChangePasswordParams,
-//     MnemonicConfirmation, SecuritySettingsUpdate,
-// };
-use entity::user_security_settings::Model as UserSecuritySettings;
-
-use entity::note::Model as Note;
 
 #[derive(OpenApi)]
 #[openapi(info(

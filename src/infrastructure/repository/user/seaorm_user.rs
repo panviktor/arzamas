@@ -1,5 +1,4 @@
 use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::value_objects::UserEmailConfirmation;
 use crate::domain::entities::user::UserBase;
 use crate::domain::error::DomainError;
@@ -10,11 +9,11 @@ use crate::domain::ports::repositories::user::user_shared_parameters::{
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
-use entity::{user, user_confirmation, user_session};
+use entity::{user, user_confirmation};
 use sea_orm::ActiveValue::Set;
+use sea_orm::QueryFilter;
 use sea_orm::{ActiveModelTrait, ColumnTrait};
 use sea_orm::{DatabaseConnection, EntityTrait};
-use sea_orm::{QueryFilter, QueryOrder};
 use std::sync::Arc;
 
 #[derive(Clone)]

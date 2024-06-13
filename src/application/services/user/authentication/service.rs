@@ -4,7 +4,6 @@ use crate::application::dto::user::user_authentication_request_dto::{
 use crate::application::dto::user::user_authentication_response_dto::LoginResponse;
 use crate::application::error::error::ApplicationError;
 use crate::application::services::user::shared::shared_service::SharedService;
-use crate::core::config::APP_SETTINGS;
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::AuthenticationOutcome;
@@ -17,9 +16,6 @@ use crate::domain::ports::repositories::user::user_authentication_repository::Us
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::user::user_authentication_service::UserAuthenticationDomainService;
 use chrono::{DateTime, Utc};
-use jsonwebtoken::errors::ErrorKind;
-use jsonwebtoken::{decode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use secrecy::ExposeSecret;
 use std::sync::Arc;
 
 pub struct UserAuthenticationApplicationService<A, S, E, C>

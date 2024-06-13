@@ -12,9 +12,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use entity::user_otp_token;
 use entity::{user, user_session};
 use sea_orm::ActiveValue::Set;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
-};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use std::sync::Arc;
 
 #[derive(Clone)]
