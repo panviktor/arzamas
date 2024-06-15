@@ -5,8 +5,8 @@ use crate::application::dto::shared::page_query::PageQuery;
 use crate::application::dto::shared::universal_response::UniversalResponse;
 use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
-use crate::infrastructure::web::dto::shared::LoginUser;
-use crate::infrastructure::web::handlers::notes::note_request_dto::{
+use crate::user_interface::web::dto::shared::LoginUser;
+use crate::user_interface::web::handlers::notes::note_request_dto::{
     NoteIdRequestWeb, NoteRequestWeb,
 };
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -27,7 +27,7 @@ use std::sync::Arc;
 /// successful creation of the note, or a `ServiceError` in case of failure.
 #[utoipa::path(
     post,
-    path = "/api/note/create",
+    path = "/api/v1/note/create",
     request_body = CreateNoteRequestWeb,
     responses(
         (status = 201, description = "Note created successfully", body = UniversalResponse),
@@ -75,7 +75,7 @@ pub async fn create_note(
 /// or a `ServiceError` in case of failure.
 #[utoipa::path(
     get,
-    path = "/api/note/get_all_notes",
+    path = "/api/v1/note/get_all_notes",
     params(
         PageQuery
     ),
@@ -125,7 +125,7 @@ pub async fn get_all_notes(
 /// or a `ServiceError` in case of failure.
 #[utoipa::path(
     get,
-    path = "/api/note/get_by_id",
+    path = "/api/v1/note/get_by_id",
     params(
         ("id" = i64, Query, description = "Unique identifier of the note")
     ),
@@ -173,7 +173,7 @@ pub async fn get_by_id(
 /// or a `ServiceError` in case of failure.
 #[utoipa::path(
     delete,
-    path = "/api/note/delete",
+    path = "/api/v1/v1/note/delete",
     params(
         NoteIdRequestWeb
     ),
@@ -222,7 +222,7 @@ pub async fn delete(
 /// or a `ServiceError` in case of failure.
 #[utoipa::path(
     put,
-    path = "/api/note/update",
+    path = "/api/v1/v1/note/update",
     request_body = NoteRequestWeb,
         params(
             NoteIdRequestWeb

@@ -1,11 +1,9 @@
+use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_recovery_password::UserRecoveryPasswd;
 use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::ports::repositories::user::user_recovery_password_repository::UserRecoveryPasswdDomainRepository;
-use crate::domain::ports::repositories::user::user_shared_parameters::{
-    FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
-};
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
 use entity::{user, user_recovery_password};
@@ -28,12 +26,9 @@ impl SeaOrmUserRecoveryRepository {
 
 #[async_trait]
 impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
-    async fn get_user_by_email(
-        &self,
-        query: FindUserByEmailDTO,
-    ) -> Result<UserRecoveryPasswd, DomainError> {
+    async fn get_user_by_email(&self, email: Email) -> Result<UserRecoveryPasswd, DomainError> {
         let user_model = entity::user::Entity::find()
-            .filter(user::Column::Email.eq(query.email.value()))
+            .filter(user::Column::Email.eq(email.value()))
             .one(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
@@ -48,10 +43,10 @@ impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
 
     async fn get_user_by_username(
         &self,
-        query: FindUserByUsernameDTO,
+        username: Username,
     ) -> Result<UserRecoveryPasswd, DomainError> {
         let user_model = entity::user::Entity::find()
-            .filter(user::Column::Username.eq(query.username.value()))
+            .filter(user::Column::Username.eq(username.value()))
             .one(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
@@ -65,7 +60,7 @@ impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
 
     async fn update_user_restore_attempts_and_block(
         &self,
-        user: &FindUserByIdDTO,
+        user: &UserId,
         count: i64,
         block_until: Option<DateTime<Utc>>,
     ) -> Result<(), DomainError> {
@@ -89,10 +84,7 @@ impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
         Ok(())
     }
 
-    async fn reset_restore_attempts_and_block(
-        &self,
-        user: &FindUserByIdDTO,
-    ) -> Result<(), DomainError> {
+    async fn reset_restore_attempts_and_block(&self, user: &UserId) -> Result<(), DomainError> {
         let recovery = entity::user_recovery_password::Entity::find()
             .filter(user_recovery_password::Column::UserId.eq(user.user_id.clone()))
             .one(&*self.db)
@@ -168,7 +160,7 @@ impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
 
     async fn prepare_user_restore_passwd(
         &self,
-        user: FindUserByIdDTO,
+        user: UserId,
         expiry: DateTime<Utc>,
         token: EmailToken,
         user_agent: UserAgent,

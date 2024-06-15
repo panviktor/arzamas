@@ -1,7 +1,7 @@
 pub mod controllers;
 pub mod note_request_dto;
-use crate::infrastructure::web::middleware::auth::AuthCheckService;
-use crate::infrastructure::web::middleware::rate_limiter;
+use crate::user_interface::web::middleware::auth::AuthCheckService;
+use crate::user_interface::web::middleware::rate_limiter;
 use actix_web::web;
 
 pub fn init_notes_routes(cfg: &mut web::ServiceConfig) {

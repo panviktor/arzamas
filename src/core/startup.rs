@@ -1,6 +1,6 @@
 use crate::application::services::service_container::ServiceContainer;
-use crate::infrastructure::web::api::configure_documentation_services;
-use crate::infrastructure::web::handlers::{auth, general_handlers, notes, user};
+use crate::user_interface::web::api::configure_documentation_services;
+use crate::user_interface::web::handlers::{auth, general_handlers, notes, user};
 use actix_files::Files;
 use actix_web::dev::Server;
 use actix_web::middleware::NormalizePath;
@@ -36,7 +36,7 @@ pub async fn run(
             .configure(general_handlers::init_general_handlers_routes)
             // Register your auth routes
             .service(
-                web::scope("/api")
+                web::scope("/api/v1")
                     .configure(auth::init_auth_routes)
                     .configure(notes::init_notes_routes)
                     .configure(user::init_user_routes),

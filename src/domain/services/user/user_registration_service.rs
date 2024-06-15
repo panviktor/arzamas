@@ -1,4 +1,6 @@
 use crate::domain::entities::shared::value_objects::EmailToken;
+use crate::domain::entities::shared::value_objects::UserId;
+use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_registration::{
     UserRegistrationError, UserRegistrationResponse,
 };
@@ -6,9 +8,6 @@ use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::{DomainError, ValidationError};
 use crate::domain::ports::repositories::user::user_registration_parameters::CreateUserDTO;
 use crate::domain::ports::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
-use crate::domain::ports::repositories::user::user_shared_parameters::{
-    FindUserByEmailDTO, FindUserByIdDTO,
-};
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::ValidationServiceError;
@@ -63,7 +62,7 @@ where
         let confirmation_token = EmailToken::new(&token);
         let confirmation_token_hash = SharedDomainService::hash_token(&token);
 
-        let user_id = FindUserByIdDTO::new(&user.user_id);
+        let user_id = UserId::new(&user.user_id);
 
         let user = self.user_registration_repository.create_user(user).await?;
         let expiry = Utc::now() + Duration::days(1);
@@ -78,14 +77,14 @@ where
         })
     }
 
-    pub async fn delete_user(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+    pub async fn delete_user(&self, user: UserId) -> Result<(), DomainError> {
         // FIXME - add email confirmation
         self.user_registration_repository.delete_user(user).await
     }
 
     pub async fn validate_email_user(
         &self,
-        email: FindUserByEmailDTO,
+        email: Email,
         token: EmailToken,
     ) -> Result<(), DomainError> {
         let user = self.user_repository.get_base_user_by_email(email).await?;
@@ -94,7 +93,7 @@ where
             return Ok(());
         }
 
-        let user_id = FindUserByIdDTO::new(&user.user_id);
+        let user_id = UserId::new(&user.user_id);
 
         let confirmation = self
             .user_repository

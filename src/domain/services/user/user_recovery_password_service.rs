@@ -1,4 +1,5 @@
 use crate::domain::entities::shared::value_objects::EmailToken;
+use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_recovery_password::UserRecoveryPasswd;
 use crate::domain::error::{DomainError, ValidationError};
@@ -8,9 +9,7 @@ use crate::domain::ports::repositories::user::user_recovery_password_parameters:
 };
 use crate::domain::ports::repositories::user::user_recovery_password_repository::UserRecoveryPasswdDomainRepository;
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
-use crate::domain::ports::repositories::user::user_shared_parameters::{
-    FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
-};
+
 use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
 use crate::domain::services::user::{UserCredentialService, UserValidationService};
@@ -68,7 +67,7 @@ where
             "Recovery account is locked until",
         )?;
 
-        let user_id = FindUserByIdDTO::new(&recovery_request.user_id);
+        let user_id = UserId::new(&recovery_request.user_id);
 
         self.validate_ip_ua(&request, &recovery_request, &user_id)
             .await?;
@@ -87,16 +86,14 @@ where
         if EMAIL_REGEX.is_match(identifier) {
             let email = Email::new(identifier);
             UserValidationService::validate_email(&email)?;
-            let email_dto = FindUserByEmailDTO::new(email);
             self.user_recovery_passwd_repository
-                .get_user_by_email(email_dto)
+                .get_user_by_email(email)
                 .await
         } else {
             let username = Username::new(identifier);
             UserValidationService::validate_username(&username)?;
-            let username_dto = FindUserByUsernameDTO::new(&username);
             self.user_recovery_passwd_repository
-                .get_user_by_username(username_dto)
+                .get_user_by_username(username)
                 .await
         }
     }
@@ -124,7 +121,7 @@ where
     ) -> Result<RecoveryPasswdResponse, DomainError> {
         let duration = Duration::minutes(15);
         let token = SharedDomainService::generate_token(32)?;
-        let user_id_dto = FindUserByIdDTO::new(&user.user_id);
+        let user_id_dto = UserId::new(&user.user_id);
         let expiry = Utc::now() + duration;
         let token = EmailToken(token);
 
@@ -165,7 +162,7 @@ where
 
                 self.user_recovery_passwd_repository
                     .update_user_restore_attempts_and_block(
-                        &FindUserByIdDTO::new(&recovery_request.user_id),
+                        &UserId::new(&recovery_request.user_id),
                         total_attempt_count,
                         block_duration,
                     )
@@ -184,7 +181,7 @@ where
         &self,
         request: &UserCompleteRecoveryRequestDTO,
         recovery_request: &UserRecoveryPasswd,
-        user_id: &FindUserByIdDTO,
+        user_id: &UserId,
     ) -> Result<(), DomainError> {
         if !UserValidationService::validate_ip_ua(
             &request.user_agent,
@@ -222,7 +219,7 @@ where
         &self,
         request: &UserCompleteRecoveryRequestDTO,
         recovery_request: UserRecoveryPasswd,
-        user_id: FindUserByIdDTO,
+        user_id: UserId,
     ) -> Result<UserRecoveryPasswdOutcome, DomainError> {
         let reset_future = self
             .user_recovery_passwd_repository

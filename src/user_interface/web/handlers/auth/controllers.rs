@@ -10,8 +10,8 @@ use crate::application::dto::user::user_registration_request_dto::{
 };
 use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
-use crate::infrastructure::web::actix_adapter::{get_ip_addr, get_user_agent};
-use crate::infrastructure::web::handlers::auth::auth_request_dto::{
+use crate::user_interface::web::actix_adapter::{get_ip_addr, get_user_agent};
+use crate::user_interface::web::handlers::auth::auth_request_dto::{
     APIVerificationMethodWeb, ContinueLoginRequestWeb, CreateUserRequestWeb, LoginUserRequestWeb,
     UserCompleteRecoveryRequestWeb, UserRecoveryRequestWeb, ValidateEmailRequestWeb,
 };
@@ -44,7 +44,7 @@ use std::sync::Arc;
 ///
 #[utoipa::path(
     post,
-    path = "/api/auth/create",
+    path = "/api/v1/auth/create",
     request_body = NewUserParams,
     responses(
         (status = 201, description = "User created successfully", body = CreatedUserDTO),
@@ -92,7 +92,7 @@ pub async fn create_user(
 ///
 /// # Examples
 /// ```
-/// // Example of a POST request to /api/auth/verify_email with valid email verification data.
+/// // Example of a POST request to /api/v1/auth/verify_email with valid email verification data.
 /// ```
 ///
 /// # Errors
@@ -101,7 +101,7 @@ pub async fn create_user(
 ///
 #[utoipa::path(
     post,
-    path = "/api/auth/verify-email",
+    path = "/api/v1/auth/verify-email",
     request_body = VerifyEmailParams,
     responses(
         (status = 200, description = "Email verified successfully", body = UniversalResponse),
@@ -146,7 +146,7 @@ pub async fn verify_email(
 ///
 /// # Examples
 /// ```
-/// // Example of a POST request to /api/auth/login with valid login data.
+/// // Example of a POST request to /api/v1/auth/login with valid login data.
 /// ```
 ///
 /// # Errors
@@ -155,7 +155,7 @@ pub async fn verify_email(
 ///
 #[utoipa::path(
     post,
-    path = "/api/auth/login",
+    path = "/api/v1/auth/login",
     request_body = LoginParams,
     responses(
         (status = 200, description = "User login successfully", body = LoginResponse),
@@ -213,7 +213,7 @@ pub async fn login(
 ///
 #[utoipa::path(
     post,
-    path = "/api/auth/login-2fa",
+    path = "/api/v1/auth/login-2fa",
     request_body = ContinueLoginOTPCodeRequestWeb,
     responses(
         (status = 200, description = "User login successfully", body = LoginResponse),
@@ -276,7 +276,7 @@ pub async fn login_2fa(
 ///
 #[utoipa::path(
     post,
-    path = "/api/auth/forgot-password",
+    path = "/api/v1/auth/forgot-password",
     request_body = ForgotPasswordParams,
     responses(
         (status = 200, description = "User login successfully", body = UniversalResponse),
@@ -341,7 +341,7 @@ pub async fn forgot_password(
 ///
 #[utoipa::path(
     post,
-    path = "/api/auth/password-reset",
+    path = "/api/v1/auth/password-reset",
     request_body = ResetPasswordParams,
     responses(
         (status = 200, description = "Password successfully reset.", body = UniversalResponse),

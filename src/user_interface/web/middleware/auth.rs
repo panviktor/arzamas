@@ -9,7 +9,7 @@ use actix_web::{
 use crate::application::services::service_container::ServiceContainer;
 use crate::core::constants::core_constants;
 use crate::infrastructure::error::error::InfrastructureError;
-use crate::infrastructure::web::dto::shared::LoginUser;
+use crate::user_interface::web::dto::shared::LoginUser;
 use actix_http::header::HeaderValue;
 use futures::future::{ok, Ready};
 use futures::Future;

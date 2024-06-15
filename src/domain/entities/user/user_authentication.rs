@@ -1,5 +1,4 @@
-use crate::domain::entities::shared::value_objects::EmailToken;
-use crate::domain::entities::shared::{Email, Username};
+use crate::domain::entities::shared::{Email, EmailToken, Username};
 use crate::domain::entities::user::user_otp_token::UserOtpToken;
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;

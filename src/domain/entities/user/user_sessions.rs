@@ -1,4 +1,4 @@
-use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
+use crate::domain::entities::shared::{IPAddress, UserAgent};
 use chrono::{DateTime, Utc};
 
 #[derive(Clone, Debug)]

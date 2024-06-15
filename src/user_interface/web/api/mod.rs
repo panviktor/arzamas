@@ -1,5 +1,5 @@
 mod utoipa;
-use crate::infrastructure::web::api::utoipa::ApiDoc;
+use crate::user_interface::web::api::utoipa::ApiDoc;
 use utoipa::OpenApi;
 
 use actix_web::web;

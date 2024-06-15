@@ -1,5 +1,4 @@
-use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
-use crate::domain::entities::shared::{Email, Username};
+use crate::domain::entities::shared::{Email, IPAddress, UserAgent, Username};
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use chrono::{DateTime, Utc};
 

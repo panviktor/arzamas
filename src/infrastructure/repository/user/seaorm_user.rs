@@ -1,11 +1,10 @@
+use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::value_objects::UserEmailConfirmation;
 use crate::domain::entities::user::UserBase;
 use crate::domain::error::DomainError;
 use crate::domain::error::PersistenceError;
-use crate::domain::ports::repositories::user::user_shared_parameters::{
-    FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
-};
+
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
@@ -55,12 +54,9 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         Ok(user.is_some())
     }
 
-    async fn get_base_user_by_email(
-        &self,
-        query: FindUserByEmailDTO,
-    ) -> Result<UserBase, DomainError> {
+    async fn get_base_user_by_email(&self, email: Email) -> Result<UserBase, DomainError> {
         let user = entity::prelude::User::find()
-            .filter(user::Column::Email.eq(query.email.value()))
+            .filter(user::Column::Email.eq(email.value()))
             .one(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
@@ -73,12 +69,9 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         Ok(user.into())
     }
 
-    async fn get_base_user_by_username(
-        &self,
-        query: FindUserByUsernameDTO,
-    ) -> Result<UserBase, DomainError> {
+    async fn get_base_user_by_username(&self, username: Username) -> Result<UserBase, DomainError> {
         let user = entity::prelude::User::find()
-            .filter(user::Column::Username.eq(query.username.value()))
+            .filter(user::Column::Username.eq(username.value()))
             .one(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
@@ -91,7 +84,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         Ok(user.into())
     }
 
-    async fn get_base_user_by_id(&self, query: FindUserByIdDTO) -> Result<UserBase, DomainError> {
+    async fn get_base_user_by_id(&self, query: UserId) -> Result<UserBase, DomainError> {
         let user = entity::prelude::User::find()
             .filter(user::Column::UserId.eq(query.user_id))
             .one(&*self.db)
@@ -108,7 +101,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
 
     async fn store_email_confirmation_token(
         &self,
-        user: FindUserByIdDTO,
+        user: UserId,
         token: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError> {
@@ -134,7 +127,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
 
     async fn retrieve_email_confirmation_token(
         &self,
-        user_id: &FindUserByIdDTO,
+        user_id: &UserId,
     ) -> Result<UserEmailConfirmation, DomainError> {
         let confirmation = entity::prelude::UserConfirmation::find()
             .filter(user_confirmation::Column::UserId.eq(&user_id.user_id))
@@ -159,7 +152,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         Ok(UserEmailConfirmation { otp_hash, expiry })
     }
 
-    async fn complete_email_verification(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+    async fn complete_email_verification(&self, user: UserId) -> Result<(), DomainError> {
         let user = entity::user::Entity::find()
             .filter(user::Column::UserId.eq(user.user_id))
             .one(&*self.db)
@@ -182,10 +175,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         Ok(())
     }
 
-    async fn invalidate_email_verification(
-        &self,
-        user: FindUserByIdDTO,
-    ) -> Result<(), DomainError> {
+    async fn invalidate_email_verification(&self, user: UserId) -> Result<(), DomainError> {
         let user = entity::user::Entity::find()
             .filter(user::Column::UserId.eq(&user.user_id))
             .one(&*self.db)

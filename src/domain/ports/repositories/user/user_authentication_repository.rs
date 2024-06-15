@@ -1,10 +1,9 @@
+use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
+use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::DomainError;
-use crate::domain::ports::repositories::user::user_shared_parameters::{
-    FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
-};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
@@ -12,23 +11,17 @@ use chrono::{DateTime, Utc};
 /// Provides methods for user lookup, session management, and email verification.
 #[async_trait]
 pub trait UserAuthenticationDomainRepository {
-    async fn get_user_by_email(
-        &self,
-        query: FindUserByEmailDTO,
-    ) -> Result<UserAuthentication, DomainError>;
+    async fn get_user_by_email(&self, query: Email) -> Result<UserAuthentication, DomainError>;
 
     async fn get_user_by_username(
         &self,
-        query: FindUserByUsernameDTO,
+        username: &Username,
     ) -> Result<UserAuthentication, DomainError>;
 
     async fn save_user_session(&self, session: &UserSession) -> Result<(), DomainError>;
 
-    async fn update_user_login_attempts(
-        &self,
-        user: FindUserByIdDTO,
-        count: i64,
-    ) -> Result<(), DomainError>;
+    async fn update_user_login_attempts(&self, user: UserId, count: i64)
+        -> Result<(), DomainError>;
 
     /// Blocks a user from logging in until a specified time.
     ///
@@ -40,7 +33,7 @@ pub trait UserAuthenticationDomainRepository {
     /// Result indicating success or an error if the operation fails.
     async fn block_user_until(
         &self,
-        user: &FindUserByIdDTO,
+        user: &UserId,
         expiry: Option<DateTime<Utc>>,
     ) -> Result<(), DomainError>;
 
@@ -57,7 +50,7 @@ pub trait UserAuthenticationDomainRepository {
     /// Result indicating success or an error if the setup fails.
     async fn prepare_user_for_2fa(
         &self,
-        user: FindUserByIdDTO,
+        user: UserId,
         expiry: DateTime<Utc>,
         email_token_hash: Option<String>,
         user_agent: UserAgent,
@@ -72,7 +65,7 @@ pub trait UserAuthenticationDomainRepository {
     ///
     /// # Returns
     /// Result indicating success or an error if the verification fails.
-    async fn set_email_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
+    async fn set_email_otp_verified(&self, user: UserId) -> Result<(), DomainError>;
 
     /// Marks the app OTP token as verified for a user.
     ///
@@ -81,11 +74,11 @@ pub trait UserAuthenticationDomainRepository {
     ///
     /// # Returns
     /// Result indicating success or an error if the verification fails.
-    async fn set_app_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
+    async fn set_app_otp_verified(&self, user: UserId) -> Result<(), DomainError>;
 
     /// Resets the OTP validity flags for both email and app-based tokens for a user.
     /// This function is called to ensure that no stale or previously valid tokens
     /// can be used to authenticate, typically after a successful login or when new
     /// tokens are issued.
-    async fn reset_otp_validity(&self, user: FindUserByIdDTO) -> Result<(), DomainError>;
+    async fn reset_otp_validity(&self, user: UserId) -> Result<(), DomainError>;
 }

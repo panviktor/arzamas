@@ -1,7 +1,7 @@
 use crate::application::dto::user::user_shared_request_dto::UserByIdRequest;
 use crate::application::dto::user::user_shared_response_dto::BaseUserResponse;
 use crate::application::error::error::ApplicationError;
-use crate::domain::ports::repositories::user::user_shared_parameters::FindUserByIdDTO;
+use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::user::user_information_service::UserInformationDomainService;
 
@@ -26,7 +26,7 @@ where
         &self,
         request: UserByIdRequest,
     ) -> Result<BaseUserResponse, ApplicationError> {
-        let id = FindUserByIdDTO::new(&request.user_id);
+        let id = UserId::new(&request.user_id);
         let user = self
             .user_information_domain_service
             .get_user_info(id)

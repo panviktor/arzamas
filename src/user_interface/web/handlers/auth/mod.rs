@@ -1,4 +1,4 @@
-use crate::infrastructure::web::middleware::rate_limiter;
+use crate::user_interface::web::middleware::rate_limiter;
 use actix_web::web;
 mod auth_request_dto;
 mod auth_response_dto;

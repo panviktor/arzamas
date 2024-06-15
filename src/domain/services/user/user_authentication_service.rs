@@ -1,4 +1,5 @@
 use crate::core::constants::emojis::EMOJIS;
+use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
@@ -9,9 +10,7 @@ use crate::domain::ports::repositories::user::user_authentication_parameters::{
     ContinueLoginRequestDTO, CreateLoginRequestDTO, DomainVerificationMethod,
 };
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
-use crate::domain::ports::repositories::user::user_shared_parameters::{
-    FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
-};
+
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
@@ -97,16 +96,14 @@ where
         if EMAIL_REGEX.is_match(identifier) {
             let email = Email::new(identifier);
             UserValidationService::validate_email(&email)?;
-            let email_dto = FindUserByEmailDTO::new(email);
             self.user_authentication_repository
-                .get_user_by_email(email_dto)
+                .get_user_by_email(email)
                 .await
         } else {
             let username = Username::new(identifier);
             UserValidationService::validate_username(&username)?;
-            let username_dto = FindUserByUsernameDTO::new(&username);
             self.user_authentication_repository
-                .get_user_by_username(username_dto)
+                .get_user_by_username(&username)
                 .await
         }
     }
@@ -132,7 +129,7 @@ where
         message: &str,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let attempt_count: i64 = user.otp.attempt_count + 1;
-        let user_id = FindUserByIdDTO::new(&user.user_id);
+        let user_id = UserId::new(&user.user_id);
 
         let block_duration = if attempt_count > 10 {
             Some(Utc::now() + Duration::hours(3))
@@ -210,7 +207,7 @@ where
             (false, true) => {
                 // Only two-factor authenticator app authentication is enabled
                 // Handle case where only authenticator app verification is required
-                let user_id = FindUserByIdDTO::new(&user.user_id);
+                let user_id = UserId::new(&user.user_id);
                 let expiry_duration = Duration::minutes(5);
                 self.prepare_2fa(
                     user_id,
@@ -241,7 +238,7 @@ where
 
     async fn prepare_2fa(
         &self,
-        user_id: FindUserByIdDTO,
+        user_id: UserId,
         expiry_duration: Duration,
         user_agent: UserAgent,
         ip_address: IPAddress,
@@ -265,7 +262,7 @@ where
         let confirmation_token = EmailToken::new(&token);
         let confirmation_token_hash = SharedDomainService::hash_token(&token);
 
-        let user_id_dto = FindUserByIdDTO::new(user_id);
+        let user_id_dto = UserId::new(user_id);
         self.user_authentication_repository
             .prepare_user_for_2fa(
                 user_id_dto,
@@ -326,7 +323,7 @@ where
         // Handle the result of the OTP verification
         match verification_result {
             true => {
-                let user_id = FindUserByIdDTO::new(&user_result.user_id);
+                let user_id = UserId::new(&user_result.user_id);
                 self.update_verification_status(user_id, &request.verification_method)
                     .await?;
                 self.handle_verification_status(&user_result, request).await
@@ -375,7 +372,7 @@ where
 
     async fn update_verification_status(
         &self,
-        user_id: FindUserByIdDTO,
+        user_id: UserId,
         verification_method: &DomainVerificationMethod,
     ) -> Result<(), DomainError> {
         match verification_method {
@@ -397,11 +394,9 @@ where
         user: &UserAuthentication,
         request: ContinueLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        let username = FindUserByUsernameDTO::new(&user.username);
-
         let user_updated = self
             .user_authentication_repository
-            .get_user_by_username(username)
+            .get_user_by_username(&user.username)
             .await?;
 
         // Determine if further verification is needed
@@ -480,7 +475,7 @@ where
     ) -> Result<AuthenticationOutcome, DomainError> {
         let session_id = Uuid::new_v4().to_string();
         let session_name = Self::generate_session_name();
-        let user_id = FindUserByIdDTO::new(&user.user_id);
+        let user_id = UserId::new(&user.user_id);
 
         let expiry = Utc::now()
             + if persistent {
@@ -524,7 +519,7 @@ where
         &self,
         user_result: UserAuthentication,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        let user_id = FindUserByIdDTO::new(&user_result.user_id);
+        let user_id = UserId::new(&user_result.user_id);
         let now = Utc::now();
         let confirmation = self
             .user_repository
@@ -545,7 +540,7 @@ where
 
     async fn generate_new_confirmation_token(
         &self,
-        user_id: FindUserByIdDTO,
+        user_id: UserId,
         email: Email,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let token = SharedDomainService::generate_token(64)?;

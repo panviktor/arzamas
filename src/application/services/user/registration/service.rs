@@ -3,15 +3,11 @@ use crate::application::dto::user::user_registration_request_dto::{
 };
 use crate::application::dto::user::user_registration_response_dto::CreatedUserResponse;
 use crate::application::error::error::ApplicationError;
+use crate::domain::entities::shared::value_objects::{EmailToken, UserId};
 use crate::domain::entities::shared::{Email, Username};
-
-use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::ports::email::email::EmailPort;
 use crate::domain::ports::repositories::user::user_registration_parameters::CreateUserDTO;
 use crate::domain::ports::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
-use crate::domain::ports::repositories::user::user_shared_parameters::{
-    FindUserByEmailDTO, FindUserByIdDTO,
-};
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::user::user_registration_service::UserRegistrationDomainService;
 use std::sync::Arc;
@@ -78,17 +74,16 @@ where
         request: ValidateEmailRequest,
     ) -> Result<(), ApplicationError> {
         let email = Email::new(&request.email);
-        let user_by_email = FindUserByEmailDTO::new(email);
         let token = EmailToken(request.email_token);
 
         self.user_registration_domain_service
-            .validate_email_user(user_by_email, token)
+            .validate_email_user(email, token)
             .await?;
         Ok(())
     }
 
     pub async fn delete_user(&self, request: FindUserByIdRequest) -> Result<(), ApplicationError> {
-        let find_user = FindUserByIdDTO {
+        let find_user = UserId {
             user_id: request.user_id,
         };
         self.user_registration_domain_service

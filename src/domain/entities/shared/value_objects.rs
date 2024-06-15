@@ -123,3 +123,16 @@ pub struct DomainPage<T> {
     pub total_items: u64,
     pub total_pages: u64,
 }
+
+#[derive(Clone, Debug)]
+pub struct UserId {
+    pub user_id: String,
+}
+
+impl UserId {
+    pub fn new(user_id: &str) -> Self {
+        Self {
+            user_id: user_id.to_string(),
+        }
+    }
+}

@@ -1,8 +1,6 @@
 use crate::domain::entities::user::user_sessions::UserSession;
 use chrono::{DateTime, Utc};
-use serde_derive::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
 pub struct UserSessionResponse {
     pub session_id: String,
     pub session_name: String,
@@ -23,6 +21,26 @@ impl From<UserSession> for UserSessionResponse {
             user_agent: session.user_agent.into_inner(),
             expiry: session.expiry,
             valid: session.valid,
+        }
+    }
+}
+
+pub struct SecuritySettingsResponse {
+    pub email_on_success: bool,
+    pub email_on_failure: bool,
+    pub close_sessions_on_change_password: bool,
+}
+
+impl SecuritySettingsResponse {
+    pub fn new(
+        email_on_success: bool,
+        email_on_failure: bool,
+        close_sessions_on_change_password: bool,
+    ) -> Self {
+        Self {
+            email_on_success,
+            email_on_failure,
+            close_sessions_on_change_password,
         }
     }
 }

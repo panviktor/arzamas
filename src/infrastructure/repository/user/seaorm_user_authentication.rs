@@ -1,12 +1,10 @@
+use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
-use crate::domain::ports::repositories::user::user_shared_parameters::{
-    FindUserByEmailDTO, FindUserByIdDTO, FindUserByUsernameDTO,
-};
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
 use entity::user_otp_token;
@@ -28,12 +26,9 @@ impl SeaOrmUserAuthenticationRepository {
 
 #[async_trait]
 impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
-    async fn get_user_by_email(
-        &self,
-        query: FindUserByEmailDTO,
-    ) -> Result<UserAuthentication, DomainError> {
+    async fn get_user_by_email(&self, email: Email) -> Result<UserAuthentication, DomainError> {
         let user_model = entity::user::Entity::find()
-            .filter(user::Column::Email.eq(query.email.value()))
+            .filter(user::Column::Email.eq(email.value()))
             .one(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
@@ -47,10 +42,10 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
 
     async fn get_user_by_username(
         &self,
-        query: FindUserByUsernameDTO,
+        username: &Username,
     ) -> Result<UserAuthentication, DomainError> {
         let user_model = entity::user::Entity::find()
-            .filter(user::Column::Username.eq(query.username.value()))
+            .filter(user::Column::Username.eq(username.value()))
             .one(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
@@ -74,7 +69,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
 
     async fn update_user_login_attempts(
         &self,
-        user: FindUserByIdDTO,
+        user: UserId,
         count: i64,
     ) -> Result<(), DomainError> {
         let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
@@ -89,7 +84,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
 
     async fn block_user_until(
         &self,
-        user: &FindUserByIdDTO,
+        user: &UserId,
         expiry: Option<DateTime<Utc>>,
     ) -> Result<(), DomainError> {
         let user = entity::user::Entity::find()
@@ -116,7 +111,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
 
     async fn prepare_user_for_2fa(
         &self,
-        user: FindUserByIdDTO,
+        user: UserId,
         expiry: DateTime<Utc>,
         email_token_hash: Option<String>,
         user_agent: UserAgent,
@@ -142,7 +137,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         Ok(())
     }
 
-    async fn set_email_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+    async fn set_email_otp_verified(&self, user: UserId) -> Result<(), DomainError> {
         let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
         user_otp_token.otp_email_currently_valid = Set(true);
         user_otp_token
@@ -153,7 +148,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         Ok(())
     }
 
-    async fn set_app_otp_verified(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+    async fn set_app_otp_verified(&self, user: UserId) -> Result<(), DomainError> {
         let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
         user_otp_token.otp_app_currently_valid = Set(true);
         user_otp_token
@@ -164,7 +159,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         Ok(())
     }
 
-    async fn reset_otp_validity(&self, user: FindUserByIdDTO) -> Result<(), DomainError> {
+    async fn reset_otp_validity(&self, user: UserId) -> Result<(), DomainError> {
         let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
 
         user_otp_token.otp_email_currently_valid = Set(false);
