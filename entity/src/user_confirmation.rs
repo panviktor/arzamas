@@ -11,6 +11,7 @@ pub struct Model {
     pub user_id: String,
     pub otp_hash: Option<String>,
     pub expiry: Option<DateTime>,
+    pub new_email: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

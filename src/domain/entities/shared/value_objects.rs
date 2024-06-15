@@ -1,3 +1,6 @@
+use std::fmt;
+
+/// Email
 #[derive(Debug, Clone)]
 pub struct Email(pub String);
 
@@ -28,6 +31,19 @@ impl TryFrom<String> for Email {
     }
 }
 
+impl PartialEq for Email {
+    fn eq(&self, other: &Self) -> bool {
+        self.value() == other.value()
+    }
+}
+impl fmt::Display for Email {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Username
+
 #[derive(Debug, Clone)]
 pub struct Username(pub String);
 
@@ -55,6 +71,8 @@ impl TryFrom<String> for Username {
     }
 }
 
+/// EmailToken
+
 #[derive(Clone, Debug)]
 pub struct EmailToken(pub String);
 impl EmailToken {
@@ -71,6 +89,8 @@ impl EmailToken {
         self.0
     }
 }
+
+/// UserAgent
 
 #[derive(Clone, Debug)]
 pub struct UserAgent(pub String);
@@ -95,6 +115,7 @@ impl PartialEq for UserAgent {
     }
 }
 
+/// IPAddress
 #[derive(Clone, Debug)]
 pub struct IPAddress(pub String);
 

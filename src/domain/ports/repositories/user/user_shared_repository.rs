@@ -15,13 +15,14 @@ pub trait UserSharedDomainRepository {
 
     async fn get_base_user_by_username(&self, username: Username) -> Result<UserBase, DomainError>;
 
-    async fn get_base_user_by_id(&self, query: UserId) -> Result<UserBase, DomainError>;
+    async fn get_base_user_by_id(&self, query: &UserId) -> Result<UserBase, DomainError>;
 
     async fn store_email_confirmation_token(
         &self,
         user: UserId,
         token: String,
         expiry: DateTime<Utc>,
+        new_email: Option<Email>,
     ) -> Result<(), DomainError>;
     async fn retrieve_email_confirmation_token(
         &self,

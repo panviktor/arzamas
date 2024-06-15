@@ -68,7 +68,7 @@ where
         let expiry = Utc::now() + Duration::days(1);
 
         self.user_repository
-            .store_email_confirmation_token(user_id, confirmation_token_hash, expiry)
+            .store_email_confirmation_token(user_id, confirmation_token_hash, expiry, None)
             .await?;
 
         Ok(UserRegistrationResponse {

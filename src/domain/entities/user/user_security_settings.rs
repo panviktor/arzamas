@@ -12,14 +12,7 @@ pub struct UserSecuritySettings {
 }
 
 #[derive(Debug)]
-pub struct UserChangeEmail {
-    pub user_id: String,
-    pub email: Email,
-    pub email_validation_token: EmailToken,
-}
-
-#[derive(Debug)]
-pub struct UserChangeEmailResponse {
+pub struct UserChangeEmailOutcome {
     pub new_email: Email,
     pub old_email: Email,
     pub email_validation_token: EmailToken,

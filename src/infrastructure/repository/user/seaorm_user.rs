@@ -84,9 +84,9 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         Ok(user.into())
     }
 
-    async fn get_base_user_by_id(&self, query: UserId) -> Result<UserBase, DomainError> {
+    async fn get_base_user_by_id(&self, user_id: &UserId) -> Result<UserBase, DomainError> {
         let user = entity::prelude::User::find()
-            .filter(user::Column::UserId.eq(query.user_id))
+            .filter(user::Column::UserId.eq(&user_id.user_id))
             .one(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
@@ -104,6 +104,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         user: UserId,
         token: String,
         expiry: DateTime<Utc>,
+        new_email: Option<Email>,
     ) -> Result<(), DomainError> {
         let user_id = user.user_id;
         let confirmation = entity::prelude::UserConfirmation::find()

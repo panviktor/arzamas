@@ -18,6 +18,6 @@ where
         Self { user_repository }
     }
     pub async fn get_user_info(&self, user: UserId) -> Result<UserBase, DomainError> {
-        self.user_repository.get_base_user_by_id(user).await
+        self.user_repository.get_base_user_by_id(&user).await
     }
 }

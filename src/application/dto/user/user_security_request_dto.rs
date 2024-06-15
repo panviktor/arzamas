@@ -68,7 +68,7 @@ impl From<ChangeEmailRequest> for ChangeEmailDTO {
         ChangeEmailDTO {
             user_id: UserId::new(&request.user_id),
             current_password: request.current_password,
-            new_email: request.new_email,
+            new_email: Email::new(&request.new_email),
         }
     }
 }

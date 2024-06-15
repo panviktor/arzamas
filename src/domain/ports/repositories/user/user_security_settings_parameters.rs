@@ -11,7 +11,7 @@ pub struct ChangePasswordDTO {
 pub struct ChangeEmailDTO {
     pub user_id: UserId,
     pub current_password: String,
-    pub new_email: String,
+    pub new_email: Email,
 }
 
 pub struct ConfirmEmailDTO {
