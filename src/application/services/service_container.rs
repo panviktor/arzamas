@@ -41,6 +41,7 @@ pub struct ServiceContainer {
 
     pub user_security_service: UserSecurityApplicationService<
         SeaOrmUserSecurityRepository,
+        SeaOrmUserSharedRepository,
         LettreEmailAdapter,
         RedisAdapter,
     >,
@@ -101,8 +102,10 @@ impl ServiceContainer {
 
         // User security services
         let user_security_repository = Arc::new(SeaOrmUserSecurityRepository::new(db_arc.clone()));
-        let user_security_domain_service =
-            UserSecuritySettingsDomainService::new(user_security_repository.clone());
+        let user_security_domain_service = UserSecuritySettingsDomainService::new(
+            user_security_repository.clone(),
+            user_shared_repository.clone(),
+        );
         let user_security_service = UserSecurityApplicationService::new(
             user_security_domain_service,
             redis_service.clone(),

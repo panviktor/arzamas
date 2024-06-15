@@ -10,9 +10,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
 use entity::{user, user_confirmation};
 use sea_orm::ActiveValue::Set;
-use sea_orm::QueryFilter;
-use sea_orm::{ActiveModelTrait, ColumnTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait, TransactionTrait};
 use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{IntoActiveModel, QueryFilter};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -153,9 +153,14 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
     }
 
     async fn complete_email_verification(&self, user: UserId) -> Result<(), DomainError> {
+        let txn = self.db.begin().await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
+        })?;
+
+        // Retrieve the user by user_id within the transaction
         let user = entity::user::Entity::find()
-            .filter(user::Column::UserId.eq(user.user_id))
-            .one(&*self.db)
+            .filter(user::Column::UserId.eq(&user.user_id))
+            .one(&txn)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
             .ok_or_else(|| {
@@ -164,13 +169,38 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
                 ))
             })?;
 
-        let mut active: user::ActiveModel = user.into();
-        active.email_validated = Set(true);
+        // Retrieve the user's confirmation details within the transaction
+        let confirmation = entity::prelude::UserConfirmation::find()
+            .filter(user_confirmation::Column::UserId.eq(&user.user_id))
+            .one(&txn)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| DomainError::NotFound)?;
 
-        active
-            .update(&*self.db)
+        // Update the confirmation details to invalidate the OTP and expiry
+        let mut active_confirmation = confirmation.into_active_model();
+        active_confirmation.otp_hash = Set(None);
+        active_confirmation.expiry = Set(None);
+
+        // Update the user's email validation status
+        let mut active_user: user::ActiveModel = user.into();
+        active_user.email_validated = Set(true);
+
+        // Perform the updates within the transaction
+        active_confirmation
+            .update(&txn)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        active_user
+            .update(&txn)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        // Commit the transaction
+        txn.commit().await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
+        })?;
 
         Ok(())
     }
@@ -196,5 +226,9 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
 
         Ok(())
+    }
+
+    async fn clear_email_confirmation_token(&self, user: UserId) -> Result<(), DomainError> {
+        todo!()
     }
 }

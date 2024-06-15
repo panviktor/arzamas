@@ -13,28 +13,31 @@ use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::ports::caching::caching::CachingPort;
 use crate::domain::ports::email::email::EmailPort;
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
+use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::user::user_security_settings_service::UserSecuritySettingsDomainService;
 use std::sync::Arc;
 
-pub struct UserSecurityApplicationService<S, E, C>
+pub struct UserSecurityApplicationService<S, U, E, C>
 where
     S: UserSecuritySettingsDomainRepository,
+    U: UserSharedDomainRepository,
     E: EmailPort,
     C: CachingPort,
 {
-    user_security_domain_service: UserSecuritySettingsDomainService<S>,
+    user_security_domain_service: UserSecuritySettingsDomainService<S, U>,
     caching_service: Arc<C>,
     email_service: Arc<E>,
 }
 
-impl<S, E, C> UserSecurityApplicationService<S, E, C>
+impl<S, U, E, C> UserSecurityApplicationService<S, U, E, C>
 where
     S: UserSecuritySettingsDomainRepository,
+    U: UserSharedDomainRepository,
     E: EmailPort,
     C: CachingPort,
 {
     pub fn new(
-        user_security_domain_service: UserSecuritySettingsDomainService<S>,
+        user_security_domain_service: UserSecuritySettingsDomainService<S, U>,
         caching_service: Arc<C>,
         email_service: Arc<E>,
     ) -> Self {
@@ -133,6 +136,12 @@ where
         &self,
         request: ChangeEmailRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
+        if request.new_email != request.new_email_confirm {
+            return Err(ApplicationError::ValidationError(
+                "Emails do not match.".to_string(),
+            ));
+        }
+
         todo!()
     }
 

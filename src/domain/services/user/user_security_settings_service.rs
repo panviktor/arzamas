@@ -10,25 +10,29 @@ use crate::domain::ports::repositories::user::user_security_settings_parameters:
     SecuritySettingsUpdateDTO,
 };
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
+use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::user::UserCredentialService;
 use chrono::Utc;
 use std::sync::Arc;
-use tracing::{error, info, span, Level};
 
-pub struct UserSecuritySettingsDomainService<S>
+pub struct UserSecuritySettingsDomainService<S, U>
 where
     S: UserSecuritySettingsDomainRepository,
+    U: UserSharedDomainRepository,
 {
     user_security_settings_repository: Arc<S>,
+    user_repository: Arc<U>,
 }
 
-impl<S> UserSecuritySettingsDomainService<S>
+impl<S, U> UserSecuritySettingsDomainService<S, U>
 where
     S: UserSecuritySettingsDomainRepository,
+    U: UserSharedDomainRepository,
 {
-    pub fn new(user_security_settings_repository: Arc<S>) -> Self {
+    pub fn new(user_security_settings_repository: Arc<S>, user_repository: Arc<U>) -> Self {
         Self {
             user_security_settings_repository,
+            user_repository,
         }
     }
 
@@ -116,11 +120,33 @@ where
     }
 
     pub async fn change_email(&self, request: ChangeEmailDTO) -> Result<EmailToken, DomainError> {
+        // let token = SharedDomainService::generate_token(64)?;
+        // let confirmation_token = EmailToken::new(&token);
+        // let confirmation_token_hash = SharedDomainService::hash_token(&token);
+        // let expiry = Utc::now() + Duration::days(1);
+        // self.user_repository
+        //     .store_email_confirmation_token(request.user_id, confirmation_token_hash, expiry)
+        //     .await?;
+        //
+        // Ok(confirmation_token)
+
         todo!()
     }
 
     pub async fn confirm_email(&self, request: ConfirmEmailDTO) -> Result<(), DomainError> {
         todo!()
+    }
+
+    pub async fn cancel_email_change(&self, user_id: UserId) -> Result<(), DomainError> {
+        self.user_repository
+            .clear_email_confirmation_token(user_id)
+            .await
+            .map_err(|e| {
+                DomainError::PersistenceError(PersistenceError::Update(
+                    "Failed to clear email confirmation token".into(),
+                ))
+            })?;
+        Ok(())
     }
 
     pub async fn get_security_settings(

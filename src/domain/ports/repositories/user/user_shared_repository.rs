@@ -5,6 +5,7 @@ use crate::domain::entities::user::UserBase;
 use crate::domain::error::DomainError;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use std::todo;
 
 #[async_trait]
 pub trait UserSharedDomainRepository {
@@ -30,4 +31,5 @@ pub trait UserSharedDomainRepository {
     async fn complete_email_verification(&self, user: UserId) -> Result<(), DomainError>;
 
     async fn invalidate_email_verification(&self, user: UserId) -> Result<(), DomainError>;
+    async fn clear_email_confirmation_token(&self, user: UserId) -> Result<(), DomainError>;
 }
