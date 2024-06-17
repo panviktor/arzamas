@@ -35,7 +35,6 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(UserConfirmation::OTPHash).string().null())
                     .col(ColumnDef::new(UserConfirmation::Expiry).timestamp().null())
-                    .col(ColumnDef::new(UserConfirmation::NewEmail).string().null())
                     .to_owned(),
             )
             .await

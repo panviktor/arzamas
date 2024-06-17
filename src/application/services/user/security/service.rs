@@ -182,7 +182,7 @@ where
         }
 
         Ok(UniversalApplicationResponse::new(
-            "Email change canceled successfully.".to_string(),
+            "Email change initiated successfully.".to_string(),
             None,
         ))
     }
@@ -205,7 +205,13 @@ where
         &self,
         request: ConfirmEmailRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        todo!()
+        self.user_security_domain_service
+            .confirm_email(request.into())
+            .await?;
+        Ok(UniversalApplicationResponse::new(
+            "Your email address has been successfully confirmed and updated.".to_string(),
+            None,
+        ))
     }
 
     pub async fn get_security_settings(
