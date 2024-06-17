@@ -1,3 +1,4 @@
+use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
 use chrono::{DateTime, Utc};
 
@@ -26,21 +27,21 @@ impl From<UserSession> for UserSessionResponse {
 }
 
 pub struct SecuritySettingsResponse {
+    pub two_factor_email: bool,
+    pub two_factor_authenticator_app: bool,
     pub email_on_success: bool,
     pub email_on_failure: bool,
     pub close_sessions_on_change_password: bool,
 }
 
-impl SecuritySettingsResponse {
-    pub fn new(
-        email_on_success: bool,
-        email_on_failure: bool,
-        close_sessions_on_change_password: bool,
-    ) -> Self {
-        Self {
-            email_on_success,
-            email_on_failure,
-            close_sessions_on_change_password,
+impl From<UserSecuritySettings> for SecuritySettingsResponse {
+    fn from(settings: UserSecuritySettings) -> Self {
+        SecuritySettingsResponse {
+            two_factor_email: settings.two_factor_email,
+            two_factor_authenticator_app: settings.two_factor_authenticator_app,
+            email_on_success: settings.email_on_success_enabled_at,
+            email_on_failure: settings.email_on_failure_enabled_at,
+            close_sessions_on_change_password: settings.close_sessions_on_change_password,
         }
     }
 }

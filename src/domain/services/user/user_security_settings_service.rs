@@ -106,7 +106,7 @@ where
                     "Current password is incorrect".to_string(),
                 )));
             }
-            Err(e) => {
+            Err(_) => {
                 return Err(DomainError::Unknown(
                     "Credential validation failed".to_string(),
                 ));
@@ -241,7 +241,11 @@ where
         &self,
         request: UserId,
     ) -> Result<UserSecuritySettings, DomainError> {
-        todo!()
+        let security_settings = self
+            .user_security_settings_repository
+            .get_security_settings(&request)
+            .await?;
+        Ok(security_settings)
     }
 
     pub async fn update_security_settings(

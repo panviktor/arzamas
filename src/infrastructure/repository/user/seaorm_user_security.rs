@@ -1,4 +1,5 @@
 use crate::domain::entities::shared::value_objects::UserId;
+use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
@@ -139,4 +140,23 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
 
         Ok(())
     }
+
+    async fn get_security_settings(
+        &self,
+        user: &UserId,
+    ) -> Result<UserSecuritySettings, DomainError> {
+        let security_setting = entity::user_security_settings::Entity::find()
+            .filter(entity::user_security_settings::Column::UserId.eq(user.user_id.clone()))
+            .one(&*self.db)
+            .await?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "User security settings not found".to_string(),
+                ))
+            })?
+            .into();
+        Ok(security_setting)
+    }
+
+    // update_security_settings
 }

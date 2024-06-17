@@ -1,8 +1,10 @@
 use crate::domain::entities::shared::value_objects::UserId;
+use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::DomainError;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use std::todo;
 
 #[async_trait]
 pub trait UserSecuritySettingsDomainRepository {
@@ -22,4 +24,8 @@ pub trait UserSecuritySettingsDomainRepository {
         pass_hash: String,
         update_time: DateTime<Utc>,
     ) -> Result<(), DomainError>;
+    async fn get_security_settings(
+        &self,
+        user: &UserId,
+    ) -> Result<UserSecuritySettings, DomainError>;
 }

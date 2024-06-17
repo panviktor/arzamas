@@ -52,6 +52,8 @@ impl From<UserSessionResponse> for UserSessionResponseWeb {
 
 #[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct SecuritySettingsResponseWeb {
+    pub two_factor_email: bool,
+    pub two_factor_authenticator_app: bool,
     pub email_on_success: bool,
     pub email_on_failure: bool,
     pub close_sessions_on_change_password: bool,
@@ -60,6 +62,8 @@ pub struct SecuritySettingsResponseWeb {
 impl From<SecuritySettingsResponse> for SecuritySettingsResponseWeb {
     fn from(response: SecuritySettingsResponse) -> Self {
         SecuritySettingsResponseWeb {
+            two_factor_email: response.two_factor_email,
+            two_factor_authenticator_app: response.two_factor_authenticator_app,
             email_on_success: response.email_on_success,
             email_on_failure: response.email_on_failure,
             close_sessions_on_change_password: response.close_sessions_on_change_password,

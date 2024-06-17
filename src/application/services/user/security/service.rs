@@ -218,7 +218,12 @@ where
         &self,
         user: UserByIdRequest,
     ) -> Result<SecuritySettingsResponse, ApplicationError> {
-        todo!()
+        let user = UserId::new(&user.user_id);
+        let response = self
+            .user_security_domain_service
+            .get_security_settings(user)
+            .await?;
+        Ok(response.into())
     }
 
     pub async fn update_security_settings(
