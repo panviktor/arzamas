@@ -1,7 +1,7 @@
 use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::user::user_security_settings::{
-    UserChangeEmailOutcome, UserSecuritySettings,
+    UserChangeEmail, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError, ValidationError};
@@ -16,7 +16,9 @@ use crate::domain::ports::repositories::user::user_security_settings_parameters:
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::shared::SharedDomainService;
-use crate::domain::services::user::{UserCredentialService, ValidationServiceError};
+use crate::domain::services::user::{
+    UserCredentialService, UserValidationService, ValidationServiceError,
+};
 use chrono::{Duration, Utc};
 use std::sync::Arc;
 use tokio::join;
@@ -79,8 +81,11 @@ where
     }
 
     pub async fn change_password(&self, request: ChangePasswordDTO) -> Result<(), DomainError> {
+        UserValidationService::validate_passwd(&request.new_password)
+            .map_err(UserRegistrationError::InvalidPassword)?;
+
         let new_hash = UserCredentialService::generate_password_hash(&request.new_password)
-            .map_err(|e| DomainError::Unknown("Password hashing failed".into()))?;
+            .map_err(|e| DomainError::Unknown("Password hashing failed".to_string()))?;
 
         // Retrieve the old password hash from the database
         let old_db_hash = self
@@ -102,7 +107,9 @@ where
                 )));
             }
             Err(e) => {
-                return Err(DomainError::Unknown("Credential validation failed".into()));
+                return Err(DomainError::Unknown(
+                    "Credential validation failed".to_string(),
+                ));
             }
         }
 
@@ -119,7 +126,7 @@ where
             .await
             .map_err(|e| {
                 DomainError::PersistenceError(PersistenceError::Update(
-                    "Failed to set new password".into(),
+                    "Failed to set new password".to_string(),
                 ))
             })?;
         Ok(())
@@ -128,7 +135,10 @@ where
     pub async fn change_email(
         &self,
         request: ChangeEmailDTO,
-    ) -> Result<UserChangeEmailOutcome, DomainError> {
+    ) -> Result<UserChangeEmail, DomainError> {
+        UserValidationService::validate_email(&request.new_email)
+            .map_err(UserRegistrationError::InvalidEmail)?;
+
         let get_user_future = self.user_repository.get_base_user_by_id(&request.user_id);
         let check_email_future = self.user_repository.exists_with_email(&request.new_email);
         let (user_result, email_exists_result) = join!(get_user_future, check_email_future);
@@ -171,12 +181,13 @@ where
             )
             .await
             .map_err(|e| {
-                DomainError::PersistenceError(PersistenceError::Update(
-                    "Failed to store email confirmation token".into(),
-                ))
+                DomainError::PersistenceError(PersistenceError::Update(format!(
+                    "Failed to store email confirmation token: {}",
+                    e
+                )))
             })?;
 
-        let outcome = UserChangeEmailOutcome {
+        let outcome = UserChangeEmail {
             new_email: request.new_email,
             old_email: user.email,
             email_validation_token: confirmation_token,
@@ -185,20 +196,45 @@ where
         Ok(outcome)
     }
 
-    pub async fn confirm_email(&self, request: ConfirmEmailDTO) -> Result<(), DomainError> {
-        todo!()
-    }
-
     pub async fn cancel_email_change(&self, user_id: UserId) -> Result<(), DomainError> {
         self.user_repository
             .clear_email_confirmation_token(user_id)
             .await
             .map_err(|e| {
                 DomainError::PersistenceError(PersistenceError::Update(
-                    "Failed to clear email confirmation token".into(),
+                    "Failed to clear email confirmation token".to_string(),
                 ))
             })?;
         Ok(())
+    }
+
+    pub async fn confirm_email(&self, request: ConfirmEmailDTO) -> Result<(), DomainError> {
+        let confirmation = self
+            .user_repository
+            .retrieve_email_confirmation_token(&request.user_id)
+            .await?;
+
+        if SharedDomainService::validate_hash(&request.token.value(), &confirmation.otp_hash) {
+            let now = Utc::now();
+            if confirmation.expiry > now {
+                self.user_repository
+                    .complete_email_verification(request.user_id)
+                    .await
+            } else {
+                Err(DomainError::ValidationError(ValidationError::InvalidData(
+                    "The confirmation token has expired.\n\
+                     Please log in to the app again to generate a new confirmation token.\n\
+                     If you are using 2FA email authentication, please check your old email."
+                        .to_string(),
+                )))
+            }
+        } else {
+            Err(DomainError::ValidationError(ValidationError::InvalidData(
+                "The validation code you entered is incorrect.\n
+                 Please try again."
+                    .to_string(),
+            )))
+        }
     }
 
     pub async fn get_security_settings(

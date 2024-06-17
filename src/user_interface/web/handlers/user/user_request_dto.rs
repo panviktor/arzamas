@@ -1,6 +1,3 @@
-use crate::application::dto::user::user_security_request_dto::{
-    ChangeEmailRequest, ChangePasswordRequest, ConfirmEmailRequest, SecuritySettingsUpdateRequest,
-};
 use serde_derive::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -13,7 +10,6 @@ pub struct ChangePasswordRequestWeb {
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct ChangeEmailRequestWeb {
-    pub current_password: String,
     pub new_email: String,
     pub new_email_confirm: String,
 }

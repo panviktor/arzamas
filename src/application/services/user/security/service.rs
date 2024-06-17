@@ -16,6 +16,7 @@ use crate::domain::ports::repositories::user::user_security_settings_repository:
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::user::user_security_settings_service::UserSecuritySettingsDomainService;
 use std::sync::Arc;
+use tokio::join;
 
 pub struct UserSecurityApplicationService<S, U, E, C>
 where
@@ -138,11 +139,66 @@ where
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
         if request.new_email != request.new_email_confirm {
             return Err(ApplicationError::ValidationError(
-                "Emails do not match.".to_string(),
+                "The new email addresses do not match.".to_string(),
             ));
         }
 
-        todo!()
+        let response = self
+            .user_security_domain_service
+            .change_email(request.into())
+            .await?;
+
+        let subject_old = "Action Required: Email Change Request";
+        let message_old = "A request to change your email address has been initiated.\n
+         If you did not request this change, please contact support immediately.\n
+         If you did request this change, please check your new email for the confirmation code."
+            .to_string();
+
+        let old_future =
+            self.email_service
+                .send_email(response.old_email.value(), &subject_old, &message_old);
+
+        let subject_old = "Complete Your Email Change Request";
+        let message_old = format!(
+            "Please confirm your email address change by entering the following code: {:?}",
+            response.email_validation_token
+        );
+
+        let new_future =
+            self.email_service
+                .send_email(response.new_email.value(), &subject_old, &message_old);
+
+        let (old_email_result, new_email_result) = join!(old_future, new_future);
+        if let Err(e) = old_email_result {
+            return Err(ApplicationError::ExternalServiceError(
+                "Failed to send email to old email address.".to_string(),
+            ));
+        }
+
+        if let Err(e) = new_email_result {
+            return Err(ApplicationError::ExternalServiceError(
+                "Failed to send email to new email address.".to_string(),
+            ));
+        }
+
+        Ok(UniversalApplicationResponse::new(
+            "Email change canceled successfully.".to_string(),
+            None,
+        ))
+    }
+
+    pub async fn cancel_email_change(
+        &self,
+        user: UserByIdRequest,
+    ) -> Result<UniversalApplicationResponse, ApplicationError> {
+        let user = UserId::new(&user.user_id);
+        self.user_security_domain_service
+            .cancel_email_change(user)
+            .await?;
+        Ok(UniversalApplicationResponse::new(
+            "Email change canceled successfully.".to_string(),
+            None,
+        ))
     }
 
     pub async fn confirm_email(

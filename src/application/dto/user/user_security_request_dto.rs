@@ -42,21 +42,15 @@ impl From<ChangePasswordRequest> for ChangePasswordDTO {
 /// ChangeEmailRequest
 pub struct ChangeEmailRequest {
     pub user_id: String,
-    pub current_password: String,
     pub new_email: String,
     pub new_email_confirm: String,
 }
 
 impl ChangeEmailRequest {
-    pub fn new(
-        user_id: String,
-        current_password: String,
-        new_email: String,
-        new_email_confirm: String,
-    ) -> Self {
+    pub fn new(user_id: String, new_email: String, new_email_confirm: String) -> Self {
         Self {
             user_id,
-            current_password,
+
             new_email,
             new_email_confirm,
         }
@@ -67,7 +61,6 @@ impl From<ChangeEmailRequest> for ChangeEmailDTO {
     fn from(request: ChangeEmailRequest) -> Self {
         ChangeEmailDTO {
             user_id: UserId::new(&request.user_id),
-            current_password: request.current_password,
             new_email: Email::new(&request.new_email),
         }
     }

@@ -9,7 +9,6 @@ use tracing::debug;
 pub async fn check_migration(db: &DatabaseConnection) {
     debug!("Checking DB connection...");
     let migration = env::var("MIGRATION").unwrap_or_else(|_| "".to_string());
-
     // ❗ If enabled, automatically migrate the database to the latest version when the application starts up.
     if migration == "auto" {
         if let Err(_) = Migrator::up(db, None).await {

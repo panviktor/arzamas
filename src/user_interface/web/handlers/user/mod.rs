@@ -31,6 +31,10 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
                 web::resource("/change-email").route(web::post().to(controllers::change_email)),
             )
             .service(
+                web::resource("/cancel-email-change")
+                    .route(web::post().to(controllers::cancel_email_change)),
+            )
+            .service(
                 web::resource("/confirm-email").route(web::post().to(controllers::confirm_email)),
             )
             // 2FA

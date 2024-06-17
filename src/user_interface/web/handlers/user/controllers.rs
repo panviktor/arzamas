@@ -136,7 +136,6 @@ pub async fn change_email(
 ) -> Result<HttpResponse, AppResponseError> {
     let application_request = ChangeEmailRequest::new(
         user.id,
-        params.current_password.to_string(),
         params.new_email.to_string(),
         params.new_email_confirm.to_string(),
     );
@@ -147,6 +146,20 @@ pub async fn change_email(
         .await
         .map_err(|e| e.into_service_error(&req))?;
 
+    let response = UniversalResponse::new(response.title, response.subtitle, true);
+    Ok(HttpResponse::Ok().json(response))
+}
+pub async fn cancel_email_change(
+    req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
+    user: LoginUser,
+) -> Result<HttpResponse, AppResponseError> {
+    let user = UserByIdRequest::new(&user.id);
+    let response = data
+        .user_security_service
+        .cancel_email_change(user)
+        .await
+        .map_err(|e| e.into_service_error(&req))?;
     let response = UniversalResponse::new(response.title, response.subtitle, true);
     Ok(HttpResponse::Ok().json(response))
 }

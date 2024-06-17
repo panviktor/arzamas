@@ -118,6 +118,10 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         active.otp_hash = Set(Some(token));
         active.expiry = Set(Some(expiry.naive_utc()));
 
+        if let Some(email) = new_email {
+            active.new_email = Set(Some(email.into_inner()));
+        }
+
         active
             .update(&*self.db)
             .await
@@ -149,7 +153,6 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         })?;
 
         let expiry = Utc.from_utc_datetime(&expiry);
-
         Ok(UserEmailConfirmation { otp_hash, expiry })
     }
 
@@ -230,6 +233,24 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
     }
 
     async fn clear_email_confirmation_token(&self, user: UserId) -> Result<(), DomainError> {
-        todo!()
+        let user_id = user.user_id;
+        let confirmation = entity::prelude::UserConfirmation::find()
+            .filter(user_confirmation::Column::UserId.eq(user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| DomainError::NotFound)?;
+
+        let mut active: user_confirmation::ActiveModel = confirmation.into();
+        active.otp_hash = Set(None);
+        active.expiry = Set(None);
+        active.new_email = Set(None);
+
+        active
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
     }
 }
