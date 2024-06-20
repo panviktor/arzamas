@@ -169,13 +169,13 @@ where
                 .send_email(response.new_email.value(), &subject_old, &message_old);
 
         let (old_email_result, new_email_result) = join!(old_future, new_future);
-        if let Err(e) = old_email_result {
+        if let Err(_) = old_email_result {
             return Err(ApplicationError::ExternalServiceError(
                 "Failed to send email to old email address.".to_string(),
             ));
         }
 
-        if let Err(e) = new_email_result {
+        if let Err(_) = new_email_result {
             return Err(ApplicationError::ExternalServiceError(
                 "Failed to send email to new email address.".to_string(),
             ));
@@ -230,49 +230,134 @@ where
         &self,
         request: SecuritySettingsUpdateRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        todo!()
+        self.user_security_domain_service
+            .update_security_settings(request.into())
+            .await?;
+        Ok(UniversalApplicationResponse::new(
+            "Your security settings have been successfully updated.".to_string(),
+            None,
+        ))
     }
 
     pub async fn enable_email_2fa(
         &self,
         request: ActivateEmail2FARequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        // code to activate email 2fa is send to your email
+        let response = self
+            .user_security_domain_service
+            .enable_email_2fa(request.into())
+            .await?;
 
-        todo!()
+        // Send an email with the confirmation token
+        let subject = "Enable 2FA Email Authentication";
+        let message = format!(
+            "Please confirm enabling 2FA by entering the following code: {}",
+            response.token.value()
+        );
+
+        self.email_service
+            .send_email(response.email.value(), &subject, &message)
+            .await
+            .map_err(|_| {
+                ApplicationError::ExternalServiceError(
+                    "Failed to send 2FA enable confirmation email.".to_string(),
+                )
+            })?;
+
+        Ok(UniversalApplicationResponse::new(
+            "A confirmation code to enable 2FA has been sent to your email.".to_string(),
+            None,
+        ))
     }
 
     pub async fn resend_email_2fa(
         &self,
         request: UserByIdRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        // code to activate email 2fa is resend to your email
+        let user_id = UserId::new(&request.user_id);
+        let response = self
+            .user_security_domain_service
+            .resend_email_2fa(user_id)
+            .await?;
 
-        todo!()
+        // Send an email with the new confirmation token
+        let subject = "Resend 2FA Email Authentication Token";
+        let message = format!(
+            "Please use the following code to confirm enabling/disabling 2FA: {}",
+            response.token.value()
+        );
+
+        self.email_service
+            .send_email(response.email.value(), &subject, &message)
+            .await
+            .map_err(|_| {
+                ApplicationError::ExternalServiceError(
+                    "Failed to resend 2FA email token.".to_string(),
+                )
+            })?;
+
+        Ok(UniversalApplicationResponse::new(
+            "A new 2FA email token has been sent to your email.".to_string(),
+            None,
+        ))
     }
 
     pub async fn confirm_email_2fa(
         &self,
         request: ConfirmEmail2FARequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        // Sending an authorization code by email is activated
-
-        todo!()
+        self.user_security_domain_service
+            .confirm_email_2fa(request.into())
+            .await?;
+        Ok(UniversalApplicationResponse::new(
+            "2FA email authentication has been successfully enabled.".to_string(),
+            None,
+        ))
     }
 
     pub async fn disable_email_2fa(
         &self,
         request: UserByIdRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        // code to deactivate email 2fa is send to your email if email was activated else reset status from waiting token to None
-        todo!()
+        let user_id = UserId::new(&request.user_id);
+
+        let response = self
+            .user_security_domain_service
+            .disable_email_2fa(user_id)
+            .await?;
+
+        // Send an email with the confirmation token
+        let subject = "Disable 2FA Email Authentication";
+        let message = format!(
+            "Please confirm disabling 2FA by entering the following code: {}",
+            response.token.value()
+        );
+
+        self.email_service
+            .send_email(response.email.value(), &subject, &message)
+            .await
+            .map_err(|_| {
+                ApplicationError::ExternalServiceError(
+                    "Failed to send 2FA disable confirmation email.".to_string(),
+                )
+            })?;
+
+        Ok(UniversalApplicationResponse::new(
+            "A confirmation code to disable 2FA has been sent to your email.".to_string(),
+            None,
+        ))
     }
 
     pub async fn confirm_disable_email_2fa(
         &self,
         request: ConfirmEmail2FARequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        // Sending an authorization code by email is off
-        todo!()
+        self.user_security_domain_service
+            .confirm_disable_email_2fa(request.into())
+            .await?;
+        Ok(UniversalApplicationResponse::new(
+            "2FA email authentication has been successfully disabled.".to_string(),
+            None,
+        ))
     }
 }

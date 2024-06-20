@@ -1,10 +1,9 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::value_objects::UserEmailConfirmation;
+use crate::domain::entities::user::user_security_settings::UserChangeEmailConfirmation;
 use crate::domain::entities::user::UserBase;
 use crate::domain::error::DomainError;
 use crate::domain::error::PersistenceError;
-
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
@@ -133,7 +132,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
     async fn retrieve_email_confirmation_token(
         &self,
         user_id: &UserId,
-    ) -> Result<UserEmailConfirmation, DomainError> {
+    ) -> Result<UserChangeEmailConfirmation, DomainError> {
         let confirmation = entity::prelude::UserConfirmation::find()
             .filter(user_confirmation::Column::UserId.eq(&user_id.user_id))
             .one(&*self.db)
@@ -151,12 +150,20 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
                 "Missing expiry date".to_string(),
             ))
         })?;
-
-        let expiry = Utc.from_utc_datetime(&expiry);
-        Ok(UserEmailConfirmation { otp_hash, expiry })
+        if let Some(new_email) = confirmation.new_email {
+            let expiry = Utc.from_utc_datetime(&expiry);
+            return Ok(UserChangeEmailConfirmation {
+                otp_hash,
+                expiry,
+                new_email: Email::new(&new_email),
+            });
+        }
+        Err(DomainError::PersistenceError(PersistenceError::Retrieve(
+            "Missing new email".to_string(),
+        )))
     }
 
-    async fn complete_email_verification(&self, user: UserId) -> Result<(), DomainError> {
+    async fn complete_email_verification(&self, user: &UserId) -> Result<(), DomainError> {
         let txn = self.db.begin().await.map_err(|e| {
             DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
         })?;
@@ -205,6 +212,28 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         txn.commit().await.map_err(|e| {
             DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
         })?;
+
+        Ok(())
+    }
+
+    async fn update_user_root_email(&self, user: &UserId, email: Email) -> Result<(), DomainError> {
+        let user = entity::prelude::User::find()
+            .filter(user::Column::UserId.eq(&user.user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "User for update email not found".to_string(),
+                ))
+            })?;
+
+        let mut active = user.into_active_model();
+        active.email = Set(email.into_inner());
+        active
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
 
         Ok(())
     }

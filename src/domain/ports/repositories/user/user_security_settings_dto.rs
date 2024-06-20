@@ -32,5 +32,5 @@ pub struct ActivateEmail2FADTO {
 
 pub struct ConfirmEmail2FADTO {
     pub user_id: UserId,
-    pub email_token: EmailToken,
+    pub token: EmailToken,
 }

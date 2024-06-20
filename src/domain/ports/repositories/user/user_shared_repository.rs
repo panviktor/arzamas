@@ -1,6 +1,6 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::value_objects::UserEmailConfirmation;
+use crate::domain::entities::user::user_security_settings::UserChangeEmailConfirmation;
 use crate::domain::entities::user::UserBase;
 use crate::domain::error::DomainError;
 use async_trait::async_trait;
@@ -27,9 +27,10 @@ pub trait UserSharedDomainRepository {
     async fn retrieve_email_confirmation_token(
         &self,
         user: &UserId,
-    ) -> Result<UserEmailConfirmation, DomainError>;
+    ) -> Result<UserChangeEmailConfirmation, DomainError>;
 
-    async fn complete_email_verification(&self, user: UserId) -> Result<(), DomainError>;
+    async fn complete_email_verification(&self, user: &UserId) -> Result<(), DomainError>;
+    async fn update_user_root_email(&self, user: &UserId, email: Email) -> Result<(), DomainError>;
 
     async fn invalidate_email_verification(&self, user: UserId) -> Result<(), DomainError>;
     async fn clear_email_confirmation_token(&self, user: UserId) -> Result<(), DomainError>;

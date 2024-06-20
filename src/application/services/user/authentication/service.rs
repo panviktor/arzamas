@@ -9,7 +9,7 @@ use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::AuthenticationOutcome;
 use crate::domain::ports::caching::caching::CachingPort;
 use crate::domain::ports::email::email::EmailPort;
-use crate::domain::ports::repositories::user::user_authentication_parameters::{
+use crate::domain::ports::repositories::user::user_authentication_dto::{
     ContinueLoginRequestDTO, CreateLoginRequestDTO,
 };
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;

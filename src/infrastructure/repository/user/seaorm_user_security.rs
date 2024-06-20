@@ -1,7 +1,10 @@
 use crate::domain::entities::shared::value_objects::UserId;
-use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
+use crate::domain::entities::user::user_security_settings::{
+    User2FAEmailConfirmation, UserSecuritySettings,
+};
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError};
+use crate::domain::ports::repositories::user::user_security_settings_dto::SecuritySettingsUpdateDTO;
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -146,7 +149,7 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         user: &UserId,
     ) -> Result<UserSecuritySettings, DomainError> {
         let security_setting = entity::user_security_settings::Entity::find()
-            .filter(entity::user_security_settings::Column::UserId.eq(user.user_id.clone()))
+            .filter(entity::user_security_settings::Column::UserId.eq(user.user_id.as_str()))
             .one(&*self.db)
             .await?
             .ok_or_else(|| {
@@ -158,5 +161,59 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         Ok(security_setting)
     }
 
-    // update_security_settings
+    async fn update_security_settings(
+        &self,
+        settings: SecuritySettingsUpdateDTO,
+    ) -> Result<(), DomainError> {
+        let ss = entity::user_security_settings::Entity::find()
+            .filter(entity::user_security_settings::Column::UserId.eq(settings.user_id.user_id))
+            .one(&*self.db)
+            .await?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "User security settings not found".to_string(),
+                ))
+            })?;
+
+        let mut active = ss.into_active_model();
+
+        if let Some(email_on_success) = settings.email_on_success {
+            active.email_on_success_enabled_at = Set(email_on_success);
+        }
+        if let Some(email_on_failure) = settings.email_on_failure {
+            active.email_on_failure_enabled_at = Set(email_on_failure);
+        }
+        if let Some(close_sessions_on_change_password) = settings.close_sessions_on_change_password
+        {
+            active.close_sessions_on_change_password = Set(close_sessions_on_change_password);
+        }
+
+        active.update(&*self.db).await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Update(
+                "Failed to update user security settings".to_string(),
+            ))
+        })?;
+
+        Ok(())
+    }
+
+    async fn save_email_2fa_token(
+        &self,
+        user_id: UserId,
+        email_token_hash: String,
+        expiry: DateTime<Utc>,
+    ) -> Result<(), DomainError> {
+        todo!()
+    }
+
+    async fn retrieve_email_2fa_token(
+        &self,
+        user: &UserId,
+    ) -> Result<User2FAEmailConfirmation, DomainError> {
+        todo!()
+    }
+
+    async fn toggle_email_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError> {
+        todo!()
+    }
 }

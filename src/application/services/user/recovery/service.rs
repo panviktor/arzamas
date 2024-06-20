@@ -6,7 +6,7 @@ use crate::application::error::error::ApplicationError;
 use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
 use crate::domain::ports::caching::caching::CachingPort;
 use crate::domain::ports::email::email::EmailPort;
-use crate::domain::ports::repositories::user::user_recovery_password_parameters::{
+use crate::domain::ports::repositories::user::user_recovery_password_dto::{
     RecoveryPasswdRequestDTO, UserCompleteRecoveryRequestDTO, UserRecoveryPasswdOutcome,
 };
 use crate::domain::ports::repositories::user::user_recovery_password_repository::UserRecoveryPasswdDomainRepository;

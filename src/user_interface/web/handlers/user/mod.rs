@@ -37,15 +37,12 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
             .service(
                 web::resource("/confirm-email").route(web::post().to(controllers::confirm_email)),
             )
+            .service(
+                web::resource("/security-settings")
+                    .route(web::get().to(controllers::get_security_settings))
+                    .route(web::put().to(controllers::update_security_settings)),
+            )
             // 2FA
-            .service(
-                web::resource("/security-settings")
-                    .route(web::get().to(controllers::get_security_settings)),
-            )
-            .service(
-                web::resource("/security-settings")
-                    .route(web::post().to(controllers::update_security_settings)),
-            )
             .service(
                 web::scope("/2fa")
                     .service(

@@ -3,7 +3,7 @@ use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_recovery_password::UserRecoveryPasswd;
 use crate::domain::error::{DomainError, ValidationError};
-use crate::domain::ports::repositories::user::user_recovery_password_parameters::{
+use crate::domain::ports::repositories::user::user_recovery_password_dto::{
     RecoveryPasswdRequestDTO, RecoveryPasswdResponse, UserCompleteRecoveryRequestDTO,
     UserRecoveryPasswdOutcome,
 };

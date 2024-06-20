@@ -6,7 +6,7 @@ use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::AuthenticationOutcome;
 use crate::domain::error::{DomainError, ValidationError};
-use crate::domain::ports::repositories::user::user_authentication_parameters::{
+use crate::domain::ports::repositories::user::user_authentication_dto::{
     ContinueLoginRequestDTO, CreateLoginRequestDTO, DomainVerificationMethod,
 };
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
@@ -96,6 +96,8 @@ where
         if EMAIL_REGEX.is_match(identifier) {
             let email = Email::new(identifier);
             UserValidationService::validate_email(&email)?;
+            println!("99");
+
             self.user_authentication_repository
                 .get_user_by_email(email)
                 .await

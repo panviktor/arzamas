@@ -1,10 +1,12 @@
 use crate::domain::entities::shared::value_objects::UserId;
-use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
+use crate::domain::entities::user::user_security_settings::{
+    User2FAEmailConfirmation, UserSecuritySettings,
+};
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::DomainError;
+use crate::domain::ports::repositories::user::user_security_settings_dto::SecuritySettingsUpdateDTO;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use std::todo;
 
 #[async_trait]
 pub trait UserSecuritySettingsDomainRepository {
@@ -28,4 +30,19 @@ pub trait UserSecuritySettingsDomainRepository {
         &self,
         user: &UserId,
     ) -> Result<UserSecuritySettings, DomainError>;
+    async fn update_security_settings(
+        &self,
+        settings: SecuritySettingsUpdateDTO,
+    ) -> Result<(), DomainError>;
+    async fn save_email_2fa_token(
+        &self,
+        user_id: UserId,
+        email_token_hash: String,
+        expiry: DateTime<Utc>,
+    ) -> Result<(), DomainError>;
+    async fn retrieve_email_2fa_token(
+        &self,
+        user: &UserId,
+    ) -> Result<User2FAEmailConfirmation, DomainError>;
+    async fn toggle_email_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError>;
 }

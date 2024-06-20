@@ -1,6 +1,6 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::{Email, EmailToken};
-use crate::domain::ports::repositories::user::user_security_settings_parameters::{
+use crate::domain::ports::repositories::user::user_security_settings_dto::{
     ActivateEmail2FADTO, ChangeEmailDTO, ChangePasswordDTO, ConfirmEmail2FADTO, ConfirmEmailDTO,
     SecuritySettingsUpdateDTO,
 };
@@ -159,7 +159,7 @@ impl From<ConfirmEmail2FARequest> for ConfirmEmail2FADTO {
     fn from(request: ConfirmEmail2FARequest) -> Self {
         ConfirmEmail2FADTO {
             user_id: UserId::new(&request.user_id),
-            email_token: EmailToken::new(&request.token),
+            token: EmailToken::new(&request.token),
         }
     }
 }

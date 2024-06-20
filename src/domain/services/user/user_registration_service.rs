@@ -6,7 +6,7 @@ use crate::domain::entities::user::user_registration::{
 };
 use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::{DomainError, ValidationError};
-use crate::domain::ports::repositories::user::user_registration_parameters::CreateUserDTO;
+use crate::domain::ports::repositories::user::user_registration_dto::CreateUserDTO;
 use crate::domain::ports::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::shared::SharedDomainService;
@@ -104,7 +104,7 @@ where
             let now = Utc::now();
             if confirmation.expiry > now {
                 self.user_repository
-                    .complete_email_verification(user_id)
+                    .complete_email_verification(&user_id)
                     .await
             } else {
                 Err(DomainError::ValidationError(ValidationError::InvalidData(

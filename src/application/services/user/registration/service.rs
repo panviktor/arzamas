@@ -6,7 +6,7 @@ use crate::application::error::error::ApplicationError;
 use crate::domain::entities::shared::value_objects::{EmailToken, UserId};
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::ports::email::email::EmailPort;
-use crate::domain::ports::repositories::user::user_registration_parameters::CreateUserDTO;
+use crate::domain::ports::repositories::user::user_registration_dto::CreateUserDTO;
 use crate::domain::ports::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::user::user_registration_service::UserRegistrationDomainService;

@@ -1,15 +1,15 @@
 use crate::domain::entities::shared::value_objects::EmailToken;
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::user::user_security_settings::{
-    UserChangeEmail, UserSecuritySettings,
+    ConfirmEmail2FA, UserChangeEmail, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError, ValidationError};
-use std::cmp::PartialEq;
 
 use crate::domain::entities::user::user_registration::UserRegistrationError;
+use crate::domain::error::PersistenceError::Retrieve;
 use crate::domain::error::ValidationError::BusinessRuleViolation;
-use crate::domain::ports::repositories::user::user_security_settings_parameters::{
+use crate::domain::ports::repositories::user::user_security_settings_dto::{
     ActivateEmail2FADTO, ChangeEmailDTO, ChangePasswordDTO, ConfirmEmail2FADTO, ConfirmEmailDTO,
     SecuritySettingsUpdateDTO,
 };
@@ -19,7 +19,7 @@ use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::{
     UserCredentialService, UserValidationService, ValidationServiceError,
 };
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use std::sync::Arc;
 use tokio::join;
 
@@ -167,10 +167,8 @@ where
             .into());
         }
 
-        let token = SharedDomainService::generate_token(64)?;
-        let confirmation_token = EmailToken::new(&token);
-        let confirmation_token_hash = SharedDomainService::hash_token(&token);
-        let expiry = Utc::now() + Duration::days(1);
+        let (confirmation_token, confirmation_token_hash, expiry) =
+            self.generate_email_token(64).await?;
 
         self.user_repository
             .store_email_confirmation_token(
@@ -217,9 +215,17 @@ where
         if SharedDomainService::validate_hash(&request.token.value(), &confirmation.otp_hash) {
             let now = Utc::now();
             if confirmation.expiry > now {
-                self.user_repository
-                    .complete_email_verification(request.user_id)
-                    .await
+                let (complete_verification_result, update_email_result) = join!(
+                    self.user_repository
+                        .complete_email_verification(&request.user_id),
+                    self.user_repository
+                        .update_user_root_email(&request.user_id, confirmation.new_email)
+                );
+
+                complete_verification_result?;
+                update_email_result?;
+
+                Ok(())
             } else {
                 Err(DomainError::ValidationError(ValidationError::InvalidData(
                     "The confirmation token has expired.\n\
@@ -252,32 +258,222 @@ where
         &self,
         request: SecuritySettingsUpdateDTO,
     ) -> Result<(), DomainError> {
-        todo!()
+        self.user_security_settings_repository
+            .update_security_settings(request)
+            .await?;
+        Ok(())
     }
 
     pub async fn enable_email_2fa(
         &self,
         request: ActivateEmail2FADTO,
-    ) -> Result<EmailToken, DomainError> {
-        todo!()
+    ) -> Result<ConfirmEmail2FA, DomainError> {
+        // Validate the provided email
+        UserValidationService::validate_email(&request.email)?;
+
+        let (user_result, security_settings_result) = join!(
+            self.user_repository.get_base_user_by_id(&request.user_id),
+            self.user_security_settings_repository
+                .get_security_settings(&request.user_id)
+        );
+
+        // Handle potential errors from the concurrent operations
+        let user = user_result?;
+        let security_settings = security_settings_result?;
+
+        // Check if email 2FA is already enabled
+        if security_settings.two_factor_email {
+            return Err(DomainError::ValidationError(BusinessRuleViolation(
+                "Two-factor authentication via email is already enabled.".to_string(),
+            )));
+        }
+
+        // Check if the email matches the user's registered email
+        if user.email != request.email {
+            return Err(DomainError::PersistenceError(Retrieve(
+                "Invalid email for activation. Please use the email associated with the user."
+                    .into(),
+            )));
+        }
+
+        // Generate a new token
+        let (confirmation_token, confirmation_token_hash, expiry) =
+            self.generate_email_token(32).await?;
+
+        // Save the token
+        self.user_security_settings_repository
+            .save_email_2fa_token(request.user_id, confirmation_token_hash, expiry)
+            .await?;
+
+        Ok(ConfirmEmail2FA::new(user.email, confirmation_token))
     }
 
-    pub async fn resend_email_2fa(&self, request: UserId) -> Result<EmailToken, DomainError> {
-        todo!()
+    pub async fn resend_email_2fa(&self, user_id: UserId) -> Result<ConfirmEmail2FA, DomainError> {
+        // Perform concurrent operations to get user data and retrieve the 2FA token
+        let (user_result, token_result) = join!(
+            self.user_repository.get_base_user_by_id(&user_id),
+            self.user_security_settings_repository
+                .retrieve_email_2fa_token(&user_id)
+        );
+
+        let user = user_result?;
+
+        if let Err(e) = token_result {
+            return Err(DomainError::PersistenceError(Retrieve(
+                format!(
+                    "Unable to retrieve the 2FA token.\n\
+                 Ensure that the process of enabling or disabling 2FA has started, and try again.\n\
+                 Error details: {}",
+                    e
+                )
+                .into(),
+            )));
+        }
+
+        // Generate a new token
+        let (confirmation_token, confirmation_token_hash, expiry) =
+            self.generate_email_token(32).await?;
+
+        // Save the token
+        self.user_security_settings_repository
+            .save_email_2fa_token(user_id, confirmation_token_hash, expiry)
+            .await?;
+
+        Ok(ConfirmEmail2FA::new(user.email, confirmation_token))
     }
 
     pub async fn confirm_email_2fa(&self, request: ConfirmEmail2FADTO) -> Result<(), DomainError> {
-        todo!()
+        let confirmation_result = self
+            .user_security_settings_repository
+            .retrieve_email_2fa_token(&request.user_id)
+            .await;
+
+        let confirmation = match confirmation_result {
+            Ok(confirmation) => confirmation,
+            Err(e) => {
+                return Err(DomainError::PersistenceError(Retrieve(
+                    format!(
+                        "Failed to retrieve the 2FA token.\n\
+                     Please ensure that the process of enabling 2FA has started \
+                     and the token has been confirmed before trying again.\n\
+                     Error details: {}",
+                        e
+                    )
+                    .into(),
+                )))
+            }
+        };
+
+        let confirmation_token_hash = SharedDomainService::hash_token(request.token.value());
+
+        if SharedDomainService::validate_hash(&confirmation_token_hash, &confirmation.otp_hash) {
+            let now = Utc::now();
+            if confirmation.expiry > now {
+                self.user_security_settings_repository
+                    .toggle_email_2fa(&request.user_id, true)
+                    .await
+            } else {
+                // Token expired
+                Err(DomainError::ValidationError(ValidationError::InvalidData(
+                    "The confirmation token has expired. Please request a new token.".to_string(),
+                )))
+            }
+        } else {
+            Err(DomainError::ValidationError(ValidationError::InvalidData(
+                "The validation code you entered is incorrect. Please try again.".to_string(),
+            )))
+        }
     }
 
-    pub async fn disable_email_2fa(&self, request: UserId) -> Result<EmailToken, DomainError> {
-        todo!()
+    pub async fn disable_email_2fa(&self, user_id: UserId) -> Result<ConfirmEmail2FA, DomainError> {
+        let (user_result, security_settings_result) = join!(
+            self.user_repository.get_base_user_by_id(&user_id),
+            self.user_security_settings_repository
+                .get_security_settings(&user_id)
+        );
+
+        // Handle potential errors from the concurrent operations
+        let user = user_result?;
+        let security_settings = security_settings_result?;
+
+        // Check if email 2FA is already disabled
+        if !security_settings.two_factor_email {
+            return Err(DomainError::ValidationError(BusinessRuleViolation(
+                "Two-factor authentication via email is already disabled.".to_string(),
+            )));
+        }
+        // Generate a new token
+        let (disable_token, disable_token_hash, expiry) = self.generate_email_token(32).await?;
+
+        // Save the token
+        self.user_security_settings_repository
+            .save_email_2fa_token(user_id, disable_token_hash, expiry)
+            .await?;
+
+        Ok(ConfirmEmail2FA::new(user.email, disable_token))
     }
 
     pub async fn confirm_disable_email_2fa(
         &self,
         request: ConfirmEmail2FADTO,
     ) -> Result<(), DomainError> {
-        todo!()
+        let confirmation_result = self
+            .user_security_settings_repository
+            .retrieve_email_2fa_token(&request.user_id)
+            .await;
+
+        let confirmation = match confirmation_result {
+            Ok(confirmation) => confirmation,
+            Err(e) => {
+                return Err(DomainError::PersistenceError(Retrieve(
+                    format!(
+                        "Failed to retrieve the 2FA token.\n\
+                     Please ensure that the process of disabling 2FA has started \
+                     and the token has been confirmed before trying again.\n\
+                     Error details: {}",
+                        e
+                    )
+                    .into(),
+                )));
+            }
+        };
+
+        let confirmation_token_hash = SharedDomainService::hash_token(request.token.value());
+
+        if SharedDomainService::validate_hash(&confirmation_token_hash, &confirmation.otp_hash) {
+            let now = Utc::now();
+            if confirmation.expiry > now {
+                self.user_security_settings_repository
+                    .toggle_email_2fa(&request.user_id, false)
+                    .await
+            } else {
+                // Token expired
+                Err(DomainError::ValidationError(ValidationError::InvalidData(
+                    "The disable confirmation token has expired. Please request a new token."
+                        .to_string(),
+                )))
+            }
+        } else {
+            Err(DomainError::ValidationError(ValidationError::InvalidData(
+                "The validation code you entered is incorrect. Please try again.".to_string(),
+            )))
+        }
+    }
+}
+
+impl<S, U> UserSecuritySettingsDomainService<S, U>
+where
+    S: UserSecuritySettingsDomainRepository,
+    U: UserSharedDomainRepository,
+{
+    async fn generate_email_token(
+        &self,
+        length: usize,
+    ) -> Result<(EmailToken, String, DateTime<Utc>), DomainError> {
+        let token = SharedDomainService::generate_token(length)?;
+        let email_token = EmailToken::new(&token);
+        let token_hash = SharedDomainService::hash_token(&token);
+        let expiry = Utc::now() + Duration::days(1);
+        Ok((email_token, token_hash, expiry))
     }
 }
