@@ -1,4 +1,4 @@
-use super::m20220101_000001_user_table::User;
+use super::m20220101_000000_user_table::User;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -11,17 +11,17 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(UserOTPToken::Table)
+                    .table(UserAuthToken::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(UserOTPToken::Id)
+                        ColumnDef::new(UserAuthToken::Id)
                             .big_integer()
                             .auto_increment()
                             .not_null()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(UserOTPToken::UserId)
+                        ColumnDef::new(UserAuthToken::UserId)
                             .string()
                             .not_null()
                             .unique_key(),
@@ -29,36 +29,49 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_otp_token_user_id")
-                            .from(UserOTPToken::Table, UserOTPToken::UserId)
+                            .from(UserAuthToken::Table, UserAuthToken::UserId)
                             .to(User::Table, User::UserId)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserOTPToken::OtpEmailHash).string().null())
                     .col(
-                        ColumnDef::new(UserOTPToken::OtpEmailCurrentlyValid)
+                        ColumnDef::new(UserAuthToken::OtpPublicToken)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserAuthToken::OtpEmailCodeHash)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserAuthToken::OtpEmailCurrentlyValid)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(UserOTPToken::OtpAppHash).string().null())
+                    .col(ColumnDef::new(UserAuthToken::OtpAppHash).string().null())
                     .col(
-                        ColumnDef::new(UserOTPToken::OtpAppCurrentlyValid)
+                        ColumnDef::new(UserAuthToken::OtpAppCurrentlyValid)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(UserOTPToken::OtpAppMnemonic).string().null())
-                    .col(ColumnDef::new(UserOTPToken::Expiry).timestamp().null())
                     .col(
-                        ColumnDef::new(UserOTPToken::AttemptCount)
+                        ColumnDef::new(UserAuthToken::OtpAppMnemonic)
+                            .string()
+                            .null(),
+                    )
+                    .col(ColumnDef::new(UserAuthToken::Expiry).timestamp().null())
+                    .col(
+                        ColumnDef::new(UserAuthToken::AttemptCount)
                             .big_unsigned()
                             .not_null()
                             .default(0),
                     )
-                    .col(ColumnDef::new(UserOTPToken::UserAgent).string().null())
-                    .col(ColumnDef::new(UserOTPToken::IpAddress).string().null())
+                    .col(ColumnDef::new(UserAuthToken::UserAgent).string().null())
+                    .col(ColumnDef::new(UserAuthToken::IpAddress).string().null())
                     .col(
-                        ColumnDef::new(UserOTPToken::LongSession)
+                        ColumnDef::new(UserAuthToken::LongSession)
                             .boolean()
                             .not_null()
                             .default(false),
@@ -71,18 +84,19 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Replace the sample below with your own migration scripts
         manager
-            .drop_table(Table::drop().table(UserOTPToken::Table).to_owned())
+            .drop_table(Table::drop().table(UserAuthToken::Table).to_owned())
             .await
     }
 }
 
 /// Learn more at https://docs.rs/sea-query#iden
 #[derive(Iden)]
-pub enum UserOTPToken {
+pub enum UserAuthToken {
     Table,
     Id,
     UserId,
-    OtpEmailHash,
+    OtpPublicToken,
+    OtpEmailCodeHash,
     OtpEmailCurrentlyValid,
     OtpAppHash,
     OtpAppCurrentlyValid,

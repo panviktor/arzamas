@@ -50,10 +50,6 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
                             .route(web::post().to(controllers::enable_email_2fa)),
                     )
                     .service(
-                        web::resource("/email/resend")
-                            .route(web::post().to(controllers::resend_email_2fa)),
-                    )
-                    .service(
                         web::resource("/email/confirm")
                             .route(web::post().to(controllers::confirm_email_2fa)),
                     )

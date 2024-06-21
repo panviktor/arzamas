@@ -1,4 +1,4 @@
-use crate::domain::entities::shared::{Email, EmailToken};
+use crate::domain::entities::shared::{Email, OtpToken};
 use chrono::{DateTime, Utc};
 
 #[derive(Debug)]
@@ -16,7 +16,7 @@ pub struct UserSecuritySettings {
 pub struct UserChangeEmail {
     pub new_email: Email,
     pub old_email: Email,
-    pub email_validation_token: EmailToken,
+    pub email_validation_token: OtpToken,
 }
 
 pub struct UserChangeEmailConfirmation {
@@ -28,11 +28,11 @@ pub struct UserChangeEmailConfirmation {
 #[derive(Debug)]
 pub struct ConfirmEmail2FA {
     pub email: Email,
-    pub token: EmailToken,
+    pub token: OtpToken,
 }
 
 impl ConfirmEmail2FA {
-    pub fn new(email: Email, token: EmailToken) -> Self {
+    pub fn new(email: Email, token: OtpToken) -> Self {
         Self { email, token }
     }
 }
@@ -41,4 +41,14 @@ pub struct User2FAEmailConfirmation {
     pub otp_hash: String,
     pub expiry: DateTime<Utc>,
     pub user_email: Email,
+}
+
+impl User2FAEmailConfirmation {
+    pub fn new(otp_hash: String, expiry: DateTime<Utc>, user_email: Email) -> Self {
+        Self {
+            otp_hash,
+            expiry,
+            user_email,
+        }
+    }
 }

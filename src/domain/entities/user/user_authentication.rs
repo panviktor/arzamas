@@ -1,4 +1,5 @@
-use crate::domain::entities::shared::{Email, EmailToken, Username};
+use crate::domain::entities::shared::value_objects::OtpCode;
+use crate::domain::entities::shared::{Email, OtpToken, Username};
 use crate::domain::entities::user::user_otp_token::UserOtpToken;
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
@@ -8,21 +9,22 @@ use chrono::{DateTime, Utc};
 pub enum AuthenticationOutcome {
     /// The first step is ok, but user needs email verification.
     RequireEmailVerification {
-        user_id: String,
+        otp_token: OtpToken,
+        otp_code: OtpCode,
         email: Email,
-        token: EmailToken,
     },
     /// The first step is ok, but user needs 2FA Authenticator verification
     RequireAuthenticatorApp {
-        user_id: String,
+        otp_token: OtpToken,
+        otp_code: OtpCode,
         email: Email,
         email_notifications_enabled: bool,
     },
     /// The first step is ok, but user needs both email and 2FA Authenticator verification
     RequireEmailAndAuthenticatorApp {
-        user_id: String,
+        otp_token: OtpToken,
+        otp_code: OtpCode,
         email: Email,
-        token: EmailToken,
     },
     /// Successfully authenticated and session stored in Redis
     AuthenticatedWithPreferences {
@@ -38,10 +40,9 @@ pub enum AuthenticationOutcome {
         email_notifications_enabled: bool,
     },
     /// User has logged in with user and password, awaiting 2FA authentication
-    PendingVerification { user_id: String, message: String },
-
+    PendingVerification { message: String },
     /// User hasn't activated email token after registration
-    UserEmailConfirmation { email: Email, token: EmailToken },
+    UserEmailConfirmation { email: Email, token: OtpToken },
 }
 
 #[derive(Debug)]

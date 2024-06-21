@@ -74,8 +74,8 @@ impl TryFrom<String> for Username {
 /// EmailToken
 
 #[derive(Clone, Debug)]
-pub struct EmailToken(pub String);
-impl EmailToken {
+pub struct OtpToken(pub String);
+impl OtpToken {
     pub fn new(token: &str) -> Self {
         Self(token.to_string())
     }
@@ -83,8 +83,23 @@ impl EmailToken {
         &self.0
     }
 }
+impl OtpToken {
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
 
-impl EmailToken {
+#[derive(Clone, Debug)]
+pub struct OtpCode(pub String);
+impl OtpCode {
+    pub fn new(token: &str) -> Self {
+        Self(token.to_string())
+    }
+    pub fn value(&self) -> &String {
+        &self.0
+    }
+}
+impl OtpCode {
     pub fn into_inner(self) -> String {
         self.0
     }

@@ -1,4 +1,4 @@
-use crate::m20220101_000001_user_table::User;
+use crate::m20220101_000000_user_table::User;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -33,8 +33,41 @@ impl MigrationTrait for Migration {
                             .to(User::Table, User::UserId)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserConfirmation::OTPHash).string().null())
-                    .col(ColumnDef::new(UserConfirmation::Expiry).timestamp().null())
+                    .col(
+                        ColumnDef::new(UserConfirmation::ActivateUserTokenHash)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::ActivateUserTokenExpiry)
+                            .timestamp()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::NewMainEmail)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::ActivateEmail2FAToken)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::ActivateEmail2FATokenExpiry)
+                            .timestamp()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::ActivateApp2FAToken)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::ActivateApp2FATokenExpiry)
+                            .timestamp()
+                            .null(),
+                    )
                     .to_owned(),
             )
             .await
@@ -54,7 +87,11 @@ pub enum UserConfirmation {
     Id,
     Table,
     UserId,
-    OTPHash,
-    Expiry,
-    NewEmail,
+    ActivateUserTokenHash,
+    ActivateUserTokenExpiry,
+    NewMainEmail,
+    ActivateEmail2FAToken,
+    ActivateEmail2FATokenExpiry,
+    ActivateApp2FAToken,
+    ActivateApp2FATokenExpiry,
 }

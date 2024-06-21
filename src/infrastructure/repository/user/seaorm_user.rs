@@ -114,7 +114,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
             .ok_or_else(|| DomainError::NotFound)?;
 
         let mut active: user_confirmation::ActiveModel = confirmation.into();
-        active.otp_hash = Set(Some(token));
+        active.otp_hash = Set(Some(token)); // TODO - todo renaming
         active.expiry = Set(Some(expiry.naive_utc()));
 
         if let Some(email) = new_email {

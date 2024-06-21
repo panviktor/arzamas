@@ -1,4 +1,4 @@
-use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
+use crate::domain::entities::shared::value_objects::{IPAddress, OtpToken, UserAgent};
 use crate::domain::entities::shared::{Email, Username};
 use chrono::{DateTime, Utc};
 
@@ -22,12 +22,12 @@ pub struct RecoveryPasswdResponse {
     pub user_id: String,
     pub email: Email,
     pub username: Username,
-    pub token: EmailToken,
+    pub token: OtpToken,
     pub expiry: DateTime<Utc>,
 }
 
 pub struct UserCompleteRecoveryRequestDTO {
-    pub token: EmailToken,
+    pub token: OtpToken,
     pub new_password: String,
     pub user_agent: UserAgent,
     pub ip_address: IPAddress,
@@ -35,7 +35,7 @@ pub struct UserCompleteRecoveryRequestDTO {
 
 impl UserCompleteRecoveryRequestDTO {
     pub fn new(
-        token: EmailToken,
+        token: OtpToken,
         new_password: String,
         user_agent: UserAgent,
         ip_address: IPAddress,

@@ -1,4 +1,4 @@
-use super::m20220101_000001_user_table::User;
+use super::m20220101_000000_user_table::User;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]

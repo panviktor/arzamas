@@ -1,13 +1,13 @@
-use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
-use crate::domain::entities::shared::{Email, Username};
+use crate::domain::entities::shared::value_objects::{OtpCode, UserId};
+use crate::domain::entities::shared::{Email, OtpToken, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
-use entity::user_otp_token;
+use entity::user_auth_token;
 use entity::{user, user_session};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
@@ -112,24 +112,30 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
     async fn prepare_user_for_2fa(
         &self,
         user: UserId,
-        expiry: DateTime<Utc>,
-        email_token_hash: Option<String>,
+        otp_public_token: Option<OtpToken>,
+        email_otp_code_hash: Option<OtpCode>,
+        code_expiry: DateTime<Utc>,
         user_agent: UserAgent,
         ip_address: IPAddress,
         persistent: bool,
     ) -> Result<(), DomainError> {
-        let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
+        let mut otp = self.fetch_user_otp_token(&user.user_id).await?;
 
-        user_otp_token.otp_email_currently_valid = Set(false);
-        user_otp_token.otp_app_currently_valid = Set(false);
-        user_otp_token.expiry = Set(Some(expiry.naive_utc()));
-        user_otp_token.otp_email_hash = Set(email_token_hash);
+        otp.
 
-        user_otp_token.user_agent = Set(Some(user_agent.value().to_string()));
-        user_otp_token.ip_address = Set(Some(ip_address.value().to_string()));
-        user_otp_token.long_session = Set(persistent);
 
-        user_otp_token
+
+
+        // user_otp_token.otp_email_currently_valid = Set(false);
+        // user_otp_token.otp_app_currently_valid = Set(false);
+        // user_otp_token.expiry = Set(Some(expiry.naive_utc()));
+        // user_otp_token.otp_email_hash = Set(email_token_hash);
+        //
+        // user_otp_token.user_agent = Set(Some(user_agent.value().to_string()));
+        // user_otp_token.ip_address = Set(Some(ip_address.value().to_string()));
+        // user_otp_token.long_session = Set(persistent);
+
+            otp
             .update(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
@@ -179,8 +185,8 @@ impl SeaOrmUserAuthenticationRepository {
         &self,
         user: user::Model,
     ) -> Result<UserAuthentication, DomainError> {
-        let otp_token_future = entity::user_otp_token::Entity::find()
-            .filter(user_otp_token::Column::UserId.eq(user.user_id.clone()))
+        let otp_token_future = entity::user_auth_token::Entity::find()
+            .filter(user_auth_token::Column::UserId.eq(user.user_id.clone()))
             .one(&*self.db);
 
         let security_settings_future = entity::user_security_settings::Entity::find()
@@ -232,9 +238,9 @@ impl SeaOrmUserAuthenticationRepository {
     async fn fetch_user_otp_token(
         &self,
         user_id: &str,
-    ) -> Result<user_otp_token::ActiveModel, DomainError> {
-        let token_model = entity::user_otp_token::Entity::find()
-            .filter(user_otp_token::Column::UserId.eq(user_id))
+    ) -> Result<user_auth_token::ActiveModel, DomainError> {
+        let token_model = entity::user_auth_token::Entity::find()
+            .filter(user_auth_token::Column::UserId.eq(user_id))
             .one(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))

@@ -5,7 +5,7 @@ use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::{UserBase, UserRegistration};
 use chrono::{TimeZone, Utc};
-use entity::{user, user_otp_token, user_security_settings, user_session};
+use entity::{user, user_auth_token, user_security_settings, user_session};
 use sea_orm::ActiveValue::Set;
 
 impl UserRegistration {
@@ -37,8 +37,8 @@ impl From<user::Model> for UserRegistration {
     }
 }
 
-impl From<user_otp_token::Model> for UserOtpToken {
-    fn from(model: user_otp_token::Model) -> UserOtpToken {
+impl From<user_auth_token::Model> for UserOtpToken {
+    fn from(model: user_auth_token::Model) -> UserOtpToken {
         let expiry = model
             .expiry
             .map(|naive_dt| Utc.from_utc_datetime(&naive_dt));

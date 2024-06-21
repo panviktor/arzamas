@@ -270,38 +270,6 @@ where
         ))
     }
 
-    pub async fn resend_email_2fa(
-        &self,
-        request: UserByIdRequest,
-    ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        let user_id = UserId::new(&request.user_id);
-        let response = self
-            .user_security_domain_service
-            .resend_email_2fa(user_id)
-            .await?;
-
-        // Send an email with the new confirmation token
-        let subject = "Resend 2FA Email Authentication Token";
-        let message = format!(
-            "Please use the following code to confirm enabling/disabling 2FA: {}",
-            response.token.value()
-        );
-
-        self.email_service
-            .send_email(response.email.value(), &subject, &message)
-            .await
-            .map_err(|_| {
-                ApplicationError::ExternalServiceError(
-                    "Failed to resend 2FA email token.".to_string(),
-                )
-            })?;
-
-        Ok(UniversalApplicationResponse::new(
-            "A new 2FA email token has been sent to your email.".to_string(),
-            None,
-        ))
-    }
-
     pub async fn confirm_email_2fa(
         &self,
         request: ConfirmEmail2FARequest,

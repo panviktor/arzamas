@@ -1,5 +1,5 @@
 use crate::domain::entities::shared::value_objects::UserId;
-use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
+use crate::domain::entities::shared::value_objects::{IPAddress, OtpToken, UserAgent};
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_recovery_password::UserRecoveryPasswd;
 use crate::domain::error::{DomainError, PersistenceError};
@@ -112,7 +112,7 @@ impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
 
     async fn get_recovery_token(
         &self,
-        token: &EmailToken,
+        token: &OtpToken,
     ) -> Result<UserRecoveryPasswd, DomainError> {
         let recovery_with_user = entity::user_recovery_password::Entity::find()
             .filter(user_recovery_password::Column::RecoveryToken.eq(token.value()))
@@ -162,7 +162,7 @@ impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
         &self,
         user: UserId,
         expiry: DateTime<Utc>,
-        token: EmailToken,
+        token: OtpToken,
         user_agent: UserAgent,
         ip_address: IPAddress,
     ) -> Result<(), DomainError> {

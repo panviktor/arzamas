@@ -1,14 +1,15 @@
 use crate::domain::entities::shared::value_objects::UserId;
+use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_security_settings::{
     User2FAEmailConfirmation, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
-use crate::domain::error::{DomainError, PersistenceError};
+use crate::domain::error::{DomainError, PersistenceError, ValidationError};
 use crate::domain::ports::repositories::user::user_security_settings_dto::SecuritySettingsUpdateDTO;
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use entity::{user, user_session};
+use chrono::{DateTime, TimeZone, Utc};
+use entity::{user, user_confirmation, user_session};
 use sea_orm::sea_query::Expr;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
@@ -203,17 +204,87 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         email_token_hash: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError> {
-        todo!()
+        let uc = entity::prelude::UserConfirmation::find()
+            .filter(user_confirmation::Column::UserId.eq(user_id.user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| DomainError::NotFound)?;
+
+        let mut active = uc.into_active_model();
+        active.activate_email2_fa_token = Set(Some(email_token_hash));
+        active.activate_email2_fa_token_expiry = Set(Some(expiry.naive_utc()));
+
+        active.update(&*self.db).await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Update(
+                "Failed to save email 2fa activating token".to_string(),
+            ))
+        })?;
+
+        Ok(())
     }
 
     async fn retrieve_email_2fa_token(
         &self,
         user: &UserId,
     ) -> Result<User2FAEmailConfirmation, DomainError> {
-        todo!()
+        let uc_future = entity::prelude::UserConfirmation::find()
+            .filter(user_confirmation::Column::UserId.eq(&user.user_id))
+            .one(&*self.db);
+
+        let bu_future = entity::user::Entity::find()
+            .filter(user::Column::UserId.eq(&user.user_id))
+            .one(&*self.db);
+
+        let (us, bu) = tokio::try_join!(uc_future, bu_future)?;
+
+        let user_security = us.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "User security settings not found".to_string(),
+            ))
+        })?;
+
+        let base_security = bu.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Base user settings not found".to_string(),
+            ))
+        })?;
+
+        if let Some(token) = user_security.activate_email2_fa_token {
+            if let Some(expiry) = user_security.activate_email2_fa_token_expiry {
+                let expiry_utc: DateTime<Utc> = Utc.from_utc_datetime(&expiry);
+                return Ok(User2FAEmailConfirmation::new(
+                    token,
+                    expiry_utc,
+                    Email::new(&base_security.email),
+                ));
+            }
+        }
+
+        Err(DomainError::ValidationError(ValidationError::InvalidData(
+            "2FA token or its expiry date not found.".to_string(),
+        )))
     }
 
     async fn toggle_email_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError> {
-        todo!()
+        let ss = entity::user_security_settings::Entity::find()
+            .filter(entity::user_security_settings::Column::UserId.eq(&user.user_id))
+            .one(&*self.db)
+            .await?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "User security settings not found".to_string(),
+                ))
+            })?;
+
+        let mut active = ss.into_active_model();
+        active.two_factor_email = Set(enable);
+        active.update(&*self.db).await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Update(
+                "Failed to update email 2fa settings".to_string(),
+            ))
+        })?;
+
+        Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use crate::domain::entities::shared::value_objects::EmailToken;
+use crate::domain::entities::shared::value_objects::OtpToken;
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_registration::{
@@ -59,7 +59,7 @@ where
 
         let user = UserRegistration::create(user.email, user.username, user.password)?;
         let token = SharedDomainService::generate_token(64)?;
-        let confirmation_token = EmailToken::new(&token);
+        let confirmation_token = OtpToken::new(&token);
         let confirmation_token_hash = SharedDomainService::hash_token(&token);
 
         let user_id = UserId::new(&user.user_id);
@@ -85,7 +85,7 @@ where
     pub async fn validate_email_user(
         &self,
         email: Email,
-        token: EmailToken,
+        token: OtpToken,
     ) -> Result<(), DomainError> {
         let user = self.user_repository.get_base_user_by_email(email).await?;
 

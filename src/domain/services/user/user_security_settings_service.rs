@@ -1,4 +1,4 @@
-use crate::domain::entities::shared::value_objects::EmailToken;
+use crate::domain::entities::shared::value_objects::OtpToken;
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::user::user_security_settings::{
     ConfirmEmail2FA, UserChangeEmail, UserSecuritySettings,
@@ -308,40 +308,6 @@ where
         Ok(ConfirmEmail2FA::new(user.email, confirmation_token))
     }
 
-    pub async fn resend_email_2fa(&self, user_id: UserId) -> Result<ConfirmEmail2FA, DomainError> {
-        // Perform concurrent operations to get user data and retrieve the 2FA token
-        let (user_result, token_result) = join!(
-            self.user_repository.get_base_user_by_id(&user_id),
-            self.user_security_settings_repository
-                .retrieve_email_2fa_token(&user_id)
-        );
-
-        let user = user_result?;
-
-        if let Err(e) = token_result {
-            return Err(DomainError::PersistenceError(Retrieve(
-                format!(
-                    "Unable to retrieve the 2FA token.\n\
-                 Ensure that the process of enabling or disabling 2FA has started, and try again.\n\
-                 Error details: {}",
-                    e
-                )
-                .into(),
-            )));
-        }
-
-        // Generate a new token
-        let (confirmation_token, confirmation_token_hash, expiry) =
-            self.generate_email_token(32).await?;
-
-        // Save the token
-        self.user_security_settings_repository
-            .save_email_2fa_token(user_id, confirmation_token_hash, expiry)
-            .await?;
-
-        Ok(ConfirmEmail2FA::new(user.email, confirmation_token))
-    }
-
     pub async fn confirm_email_2fa(&self, request: ConfirmEmail2FADTO) -> Result<(), DomainError> {
         let confirmation_result = self
             .user_security_settings_repository
@@ -364,14 +330,13 @@ where
             }
         };
 
-        let confirmation_token_hash = SharedDomainService::hash_token(request.token.value());
-
-        if SharedDomainService::validate_hash(&confirmation_token_hash, &confirmation.otp_hash) {
+        if SharedDomainService::validate_hash(request.token.value(), &confirmation.otp_hash) {
             let now = Utc::now();
             if confirmation.expiry > now {
                 self.user_security_settings_repository
                     .toggle_email_2fa(&request.user_id, true)
-                    .await
+                    .await?;
+                return Ok(());
             } else {
                 // Token expired
                 Err(DomainError::ValidationError(ValidationError::InvalidData(
@@ -438,14 +403,13 @@ where
             }
         };
 
-        let confirmation_token_hash = SharedDomainService::hash_token(request.token.value());
-
-        if SharedDomainService::validate_hash(&confirmation_token_hash, &confirmation.otp_hash) {
+        if SharedDomainService::validate_hash(request.token.value(), &confirmation.otp_hash) {
             let now = Utc::now();
             if confirmation.expiry > now {
                 self.user_security_settings_repository
                     .toggle_email_2fa(&request.user_id, false)
-                    .await
+                    .await?;
+                Ok(())
             } else {
                 // Token expired
                 Err(DomainError::ValidationError(ValidationError::InvalidData(
@@ -469,9 +433,9 @@ where
     async fn generate_email_token(
         &self,
         length: usize,
-    ) -> Result<(EmailToken, String, DateTime<Utc>), DomainError> {
+    ) -> Result<(OtpToken, String, DateTime<Utc>), DomainError> {
         let token = SharedDomainService::generate_token(length)?;
-        let email_token = EmailToken::new(&token);
+        let email_token = OtpToken::new(&token);
         let token_hash = SharedDomainService::hash_token(&token);
         let expiry = Utc::now() + Duration::days(1);
         Ok((email_token, token_hash, expiry))

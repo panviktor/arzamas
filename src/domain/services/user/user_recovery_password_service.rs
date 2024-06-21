@@ -1,4 +1,4 @@
-use crate::domain::entities::shared::value_objects::EmailToken;
+use crate::domain::entities::shared::value_objects::OtpToken;
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_recovery_password::UserRecoveryPasswd;
@@ -123,7 +123,7 @@ where
         let token = SharedDomainService::generate_token(32)?;
         let user_id_dto = UserId::new(&user.user_id);
         let expiry = Utc::now() + duration;
-        let token = EmailToken(token);
+        let token = OtpToken(token);
 
         self.user_recovery_passwd_repository
             .prepare_user_restore_passwd(

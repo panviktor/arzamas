@@ -240,23 +240,6 @@ pub async fn enable_email_2fa(
     Ok(HttpResponse::Ok().json(response))
 }
 
-pub async fn resend_email_2fa(
-    req: HttpRequest,
-    data: web::Data<Arc<ServiceContainer>>,
-    user: LoginUser,
-) -> Result<HttpResponse, AppResponseError> {
-    let user = UserByIdRequest::new(&user.id);
-    let response: UniversalApplicationResponse = data
-        .user_security_service
-        .resend_email_2fa(user)
-        .await
-        .map_err(|e| e.into_service_error(&req))?
-        .into();
-
-    let response = UniversalResponse::new(response.title, response.subtitle, true);
-    Ok(HttpResponse::Ok().json(response))
-}
-
 pub async fn confirm_email_2fa(
     req: HttpRequest,
     data: web::Data<Arc<ServiceContainer>>,

@@ -1,6 +1,6 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
-use crate::domain::entities::shared::{Email, Username};
+use crate::domain::entities::shared::{Email, OtpToken, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::DomainError;
@@ -37,25 +37,15 @@ pub trait UserAuthenticationDomainRepository {
         expiry: Option<DateTime<Utc>>,
     ) -> Result<(), DomainError>;
 
-    /// Prepares a user for 2FA by setting up necessary tokens and expiry.
-    ///
-    /// # Arguments
-    /// * `user` - DTO containing the user ID.
-    /// * `expiry` - DateTime when the 2FA setup expires.
-    /// * `email_token_hash` - Optional hashed token for email-based 2FA.
-    /// * `user_agent` - A string representing the user agent of the client initiating the 2FA setup. This can be used for logging purposes or for assessing the security context of the request.
-    /// * `ip_address` - The IP address from which the 2FA setup request was made. This can also be used for security logging and might be involved in evaluating the legitimacy of the setup request.
-    ///
-    /// # Returns
-    /// Result indicating success or an error if the setup fails.
     async fn prepare_user_for_2fa(
         &self,
         user: UserId,
-        expiry: DateTime<Utc>,
-        email_token_hash: Option<String>,
+        otp_token: OtpToken,
+        otp_code_hash: String,
+        otp_code_expiry: DateTime<Utc>,
         user_agent: UserAgent,
         ip_address: IPAddress,
-        persistent: bool,
+        long_session: bool,
     ) -> Result<(), DomainError>;
 
     /// Marks the email token as verified for a user.

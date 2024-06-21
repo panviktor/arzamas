@@ -1,6 +1,6 @@
 use crate::core::constants::emojis::EMOJIS;
-use crate::domain::entities::shared::value_objects::UserId;
-use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
+use crate::domain::entities::shared::value_objects::{IPAddress, OtpToken, UserAgent};
+use crate::domain::entities::shared::value_objects::{OtpCode, UserId};
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
@@ -61,19 +61,22 @@ where
         &self,
         request: ContinueLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        let identifier = &request.identifier;
-        let user_result = self.identify_user(identifier).await?;
-        UserValidationService::validate_blocked_time(
-            user_result.login_blocked_until,
-            "Your account is locked until",
-        )?;
-        if !self.is_request_from_trusted_source(&request, &user_result) {
-            let message = "IP address or user agent mismatch.";
-            return self
-                .handle_failed_login_attempt(&user_result, message)
-                .await;
-        }
-        self.verify_otp(&user_result, request).await
+
+        //  request.otp_token - find user by token
+
+        // let identifier = &request.identifier;
+        // let user_result = self.identify_user(identifier).await?;
+        // UserValidationService::validate_blocked_time(
+        //     user_result.login_blocked_until,
+        //     "Your account is locked until",
+        // )?;
+        // if !self.is_request_from_trusted_source(&request, &user_result) {
+        //     let message = "IP address or user agent mismatch.";
+        //     return self
+        //         .handle_failed_login_attempt(&user_result, message)
+        //         .await;
+        // }
+        // self.verify_otp(&user_result, request).await
     }
 }
 
@@ -96,8 +99,6 @@ where
         if EMAIL_REGEX.is_match(identifier) {
             let email = Email::new(identifier);
             UserValidationService::validate_email(&email)?;
-            println!("99");
-
             self.user_authentication_repository
                 .get_user_by_email(email)
                 .await
@@ -238,20 +239,6 @@ where
         }
     }
 
-    async fn prepare_2fa(
-        &self,
-        user_id: UserId,
-        expiry_duration: Duration,
-        user_agent: UserAgent,
-        ip_address: IPAddress,
-        persistent: bool,
-    ) -> Result<(), DomainError> {
-        let expiry = Utc::now() + expiry_duration;
-        self.user_authentication_repository
-            .prepare_user_for_2fa(user_id, expiry, None, user_agent, ip_address, persistent)
-            .await
-    }
-
     async fn generate_and_prepare_token(
         &self,
         user_id: &str,
@@ -259,24 +246,34 @@ where
         user_agent: UserAgent,
         ip_address: IPAddress,
         persistent: bool,
-    ) -> Result<EmailToken, DomainError> {
-        let token = SharedDomainService::generate_token(16)?;
-        let confirmation_token = EmailToken::new(&token);
-        let confirmation_token_hash = SharedDomainService::hash_token(&token);
-
+    ) -> Result<OtpCode, DomainError> {
         let user_id_dto = UserId::new(user_id);
+
+        // Generating token for public use
+        let otp_token_str = SharedDomainService::generate_token(64)?;
+        let otp_token = OtpToken::new(&otp_token_str);
+
+        // Generating code for email sending
+        let otp_code_str = SharedDomainService::generate_token(16)?;
+        let otp_code = OtpCode::new(&otp_code_str);
+        let otp_code_hash = SharedDomainService::hash_token(&otp_code_str);
+
+        // Setting code valid duration
+        let code_valid_duration = Utc::now() + duration;
+
         self.user_authentication_repository
             .prepare_user_for_2fa(
                 user_id_dto,
-                Utc::now() + duration,
-                Some(confirmation_token_hash),
+                otp_token,
+                otp_code_hash,
+                code_valid_duration,
                 user_agent,
                 ip_address,
                 persistent,
             )
             .await?;
 
-        Ok(confirmation_token)
+        Ok(otp_code)
     }
 
     fn is_request_from_trusted_source(
@@ -421,14 +418,12 @@ where
             (true, true, false, true) => {
                 // Email verification remains
                 Ok(AuthenticationOutcome::PendingVerification {
-                    user_id: user_updated.user_id,
                     message: "Please verify your email to complete login.".to_string(),
                 })
             }
             (true, true, true, false) => {
                 // App verification remains
                 Ok(AuthenticationOutcome::PendingVerification {
-                    user_id: user_updated.user_id,
                     message: "Please verify using your authenticator app to complete login."
                         .to_string(),
                 })
@@ -461,7 +456,6 @@ where
             _ => {
                 // Catch-all for any other combinations, typically should not occur
                 Ok(AuthenticationOutcome::PendingVerification {
-                    user_id: user_updated.user_id,
                     message: "Additional verification required to complete login.".to_string(),
                 })
             }
@@ -546,7 +540,7 @@ where
         email: Email,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let token = SharedDomainService::generate_token(64)?;
-        let confirmation_token = EmailToken::new(&token);
+        let confirmation_token = OtpToken::new(&token);
         let confirmation_token_hash = SharedDomainService::hash_token(&token);
         let expiry = Utc::now() + Duration::days(1);
 

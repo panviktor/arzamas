@@ -1,5 +1,5 @@
 use crate::domain::entities::shared::value_objects::UserId;
-use crate::domain::entities::shared::value_objects::{EmailToken, IPAddress, UserAgent};
+use crate::domain::entities::shared::value_objects::{IPAddress, OtpToken, UserAgent};
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_recovery_password::UserRecoveryPasswd;
 use crate::domain::error::DomainError;
@@ -24,16 +24,14 @@ pub trait UserRecoveryPasswdDomainRepository {
 
     async fn reset_restore_attempts_and_block(&self, user: &UserId) -> Result<(), DomainError>;
 
-    async fn get_recovery_token(
-        &self,
-        token: &EmailToken,
-    ) -> Result<UserRecoveryPasswd, DomainError>;
+    async fn get_recovery_token(&self, token: &OtpToken)
+        -> Result<UserRecoveryPasswd, DomainError>;
 
     async fn prepare_user_restore_passwd(
         &self,
         user: UserId,
         expiry: DateTime<Utc>,
-        token: EmailToken,
+        token: OtpToken,
         user_agent: UserAgent,
         ip_address: IPAddress,
     ) -> Result<(), DomainError>;

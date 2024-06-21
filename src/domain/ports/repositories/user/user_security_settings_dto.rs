@@ -1,5 +1,5 @@
 use crate::domain::entities::shared::value_objects::UserId;
-use crate::domain::entities::shared::{Email, EmailToken};
+use crate::domain::entities::shared::{Email, OtpToken};
 
 #[derive(Debug)]
 pub struct ChangePasswordDTO {
@@ -15,7 +15,7 @@ pub struct ChangeEmailDTO {
 
 pub struct ConfirmEmailDTO {
     pub user_id: UserId,
-    pub token: EmailToken,
+    pub token: OtpToken,
 }
 
 pub struct SecuritySettingsUpdateDTO {
@@ -32,5 +32,5 @@ pub struct ActivateEmail2FADTO {
 
 pub struct ConfirmEmail2FADTO {
     pub user_id: UserId,
-    pub token: EmailToken,
+    pub token: OtpToken,
 }

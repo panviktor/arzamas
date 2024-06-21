@@ -3,7 +3,7 @@ use crate::application::dto::user::user_registration_request_dto::{
 };
 use crate::application::dto::user::user_registration_response_dto::CreatedUserResponse;
 use crate::application::error::error::ApplicationError;
-use crate::domain::entities::shared::value_objects::{EmailToken, UserId};
+use crate::domain::entities::shared::value_objects::{OtpToken, UserId};
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::ports::email::email::EmailPort;
 use crate::domain::ports::repositories::user::user_registration_dto::CreateUserDTO;
@@ -74,7 +74,7 @@ where
         request: ValidateEmailRequest,
     ) -> Result<(), ApplicationError> {
         let email = Email::new(&request.email);
-        let token = EmailToken(request.email_token);
+        let token = OtpToken(request.email_token);
 
         self.user_registration_domain_service
             .validate_email_user(email, token)

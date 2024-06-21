@@ -1,4 +1,5 @@
-use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
+use crate::domain::entities::shared::value_objects::{IPAddress, OtpCode, UserAgent};
+use crate::domain::entities::shared::OtpToken;
 
 #[derive(Debug, Clone)]
 pub struct CreateLoginRequestDTO {
@@ -34,25 +35,25 @@ pub enum DomainVerificationMethod {
 }
 #[derive(Debug, Clone)]
 pub struct ContinueLoginRequestDTO {
-    pub identifier: String,
+    pub otp_token: OtpToken,
+    pub otp_code: OtpCode,
     pub verification_method: DomainVerificationMethod,
-    pub code: String,
     pub user_agent: UserAgent,
     pub ip_address: IPAddress,
 }
 
 impl ContinueLoginRequestDTO {
     pub fn new(
-        identifier: String,
+        otp_token: OtpToken,
+        otp_code: OtpCode,
         verification_method: DomainVerificationMethod,
-        code: String,
         user_agent: UserAgent,
         ip_address: IPAddress,
     ) -> Self {
         Self {
-            identifier,
+            otp_token,
+            otp_code,
             verification_method,
-            code,
             user_agent,
             ip_address,
         }

@@ -1,4 +1,4 @@
-use crate::domain::entities::shared::{Email, EmailToken, Username};
+use crate::domain::entities::shared::{Email, OtpToken, Username};
 use crate::domain::error::{DomainError, ExternalServiceError, PersistenceError, ValidationError};
 use crate::domain::services::user::user_validation_service::ValidationServiceError;
 use crate::domain::services::user::{
@@ -17,7 +17,7 @@ pub struct UserRegistration {
 
 pub struct UserRegistrationResponse {
     pub user: UserRegistration,
-    pub email_validation_token: EmailToken,
+    pub email_validation_token: OtpToken,
 }
 
 pub enum UserRegistrationError {
