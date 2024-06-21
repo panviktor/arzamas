@@ -236,9 +236,9 @@ pub async fn login_2fa(
     };
 
     let request = OTPVerificationRequest::new(
-        params.user_id.to_string(),
+        "".to_string(),
+        "".to_string(),
         verification_method,
-        params.code.to_string(),
         user_agent,
         login_ip,
     );

@@ -114,11 +114,11 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
             .ok_or_else(|| DomainError::NotFound)?;
 
         let mut active: user_confirmation::ActiveModel = confirmation.into();
-        active.otp_hash = Set(Some(token)); // TODO - todo renaming
-        active.expiry = Set(Some(expiry.naive_utc()));
+        active.activate_user_token_hash = Set(Some(token));
+        active.activate_user_token_expiry = Set(Some(expiry.naive_utc()));
 
         if let Some(email) = new_email {
-            active.new_email = Set(Some(email.into_inner()));
+            active.new_main_email = Set(Some(email.into_inner()));
         }
 
         active
@@ -140,17 +140,17 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
             .ok_or_else(|| DomainError::NotFound)?;
 
-        let otp_hash = confirmation.otp_hash.ok_or_else(|| {
+        let otp_hash = confirmation.activate_user_token_hash.ok_or_else(|| {
             DomainError::PersistenceError(PersistenceError::Retrieve(
                 "Missing OTP hash".to_string(),
             ))
         })?;
-        let expiry = confirmation.expiry.ok_or_else(|| {
+        let expiry = confirmation.activate_user_token_expiry.ok_or_else(|| {
             DomainError::PersistenceError(PersistenceError::Retrieve(
                 "Missing expiry date".to_string(),
             ))
         })?;
-        if let Some(new_email) = confirmation.new_email {
+        if let Some(new_email) = confirmation.new_main_email {
             let expiry = Utc.from_utc_datetime(&expiry);
             return Ok(UserChangeEmailConfirmation {
                 otp_hash,
@@ -190,8 +190,8 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
 
         // Update the confirmation details to invalidate the OTP and expiry
         let mut active_confirmation = confirmation.into_active_model();
-        active_confirmation.otp_hash = Set(None);
-        active_confirmation.expiry = Set(None);
+        active_confirmation.activate_user_token_hash = Set(None);
+        active_confirmation.activate_user_token_expiry = Set(None);
 
         // Update the user's email validation status
         let mut active_user: user::ActiveModel = user.into();
@@ -216,7 +216,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         Ok(())
     }
 
-    async fn update_user_root_email(&self, user: &UserId, email: Email) -> Result<(), DomainError> {
+    async fn update_user_main_email(&self, user: &UserId, email: Email) -> Result<(), DomainError> {
         let user = entity::prelude::User::find()
             .filter(user::Column::UserId.eq(&user.user_id))
             .one(&*self.db)
@@ -271,9 +271,9 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
             .ok_or_else(|| DomainError::NotFound)?;
 
         let mut active: user_confirmation::ActiveModel = confirmation.into();
-        active.otp_hash = Set(None);
-        active.expiry = Set(None);
-        active.new_email = Set(None);
+        active.activate_user_token_hash = Set(None);
+        active.activate_user_token_expiry = Set(None);
+        active.new_main_email = Set(None);
 
         active
             .update(&*self.db)

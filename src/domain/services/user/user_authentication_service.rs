@@ -15,6 +15,7 @@ use crate::domain::ports::repositories::user::user_shared_repository::UserShared
 use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
 use crate::domain::services::user::{UserCredentialService, UserValidationService};
+use actix_web::web::to;
 use chrono::{Duration, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -61,7 +62,6 @@ where
         &self,
         request: ContinueLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-
         //  request.otp_token - find user by token
 
         // let identifier = &request.identifier;
@@ -77,6 +77,8 @@ where
         //         .await;
         // }
         // self.verify_otp(&user_result, request).await
+
+        todo!()
     }
 }
 
@@ -131,7 +133,7 @@ where
         user: &UserAuthentication,
         message: &str,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        let attempt_count: i64 = user.otp.attempt_count + 1;
+        let attempt_count: i64 = user.auth_token.attempt_count + 1;
         let user_id = UserId::new(&user.user_id);
 
         let block_duration = if attempt_count > 10 {
@@ -164,79 +166,81 @@ where
         user: &UserAuthentication,
         request: CreateLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        match (
-            user.security_setting.two_factor_email,
-            user.security_setting.two_factor_authenticator_app,
-        ) {
-            (true, true) => {
-                // Both two-factor authentication methods are enabled
-                // Handle case
-                // where both email and authenticator app verification is required
-                let duration = Duration::minutes(10);
-                let confirmation_token = self
-                    .generate_and_prepare_token(
-                        &user.user_id,
-                        duration,
-                        request.user_agent,
-                        request.ip_address,
-                        request.persistent,
-                    )
-                    .await?;
-                Ok(AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
-                    user_id: user.user_id.clone(),
-                    email: user.email.clone(),
-                    token: confirmation_token,
-                })
-            }
-            (true, false) => {
-                // Only two-factor email authentication is enabled
-                // Handle case where only email verification is required
-                let duration = Duration::minutes(10);
-                let confirmation_token = self
-                    .generate_and_prepare_token(
-                        &user.user_id,
-                        duration,
-                        request.user_agent,
-                        request.ip_address,
-                        request.persistent,
-                    )
-                    .await?;
-                Ok(AuthenticationOutcome::RequireEmailVerification {
-                    user_id: user.user_id.clone(),
-                    email: user.email.clone(),
-                    token: confirmation_token,
-                })
-            }
-            (false, true) => {
-                // Only two-factor authenticator app authentication is enabled
-                // Handle case where only authenticator app verification is required
-                let user_id = UserId::new(&user.user_id);
-                let expiry_duration = Duration::minutes(5);
-                self.prepare_2fa(
-                    user_id,
-                    expiry_duration,
-                    request.user_agent,
-                    request.ip_address,
-                    request.persistent,
-                )
-                .await?;
+        // match (
+        //     user.security_setting.two_factor_email,
+        //     user.security_setting.two_factor_authenticator_app,
+        // ) {
+        //     (true, true) => {
+        //         // Both two-factor authentication methods are enabled
+        //         // Handle case
+        //         // where both email and authenticator app verification is required
+        //         let duration = Duration::minutes(10);
+        //         let confirmation_token = self
+        //             .generate_and_prepare_token(
+        //                 &user.user_id,
+        //                 duration,
+        //                 request.user_agent,
+        //                 request.ip_address,
+        //                 request.persistent,
+        //             )
+        //             .await?;
+        //         Ok(AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
+        //             user_id: user.user_id.clone(),
+        //             email: user.email.clone(),
+        //             token: confirmation_token,
+        //         })
+        //     }
+        //     (true, false) => {
+        //         // Only two-factor email authentication is enabled
+        //         // Handle case where only email verification is required
+        //         let duration = Duration::minutes(10);
+        //         let confirmation_token = self
+        //             .generate_and_prepare_token(
+        //                 &user.user_id,
+        //                 duration,
+        //                 request.user_agent,
+        //                 request.ip_address,
+        //                 request.persistent,
+        //             )
+        //             .await?;
+        //         Ok(AuthenticationOutcome::RequireEmailVerification {
+        //             user_id: user.user_id.clone(),
+        //             email: user.email.clone(),
+        //             token: confirmation_token,
+        //         })
+        //     }
+        //     (false, true) => {
+        //         // Only two-factor authenticator app authentication is enabled
+        //         // Handle case where only authenticator app verification is required
+        //         let user_id = UserId::new(&user.user_id);
+        //         let expiry_duration = Duration::minutes(5);
+        //         self.prepare_2fa(
+        //             user_id,
+        //             expiry_duration,
+        //             request.user_agent,
+        //             request.ip_address,
+        //             request.persistent,
+        //         )
+        //         .await?;
+        //
+        //         Ok(AuthenticationOutcome::RequireAuthenticatorApp {
+        //             user_id: user.user_id.clone(),
+        //             email: user.email.clone(),
+        //             email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
+        //         })
+        //     }
+        //     (false, false) => {
+        //         self.create_session_for_user(
+        //             user,
+        //             request.persistent,
+        //             request.user_agent,
+        //             request.ip_address,
+        //         )
+        //         .await
+        //     }
+        // }
 
-                Ok(AuthenticationOutcome::RequireAuthenticatorApp {
-                    user_id: user.user_id.clone(),
-                    email: user.email.clone(),
-                    email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
-                })
-            }
-            (false, false) => {
-                self.create_session_for_user(
-                    user,
-                    request.persistent,
-                    request.user_agent,
-                    request.ip_address,
-                )
-                .await
-            }
-        }
+        todo!()
     }
 
     async fn generate_and_prepare_token(
@@ -261,19 +265,21 @@ where
         // Setting code valid duration
         let code_valid_duration = Utc::now() + duration;
 
-        self.user_authentication_repository
-            .prepare_user_for_2fa(
-                user_id_dto,
-                otp_token,
-                otp_code_hash,
-                code_valid_duration,
-                user_agent,
-                ip_address,
-                persistent,
-            )
-            .await?;
+        // self.user_authentication_repository
+        //     .prepare_user_for_2fa(
+        //         user_id_dto,
+        //         otp_token,
+        //         otp_code_hash,
+        //         code_valid_duration,
+        //         user_agent,
+        //         ip_address,
+        //         persistent,
+        //     )
+        //     .await?;
 
-        Ok(otp_code)
+        todo!()
+
+        // Ok(otp_code)
     }
 
     fn is_request_from_trusted_source(
@@ -284,8 +290,8 @@ where
         UserValidationService::validate_ip_ua(
             &request.user_agent,
             &request.ip_address,
-            user_result.otp.user_agent.as_ref(),
-            user_result.otp.ip_address.as_ref(),
+            user_result.auth_token.user_agent.as_ref(),
+            user_result.auth_token.ip_address.as_ref(),
         )
     }
 
@@ -296,48 +302,50 @@ where
     ) -> Result<AuthenticationOutcome, DomainError> {
         let current_time = Utc::now();
 
-        // Check if the OTP expiry is set and validate against current time
-        if let Some(expiry) = user_result.otp.expiry {
-            if current_time > expiry {
-                // Return an error if the OTP has expired
-                return Err(DomainError::ValidationError(
-                    ValidationError::BusinessRuleViolation("OTP has expired.".to_string()),
-                ));
-            }
-        } else {
-            // Return an error if no expiry is set (critical configuration error)
-            return Err(DomainError::ValidationError(
-                ValidationError::BusinessRuleViolation("Expiry must be set.".to_string()),
-            ));
-        }
+        // // Check if the OTP expiry is set and validate against current time
+        // if let Some(expiry) = user_result.otp.expiry {
+        //     if current_time > expiry {
+        //         // Return an error if the OTP has expired
+        //         return Err(DomainError::ValidationError(
+        //             ValidationError::BusinessRuleViolation("OTP has expired.".to_string()),
+        //         ));
+        //     }
+        // } else {
+        //     // Return an error if no expiry is set (critical configuration error)
+        //     return Err(DomainError::ValidationError(
+        //         ValidationError::BusinessRuleViolation("Expiry must be set.".to_string()),
+        //     ));
+        // }
+        //
+        // // Determine the verification result based on the method specified in the request
+        // let verification_result = match &request.verification_method {
+        //     DomainVerificationMethod::EmailOTP => self.verify_email_otp(user_result, &request.code),
+        //     DomainVerificationMethod::AuthenticatorApp => {
+        //         self.verify_authenticator_app(user_result, &request.code)?
+        //     }
+        // };
+        //
+        // // Handle the result of the OTP verification
+        // match verification_result {
+        //     true => {
+        //         let user_id = UserId::new(&user_result.user_id);
+        //         self.update_verification_status(user_id, &request.verification_method)
+        //             .await?;
+        //         self.handle_verification_status(&user_result, request).await
+        //     }
+        //     false => {
+        //         let message = "Verification failed due to invalid OTP.";
+        //         self.handle_failed_login_attempt(user_result, message).await
+        //     }
+        // }
 
-        // Determine the verification result based on the method specified in the request
-        let verification_result = match &request.verification_method {
-            DomainVerificationMethod::EmailOTP => self.verify_email_otp(user_result, &request.code),
-            DomainVerificationMethod::AuthenticatorApp => {
-                self.verify_authenticator_app(user_result, &request.code)?
-            }
-        };
-
-        // Handle the result of the OTP verification
-        match verification_result {
-            true => {
-                let user_id = UserId::new(&user_result.user_id);
-                self.update_verification_status(user_id, &request.verification_method)
-                    .await?;
-                self.handle_verification_status(&user_result, request).await
-            }
-            false => {
-                let message = "Verification failed due to invalid OTP.";
-                self.handle_failed_login_attempt(user_result, message).await
-            }
-        }
+        todo!()
     }
 
     fn verify_email_otp(&self, user: &UserAuthentication, code: &str) -> bool {
         let token_hash = SharedDomainService::hash_token(code);
-        if let Some(token) = &user.otp.otp_email_hash {
-            token == &token_hash
+        if let Some(token) = &user.auth_token.otp_email_code_hash {
+            token.value() == &token_hash
         } else {
             false
         }
@@ -401,15 +409,15 @@ where
         // Determine if further verification is needed
         let email_needed = user_updated.security_setting.two_factor_email;
         let app_needed = user_updated.security_setting.two_factor_authenticator_app;
-        let email_done = user_updated.otp.otp_email_currently_valid;
-        let app_done = user_updated.otp.otp_app_currently_valid;
+        let email_done = user_updated.auth_token.otp_email_currently_valid;
+        let app_done = user_updated.auth_token.otp_app_currently_valid;
 
         match (email_needed, app_needed, email_done, app_done) {
             (true, true, true, true) => {
                 // Both methods are verified
                 self.create_session_for_user(
                     user,
-                    user.otp.persistent,
+                    user.auth_token.long_session,
                     request.user_agent,
                     request.ip_address,
                 )
@@ -432,7 +440,7 @@ where
                 // Only email is needed and done
                 self.create_session_for_user(
                     user,
-                    user.otp.persistent,
+                    user.auth_token.long_session,
                     request.user_agent,
                     request.ip_address,
                 )
@@ -442,7 +450,7 @@ where
                 // Only app is needed and done
                 self.create_session_for_user(
                     user,
-                    user.otp.persistent,
+                    user.auth_token.long_session,
                     request.user_agent,
                     request.ip_address,
                 )

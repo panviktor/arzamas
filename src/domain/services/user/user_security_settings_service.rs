@@ -219,7 +219,7 @@ where
                     self.user_repository
                         .complete_email_verification(&request.user_id),
                     self.user_repository
-                        .update_user_root_email(&request.user_id, confirmation.new_email)
+                        .update_user_main_email(&request.user_id, confirmation.new_email)
                 );
 
                 complete_verification_result?;

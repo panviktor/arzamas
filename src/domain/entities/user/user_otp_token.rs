@@ -1,4 +1,5 @@
-use crate::domain::entities::shared::{IPAddress, UserAgent};
+use crate::domain::entities::shared::value_objects::OtpCode;
+use crate::domain::entities::shared::{IPAddress, OtpToken, UserAgent};
 use chrono::{DateTime, Utc};
 
 /// `UserOtpToken` holds the necessary details for handling One-Time Passwords (OTP)
@@ -7,12 +8,14 @@ use chrono::{DateTime, Utc};
 /// This structure is used to validate OTPs entered by users during the login process
 /// and to manage the lifecycle and validity of these tokens.
 #[derive(Debug)]
-pub struct UserOtpToken {
+pub struct UserAuthToken {
     /// Unique identifier for the user associated with these tokens.
     pub user_id: String,
 
+    pub otp_public_token: Option<OtpToken>,
+
     /// Hash of the OTP sent via email. This is used for verifying the OTP entered by the user.
-    pub otp_email_hash: Option<String>,
+    pub otp_email_code_hash: Option<OtpCode>,
 
     /// Indicates whether the current email OTP is valid. This is typically set to `true`
     /// when an OTP is generated and set to `false` when it expires or is used. This flag
@@ -51,35 +54,5 @@ pub struct UserOtpToken {
     /// from the same IP address or unusual locations.
     pub ip_address: Option<IPAddress>,
 
-    pub persistent: bool,
-}
-
-impl UserOtpToken {
-    pub fn new(
-        user_id: String,
-        otp_email_hash: Option<String>,
-        otp_email_currently_valid: bool,
-        otp_app_hash: Option<String>,
-        otp_app_currently_valid: bool,
-        otp_app_mnemonic: Option<String>,
-        expiry: Option<DateTime<Utc>>,
-        attempt_count: i64,
-        user_agent: Option<UserAgent>,
-        ip_address: Option<IPAddress>,
-        persistent: bool,
-    ) -> Self {
-        Self {
-            user_id,
-            otp_email_hash,
-            otp_email_currently_valid,
-            otp_app_hash,
-            otp_app_currently_valid,
-            otp_app_mnemonic,
-            expiry,
-            attempt_count,
-            user_agent,
-            ip_address,
-            persistent,
-        }
-    }
+    pub long_session: bool,
 }

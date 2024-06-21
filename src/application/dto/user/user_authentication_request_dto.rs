@@ -1,4 +1,5 @@
-use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
+use crate::domain::entities::shared::value_objects::{IPAddress, OtpCode, UserAgent};
+use crate::domain::entities::shared::OtpToken;
 use crate::domain::ports::repositories::user::user_authentication_dto::{
     ContinueLoginRequestDTO, DomainVerificationMethod,
 };
@@ -37,25 +38,25 @@ pub enum APIVerificationMethod {
 }
 
 pub struct OTPVerificationRequest {
-    pub user_id: String,
+    pub otp_token: String,
+    pub otp_code: String,
     pub verification_method: APIVerificationMethod,
-    pub code: String,
     pub user_agent: String,
     pub ip_address: String,
 }
 
 impl OTPVerificationRequest {
     pub fn new(
-        user_id: String,
+        otp_token: String,
+        otp_code: String,
         verification_method: APIVerificationMethod,
-        code: String,
         user_agent: String,
         ip_address: String,
     ) -> Self {
         Self {
-            user_id,
+            otp_token,
+            otp_code,
             verification_method,
-            code,
             user_agent,
             ip_address,
         }
@@ -74,9 +75,9 @@ impl From<APIVerificationMethod> for DomainVerificationMethod {
 impl From<OTPVerificationRequest> for ContinueLoginRequestDTO {
     fn from(request: OTPVerificationRequest) -> Self {
         ContinueLoginRequestDTO {
-            identifier: request.user_id,
-            verification_method: request.verification_method.into(),
-            code: request.code,
+            otp_token: OtpToken::new(&request.otp_token),
+            otp_code: OtpCode::new(&request.otp_code),
+            verification_method: DomainVerificationMethod::EmailOTP,
             user_agent: UserAgent::new(&request.user_agent),
             ip_address: IPAddress::new(&request.ip_address),
         }

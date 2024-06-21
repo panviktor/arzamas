@@ -1,5 +1,5 @@
-use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
+use crate::domain::entities::shared::value_objects::{OtpCode, UserId};
 use crate::domain::entities::shared::{Email, OtpToken, Username};
 use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
@@ -40,9 +40,9 @@ pub trait UserAuthenticationDomainRepository {
     async fn prepare_user_for_2fa(
         &self,
         user: UserId,
-        otp_token: OtpToken,
-        otp_code_hash: String,
-        otp_code_expiry: DateTime<Utc>,
+        otp_public_token: OtpToken,
+        email_otp_code_hash: Option<OtpCode>,
+        code_expiry: DateTime<Utc>,
         user_agent: UserAgent,
         ip_address: IPAddress,
         long_session: bool,

@@ -30,7 +30,7 @@ pub trait UserSharedDomainRepository {
     ) -> Result<UserChangeEmailConfirmation, DomainError>;
 
     async fn complete_email_verification(&self, user: &UserId) -> Result<(), DomainError>;
-    async fn update_user_root_email(&self, user: &UserId, email: Email) -> Result<(), DomainError>;
+    async fn update_user_main_email(&self, user: &UserId, email: Email) -> Result<(), DomainError>;
 
     async fn invalidate_email_verification(&self, user: UserId) -> Result<(), DomainError>;
     async fn clear_email_confirmation_token(&self, user: UserId) -> Result<(), DomainError>;

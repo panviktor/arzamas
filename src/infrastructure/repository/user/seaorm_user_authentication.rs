@@ -112,19 +112,14 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
     async fn prepare_user_for_2fa(
         &self,
         user: UserId,
-        otp_public_token: Option<OtpToken>,
+        otp_public_token: OtpToken,
         email_otp_code_hash: Option<OtpCode>,
         code_expiry: DateTime<Utc>,
         user_agent: UserAgent,
         ip_address: IPAddress,
-        persistent: bool,
+        long_session: bool,
     ) -> Result<(), DomainError> {
         let mut otp = self.fetch_user_otp_token(&user.user_id).await?;
-
-        otp.
-
-
-
 
         // user_otp_token.otp_email_currently_valid = Set(false);
         // user_otp_token.otp_app_currently_valid = Set(false);
@@ -135,8 +130,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         // user_otp_token.ip_address = Set(Some(ip_address.value().to_string()));
         // user_otp_token.long_session = Set(persistent);
 
-            otp
-            .update(&*self.db)
+        otp.update(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
 
@@ -229,7 +223,7 @@ impl SeaOrmUserAuthenticationRepository {
             pass_hash: user.pass_hash,
             email_validated: user.email_validated,
             security_setting,
-            otp: otp_token,
+            auth_token: otp_token,
             sessions,
             login_blocked_until,
         })

@@ -1,6 +1,6 @@
 use crate::domain::entities::shared::value_objects::OtpCode;
 use crate::domain::entities::shared::{Email, OtpToken, Username};
-use crate::domain::entities::user::user_otp_token::UserOtpToken;
+use crate::domain::entities::user::user_otp_token::UserAuthToken;
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
 use chrono::{DateTime, Utc};
@@ -53,7 +53,7 @@ pub struct UserAuthentication {
     pub pass_hash: String,
     pub email_validated: bool,
     pub security_setting: UserSecuritySettings,
-    pub otp: UserOtpToken,
+    pub auth_token: UserAuthToken,
     pub sessions: Vec<UserSession>,
     pub login_blocked_until: Option<DateTime<Utc>>,
 }

@@ -1,6 +1,6 @@
-use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
-use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::user_otp_token::UserOtpToken;
+use crate::domain::entities::shared::value_objects::{IPAddress, OtpCode, UserAgent};
+use crate::domain::entities::shared::{Email, OtpToken, Username};
+use crate::domain::entities::user::user_otp_token::UserAuthToken;
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::{UserBase, UserRegistration};
@@ -37,8 +37,8 @@ impl From<user::Model> for UserRegistration {
     }
 }
 
-impl From<user_auth_token::Model> for UserOtpToken {
-    fn from(model: user_auth_token::Model) -> UserOtpToken {
+impl From<user_auth_token::Model> for UserAuthToken {
+    fn from(model: user_auth_token::Model) -> UserAuthToken {
         let expiry = model
             .expiry
             .map(|naive_dt| Utc.from_utc_datetime(&naive_dt));
@@ -46,9 +46,10 @@ impl From<user_auth_token::Model> for UserOtpToken {
         let user_agent = model.user_agent.as_deref().map(UserAgent::new);
         let ip_address = model.ip_address.as_deref().map(IPAddress::new);
 
-        UserOtpToken {
+        UserAuthToken {
             user_id: model.user_id,
-            otp_email_hash: model.otp_email_hash,
+            otp_public_token: model.otp_public_token.as_deref().map(OtpToken::new),
+            otp_email_code_hash: model.otp_email_code_hash.as_deref().map(OtpCode::new),
             otp_email_currently_valid: model.otp_email_currently_valid,
             otp_app_hash: model.otp_app_hash,
             otp_app_currently_valid: model.otp_app_currently_valid,
@@ -57,7 +58,7 @@ impl From<user_auth_token::Model> for UserOtpToken {
             attempt_count: model.attempt_count,
             user_agent,
             ip_address,
-            persistent: model.long_session,
+            long_session: model.long_session,
         }
     }
 }
