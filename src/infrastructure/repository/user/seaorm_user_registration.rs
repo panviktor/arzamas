@@ -4,7 +4,7 @@ use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::ports::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
 use async_trait::async_trait;
 use entity::{
-    user, user_auth_token, user_confirmation, user_recovery_password, user_security_settings,
+    user, user_authentication, user_confirmation, user_recovery_password, user_security_settings,
 };
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
@@ -57,7 +57,7 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Create(e.to_string())))?;
 
-        let user_otp_token = user_auth_token::ActiveModel {
+        let user_otp_token = user_authentication::ActiveModel {
             user_id: Set(user_id_clone.clone()),
             ..Default::default()
         };

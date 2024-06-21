@@ -11,67 +11,83 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(UserAuthToken::Table)
+                    .table(UserAuthentication::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(UserAuthToken::Id)
+                        ColumnDef::new(UserAuthentication::Id)
                             .big_integer()
                             .auto_increment()
                             .not_null()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(UserAuthToken::UserId)
+                        ColumnDef::new(UserAuthentication::UserId)
                             .string()
                             .not_null()
                             .unique_key(),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_otp_token_user_id")
-                            .from(UserAuthToken::Table, UserAuthToken::UserId)
+                            .name("fk_user_authentication_user_id")
+                            .from(UserAuthentication::Table, UserAuthentication::UserId)
                             .to(User::Table, User::UserId)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(
-                        ColumnDef::new(UserAuthToken::OtpPublicToken)
+                        ColumnDef::new(UserAuthentication::OtpPublicToken)
                             .string()
                             .null(),
                     )
                     .col(
-                        ColumnDef::new(UserAuthToken::OtpEmailCodeHash)
+                        ColumnDef::new(UserAuthentication::OtpEmailCodeHash)
                             .string()
                             .null(),
                     )
                     .col(
-                        ColumnDef::new(UserAuthToken::OtpEmailCurrentlyValid)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
-                    .col(ColumnDef::new(UserAuthToken::OtpAppHash).string().null())
-                    .col(
-                        ColumnDef::new(UserAuthToken::OtpAppCurrentlyValid)
+                        ColumnDef::new(UserAuthentication::OtpEmailCurrentlyValid)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
                     .col(
-                        ColumnDef::new(UserAuthToken::OtpAppMnemonic)
+                        ColumnDef::new(UserAuthentication::OtpAppHash)
                             .string()
                             .null(),
                     )
-                    .col(ColumnDef::new(UserAuthToken::Expiry).timestamp().null())
                     .col(
-                        ColumnDef::new(UserAuthToken::AttemptCount)
+                        ColumnDef::new(UserAuthentication::OtpAppCurrentlyValid)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(UserAuthentication::OtpAppMnemonic)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserAuthentication::Expiry)
+                            .timestamp()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserAuthentication::AttemptCount)
                             .big_unsigned()
                             .not_null()
                             .default(0),
                     )
-                    .col(ColumnDef::new(UserAuthToken::UserAgent).string().null())
-                    .col(ColumnDef::new(UserAuthToken::IpAddress).string().null())
                     .col(
-                        ColumnDef::new(UserAuthToken::LongSession)
+                        ColumnDef::new(UserAuthentication::UserAgent)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserAuthentication::IpAddress)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserAuthentication::LongSession)
                             .boolean()
                             .not_null()
                             .default(false),
@@ -84,14 +100,14 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Replace the sample below with your own migration scripts
         manager
-            .drop_table(Table::drop().table(UserAuthToken::Table).to_owned())
+            .drop_table(Table::drop().table(UserAuthentication::Table).to_owned())
             .await
     }
 }
 
 /// Learn more at https://docs.rs/sea-query#iden
 #[derive(Iden)]
-pub enum UserAuthToken {
+pub enum UserAuthentication {
     Table,
     Id,
     UserId,

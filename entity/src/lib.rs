@@ -3,7 +3,7 @@
 pub mod note;
 pub mod prelude;
 pub mod user;
-pub mod user_auth_token;
+pub mod user_authentication;
 pub mod user_confirmation;
 pub mod user_recovery_password;
 pub mod user_security_settings;

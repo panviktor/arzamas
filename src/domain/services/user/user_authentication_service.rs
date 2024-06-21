@@ -133,7 +133,7 @@ where
         user: &UserAuthentication,
         message: &str,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        let attempt_count: i64 = user.auth_token.attempt_count + 1;
+        let attempt_count: i64 = user.auth_data.attempt_count + 1;
         let user_id = UserId::new(&user.user_id);
 
         let block_duration = if attempt_count > 10 {
@@ -290,8 +290,8 @@ where
         UserValidationService::validate_ip_ua(
             &request.user_agent,
             &request.ip_address,
-            user_result.auth_token.user_agent.as_ref(),
-            user_result.auth_token.ip_address.as_ref(),
+            user_result.auth_data.user_agent.as_ref(),
+            user_result.auth_data.ip_address.as_ref(),
         )
     }
 
@@ -344,7 +344,7 @@ where
 
     fn verify_email_otp(&self, user: &UserAuthentication, code: &str) -> bool {
         let token_hash = SharedDomainService::hash_token(code);
-        if let Some(token) = &user.auth_token.otp_email_code_hash {
+        if let Some(token) = &user.auth_data.otp_email_code_hash {
             token.value() == &token_hash
         } else {
             false
@@ -409,15 +409,15 @@ where
         // Determine if further verification is needed
         let email_needed = user_updated.security_setting.two_factor_email;
         let app_needed = user_updated.security_setting.two_factor_authenticator_app;
-        let email_done = user_updated.auth_token.otp_email_currently_valid;
-        let app_done = user_updated.auth_token.otp_app_currently_valid;
+        let email_done = user_updated.auth_data.otp_email_currently_valid;
+        let app_done = user_updated.auth_data.otp_app_currently_valid;
 
         match (email_needed, app_needed, email_done, app_done) {
             (true, true, true, true) => {
                 // Both methods are verified
                 self.create_session_for_user(
                     user,
-                    user.auth_token.long_session,
+                    user.auth_data.long_session,
                     request.user_agent,
                     request.ip_address,
                 )
@@ -440,7 +440,7 @@ where
                 // Only email is needed and done
                 self.create_session_for_user(
                     user,
-                    user.auth_token.long_session,
+                    user.auth_data.long_session,
                     request.user_agent,
                     request.ip_address,
                 )
@@ -450,7 +450,7 @@ where
                 // Only app is needed and done
                 self.create_session_for_user(
                     user,
-                    user.auth_token.long_session,
+                    user.auth_data.long_session,
                     request.user_agent,
                     request.ip_address,
                 )

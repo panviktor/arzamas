@@ -7,7 +7,7 @@ use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
-use entity::user_auth_token;
+use entity::user_authentication;
 use entity::{user, user_session};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
@@ -179,8 +179,8 @@ impl SeaOrmUserAuthenticationRepository {
         &self,
         user: user::Model,
     ) -> Result<UserAuthentication, DomainError> {
-        let otp_token_future = entity::user_auth_token::Entity::find()
-            .filter(user_auth_token::Column::UserId.eq(user.user_id.clone()))
+        let otp_token_future = entity::user_authentication::Entity::find()
+            .filter(user_authentication::Column::UserId.eq(user.user_id.clone()))
             .one(&*self.db);
 
         let security_settings_future = entity::user_security_settings::Entity::find()
@@ -223,7 +223,7 @@ impl SeaOrmUserAuthenticationRepository {
             pass_hash: user.pass_hash,
             email_validated: user.email_validated,
             security_setting,
-            auth_token: otp_token,
+            auth_data: otp_token,
             sessions,
             login_blocked_until,
         })
@@ -232,9 +232,9 @@ impl SeaOrmUserAuthenticationRepository {
     async fn fetch_user_otp_token(
         &self,
         user_id: &str,
-    ) -> Result<user_auth_token::ActiveModel, DomainError> {
-        let token_model = entity::user_auth_token::Entity::find()
-            .filter(user_auth_token::Column::UserId.eq(user_id))
+    ) -> Result<user_authentication::ActiveModel, DomainError> {
+        let token_model = entity::user_authentication::Entity::find()
+            .filter(user_authentication::Column::UserId.eq(user_id))
             .one(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))

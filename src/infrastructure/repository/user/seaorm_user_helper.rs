@@ -1,11 +1,11 @@
 use crate::domain::entities::shared::value_objects::{IPAddress, OtpCode, UserAgent};
 use crate::domain::entities::shared::{Email, OtpToken, Username};
-use crate::domain::entities::user::user_otp_token::UserAuthToken;
+use crate::domain::entities::user::user_authentication::UserAuthenticationData;
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::{UserBase, UserRegistration};
 use chrono::{TimeZone, Utc};
-use entity::{user, user_auth_token, user_security_settings, user_session};
+use entity::{user, user_authentication, user_security_settings, user_session};
 use sea_orm::ActiveValue::Set;
 
 impl UserRegistration {
@@ -37,8 +37,8 @@ impl From<user::Model> for UserRegistration {
     }
 }
 
-impl From<user_auth_token::Model> for UserAuthToken {
-    fn from(model: user_auth_token::Model) -> UserAuthToken {
+impl From<user_authentication::Model> for UserAuthenticationData {
+    fn from(model: user_authentication::Model) -> UserAuthenticationData {
         let expiry = model
             .expiry
             .map(|naive_dt| Utc.from_utc_datetime(&naive_dt));
@@ -46,7 +46,7 @@ impl From<user_auth_token::Model> for UserAuthToken {
         let user_agent = model.user_agent.as_deref().map(UserAgent::new);
         let ip_address = model.ip_address.as_deref().map(IPAddress::new);
 
-        UserAuthToken {
+        UserAuthenticationData {
             user_id: model.user_id,
             otp_public_token: model.otp_public_token.as_deref().map(OtpToken::new),
             otp_email_code_hash: model.otp_email_code_hash.as_deref().map(OtpCode::new),
