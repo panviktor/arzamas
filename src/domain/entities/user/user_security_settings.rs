@@ -19,6 +19,11 @@ pub struct UserChangeEmail {
     pub email_validation_token: OtpToken,
 }
 
+pub struct UserEmailConfirmation {
+    pub otp_hash: String,
+    pub expiry: DateTime<Utc>,
+}
+
 pub struct UserChangeEmailConfirmation {
     pub otp_hash: String,
     pub expiry: DateTime<Utc>,

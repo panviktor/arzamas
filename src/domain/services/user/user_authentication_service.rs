@@ -82,9 +82,7 @@ where
                 .handle_failed_login_attempt(&auth_result, message)
                 .await;
         }
-        // self.verify_otp(&user_result, request).await
-
-        todo!()
+        self.verify_otp(&auth_result, request).await
     }
 }
 
@@ -520,7 +518,7 @@ where
         let now = Utc::now();
         let confirmation = self
             .user_repository
-            .retrieve_email_confirmation_token(&user_id)
+            .retrieve_change_email_confirmation(&user_id)
             .await?;
 
         if now > confirmation.expiry {

@@ -144,6 +144,7 @@ impl From<ActivateEmail2FARequest> for ActivateEmail2FADTO {
 }
 
 /// ConfirmEmail2FARequest
+#[derive(Debug)]
 pub struct ConfirmEmail2FARequest {
     pub user_id: String,
     pub token: String,

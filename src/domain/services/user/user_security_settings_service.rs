@@ -209,7 +209,7 @@ where
     pub async fn confirm_email(&self, request: ConfirmEmailDTO) -> Result<(), DomainError> {
         let confirmation = self
             .user_repository
-            .retrieve_email_confirmation_token(&request.user_id)
+            .retrieve_change_email_confirmation(&request.user_id)
             .await?;
 
         if SharedDomainService::validate_hash(&request.token.value(), &confirmation.otp_hash) {

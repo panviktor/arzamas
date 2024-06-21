@@ -1,6 +1,8 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::user_security_settings::UserChangeEmailConfirmation;
+use crate::domain::entities::user::user_security_settings::{
+    UserChangeEmailConfirmation, UserEmailConfirmation,
+};
 use crate::domain::entities::user::UserBase;
 use crate::domain::error::DomainError;
 use crate::domain::error::PersistenceError;
@@ -105,13 +107,7 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         expiry: DateTime<Utc>,
         new_email: Option<Email>,
     ) -> Result<(), DomainError> {
-        let user_id = user.user_id;
-        let confirmation = entity::prelude::UserConfirmation::find()
-            .filter(user_confirmation::Column::UserId.eq(user_id))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-            .ok_or_else(|| DomainError::NotFound)?;
+        let confirmation = self.get_user_confirmation(&user).await?;
 
         let mut active: user_confirmation::ActiveModel = confirmation.into();
         active.activate_user_token_hash = Set(Some(token));
@@ -129,16 +125,31 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
         Ok(())
     }
 
-    async fn retrieve_email_confirmation_token(
+    async fn retrieve_email_activation(
+        &self,
+        user_id: &UserId,
+    ) -> Result<UserEmailConfirmation, DomainError> {
+        let confirmation = self.get_user_confirmation(user_id).await?;
+
+        let otp_hash = confirmation.activate_user_token_hash.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Missing OTP hash".to_string(),
+            ))
+        })?;
+        let expiry = confirmation.activate_user_token_expiry.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Missing expiry date".to_string(),
+            ))
+        })?;
+        let expiry = Utc.from_utc_datetime(&expiry);
+        Ok(UserEmailConfirmation { otp_hash, expiry })
+    }
+
+    async fn retrieve_change_email_confirmation(
         &self,
         user_id: &UserId,
     ) -> Result<UserChangeEmailConfirmation, DomainError> {
-        let confirmation = entity::prelude::UserConfirmation::find()
-            .filter(user_confirmation::Column::UserId.eq(&user_id.user_id))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-            .ok_or_else(|| DomainError::NotFound)?;
+        let confirmation = self.get_user_confirmation(user_id).await?;
 
         let otp_hash = confirmation.activate_user_token_hash.ok_or_else(|| {
             DomainError::PersistenceError(PersistenceError::Retrieve(
@@ -262,24 +273,30 @@ impl UserSharedDomainRepository for SeaOrmUserSharedRepository {
     }
 
     async fn clear_email_confirmation_token(&self, user: UserId) -> Result<(), DomainError> {
-        let user_id = user.user_id;
-        let confirmation = entity::prelude::UserConfirmation::find()
-            .filter(user_confirmation::Column::UserId.eq(user_id))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-            .ok_or_else(|| DomainError::NotFound)?;
-
+        let confirmation = self.get_user_confirmation(&user).await?;
         let mut active: user_confirmation::ActiveModel = confirmation.into();
         active.activate_user_token_hash = Set(None);
         active.activate_user_token_expiry = Set(None);
         active.new_main_email = Set(None);
-
         active
             .update(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
 
         Ok(())
+    }
+}
+
+impl SeaOrmUserSharedRepository {
+    async fn get_user_confirmation(
+        &self,
+        user_id: &UserId,
+    ) -> Result<user_confirmation::Model, DomainError> {
+        entity::prelude::UserConfirmation::find()
+            .filter(user_confirmation::Column::UserId.eq(&user_id.user_id))
+            .one(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| DomainError::NotFound)
     }
 }

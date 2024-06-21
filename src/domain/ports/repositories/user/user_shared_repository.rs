@@ -1,6 +1,8 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::user_security_settings::UserChangeEmailConfirmation;
+use crate::domain::entities::user::user_security_settings::{
+    UserChangeEmailConfirmation, UserEmailConfirmation,
+};
 use crate::domain::entities::user::UserBase;
 use crate::domain::error::DomainError;
 use async_trait::async_trait;
@@ -24,7 +26,11 @@ pub trait UserSharedDomainRepository {
         expiry: DateTime<Utc>,
         new_email: Option<Email>,
     ) -> Result<(), DomainError>;
-    async fn retrieve_email_confirmation_token(
+    async fn retrieve_email_activation(
+        &self,
+        user_id: &UserId,
+    ) -> Result<UserEmailConfirmation, DomainError>;
+    async fn retrieve_change_email_confirmation(
         &self,
         user: &UserId,
     ) -> Result<UserChangeEmailConfirmation, DomainError>;

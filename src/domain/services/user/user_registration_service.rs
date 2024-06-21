@@ -96,7 +96,7 @@ where
 
         let confirmation = self
             .user_repository
-            .retrieve_email_confirmation_token(&user_id)
+            .retrieve_email_activation(&user_id)
             .await?;
 
         if SharedDomainService::validate_hash(&token.value(), &confirmation.otp_hash) {
