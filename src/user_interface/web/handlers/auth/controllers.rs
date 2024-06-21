@@ -59,10 +59,10 @@ pub async fn create_user(
     params: web::Json<CreateUserRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
     let user = CreateUserRequest::new(
-        &params.username,
-        &params.email,
-        &params.password,
-        &params.password_confirm,
+        params.username.clone(),
+        params.email.clone(),
+        params.password.clone(),
+        params.password_confirm.clone(),
     );
 
     let saved_user = data
@@ -115,7 +115,7 @@ pub async fn verify_email(
     data: web::Data<Arc<ServiceContainer>>,
     params: web::Json<ValidateEmailRequestWeb>,
 ) -> Result<HttpResponse, AppResponseError> {
-    let request = ValidateEmailRequest::new(&params.email, &params.email_token);
+    let request = ValidateEmailRequest::new(params.email.clone(), params.email_token.clone());
 
     data.user_registration_service
         .validate_email_user(request)
@@ -174,10 +174,10 @@ pub async fn login(
     let login_ip = get_ip_addr(&req)?;
 
     let request = LoginUserRequest::new(
-        &params.identifier,
-        &params.password,
-        &user_agent,
-        &login_ip,
+        params.identifier.clone(),
+        params.password.clone(),
+        user_agent,
+        login_ip,
         params.persistent,
     );
 
@@ -236,8 +236,8 @@ pub async fn login_2fa(
     };
 
     let request = OTPVerificationRequest::new(
-        "".to_string(),
-        "".to_string(),
+        params.public_token.clone(),
+        params.code.clone(),
         verification_method,
         user_agent,
         login_ip,
@@ -293,7 +293,7 @@ pub async fn forgot_password(
     let user_agent = get_user_agent(&req)?;
     let login_ip = get_ip_addr(&req)?;
 
-    let request = UserRecoveryRequest::new(&params.identifier, user_agent, login_ip);
+    let request = UserRecoveryRequest::new(params.identifier.clone(), user_agent, login_ip);
     data.user_recovery_service
         .initiate_recovery(request)
         .await
@@ -359,9 +359,9 @@ pub async fn password_reset(
     let login_ip = get_ip_addr(&req)?;
 
     let request = UserCompleteRecoveryRequest::new(
-        &params.token,
-        &params.new_password,
-        &params.password_confirm,
+        params.token.clone(),
+        params.new_password.clone(),
+        params.password_confirm.clone(),
         user_agent,
         login_ip,
     );

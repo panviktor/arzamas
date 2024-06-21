@@ -23,9 +23,9 @@ pub struct LoginUserRequestWeb {
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct ContinueLoginRequestWeb {
-    pub user_id: String,
-    pub verification_method: APIVerificationMethodWeb,
+    pub public_token: String,
     pub code: String,
+    pub verification_method: APIVerificationMethodWeb,
 }
 #[derive(Serialize, Deserialize, ToSchema)]
 pub enum APIVerificationMethodWeb {

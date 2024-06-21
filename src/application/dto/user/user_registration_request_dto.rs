@@ -7,13 +7,19 @@ pub struct CreateUserRequest {
     pub password: String,
     pub password_confirm: String,
 }
+
 impl CreateUserRequest {
-    pub fn new(username: &str, email: &str, password: &str, password_confirm: &str) -> Self {
+    pub fn new(
+        username: String,
+        email: String,
+        password: String,
+        password_confirm: String,
+    ) -> Self {
         Self {
-            username: username.to_string(),
-            email: email.to_string(),
-            password: password.to_string(),
-            password_confirm: password_confirm.to_string(),
+            username,
+            email,
+            password,
+            password_confirm,
         }
     }
 }
@@ -30,10 +36,7 @@ pub struct ValidateEmailRequest {
 }
 
 impl ValidateEmailRequest {
-    pub fn new(email: &str, email_token: &str) -> Self {
-        Self {
-            email: email.to_string(),
-            email_token: email_token.to_string(),
-        }
+    pub fn new(email: String, email_token: String) -> Self {
+        Self { email, email_token }
     }
 }

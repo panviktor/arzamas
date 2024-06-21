@@ -120,11 +120,11 @@ where
     ) -> Result<AuthenticationOutcome, DomainError> {
         UserValidationService::validate_passwd(&request.password)?;
 
-        if !UserCredentialService::credential_validator(&request.password, &user.pass_hash)? {
+        if UserCredentialService::credential_validator(&request.password, &user.pass_hash)? {
+            self.handle_successful_login_attempt(user, request).await
+        } else {
             let message = "Incorrect password.";
             self.handle_failed_login_attempt(user, message).await
-        } else {
-            self.handle_successful_login_attempt(user, request).await
         }
     }
 
@@ -166,81 +166,83 @@ where
         user: &UserAuthentication,
         request: CreateLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        // match (
-        //     user.security_setting.two_factor_email,
-        //     user.security_setting.two_factor_authenticator_app,
-        // ) {
-        //     (true, true) => {
-        //         // Both two-factor authentication methods are enabled
-        //         // Handle case
-        //         // where both email and authenticator app verification is required
-        //         let duration = Duration::minutes(10);
-        //         let confirmation_token = self
-        //             .generate_and_prepare_token(
-        //                 &user.user_id,
-        //                 duration,
-        //                 request.user_agent,
-        //                 request.ip_address,
-        //                 request.persistent,
-        //             )
-        //             .await?;
-        //         Ok(AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
-        //             user_id: user.user_id.clone(),
-        //             email: user.email.clone(),
-        //             token: confirmation_token,
-        //         })
-        //     }
-        //     (true, false) => {
-        //         // Only two-factor email authentication is enabled
-        //         // Handle case where only email verification is required
-        //         let duration = Duration::minutes(10);
-        //         let confirmation_token = self
-        //             .generate_and_prepare_token(
-        //                 &user.user_id,
-        //                 duration,
-        //                 request.user_agent,
-        //                 request.ip_address,
-        //                 request.persistent,
-        //             )
-        //             .await?;
-        //         Ok(AuthenticationOutcome::RequireEmailVerification {
-        //             user_id: user.user_id.clone(),
-        //             email: user.email.clone(),
-        //             token: confirmation_token,
-        //         })
-        //     }
-        //     (false, true) => {
-        //         // Only two-factor authenticator app authentication is enabled
-        //         // Handle case where only authenticator app verification is required
-        //         let user_id = UserId::new(&user.user_id);
-        //         let expiry_duration = Duration::minutes(5);
-        //         self.prepare_2fa(
-        //             user_id,
-        //             expiry_duration,
-        //             request.user_agent,
-        //             request.ip_address,
-        //             request.persistent,
-        //         )
-        //         .await?;
-        //
-        //         Ok(AuthenticationOutcome::RequireAuthenticatorApp {
-        //             user_id: user.user_id.clone(),
-        //             email: user.email.clone(),
-        //             email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
-        //         })
-        //     }
-        //     (false, false) => {
-        //         self.create_session_for_user(
-        //             user,
-        //             request.persistent,
-        //             request.user_agent,
-        //             request.ip_address,
-        //         )
-        //         .await
-        //     }
-        // }
+        match (
+            user.security_setting.two_factor_email,
+            user.security_setting.two_factor_authenticator_app,
+        ) {
+            (true, true) => {
+                //         // Both two-factor authentication methods are enabled
+                //         // Handle case
+                //         // where both email and authenticator app verification is required
+                //         let duration = Duration::minutes(10);
+                //         let confirmation_token = self
+                //             .generate_and_prepare_token(
+                //                 &user.user_id,
+                //                 duration,
+                //                 request.user_agent,
+                //                 request.ip_address,
+                //                 request.persistent,
+                //             )
+                //             .await?;
+                //         Ok(AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
+                //             user_id: user.user_id.clone(),
+                //             email: user.email.clone(),
+                //             token: confirmation_token,
+                //         })
 
-        todo!()
+                todo!()
+            }
+            (true, false) => {
+                //         // Only two-factor email authentication is enabled
+                //         // Handle case where only email verification is required
+                //         let duration = Duration::minutes(10);
+                //         let confirmation_token = self
+                //             .generate_and_prepare_token(
+                //                 &user.user_id,
+                //                 duration,
+                //                 request.user_agent,
+                //                 request.ip_address,
+                //                 request.persistent,
+                //             )
+                //             .await?;
+                //         Ok(AuthenticationOutcome::RequireEmailVerification {
+                //             user_id: user.user_id.clone(),
+                //             email: user.email.clone(),
+                //             token: confirmation_token,
+                //         })
+                todo!()
+            }
+            (false, true) => {
+                //         // Only two-factor authenticator app authentication is enabled
+                //         // Handle case where only authenticator app verification is required
+                //         let user_id = UserId::new(&user.user_id);
+                //         let expiry_duration = Duration::minutes(5);
+                //         self.prepare_2fa(
+                //             user_id,
+                //             expiry_duration,
+                //             request.user_agent,
+                //             request.ip_address,
+                //             request.persistent,
+                //         )
+                //         .await?;
+                //
+                //         Ok(AuthenticationOutcome::RequireAuthenticatorApp {
+                //             user_id: user.user_id.clone(),
+                //             email: user.email.clone(),
+                //             email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
+                //         })
+                todo!()
+            }
+            (false, false) => {
+                self.create_session_for_user(
+                    user,
+                    request.persistent,
+                    request.user_agent,
+                    request.ip_address,
+                )
+                .await
+            }
+        }
     }
 
     async fn generate_and_prepare_token(

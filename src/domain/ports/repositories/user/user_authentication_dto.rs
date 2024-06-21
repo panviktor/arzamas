@@ -35,7 +35,7 @@ pub enum DomainVerificationMethod {
 }
 #[derive(Debug, Clone)]
 pub struct ContinueLoginRequestDTO {
-    pub otp_token: OtpToken,
+    pub public_token: OtpToken,
     pub otp_code: OtpCode,
     pub verification_method: DomainVerificationMethod,
     pub user_agent: UserAgent,
@@ -51,7 +51,7 @@ impl ContinueLoginRequestDTO {
         ip_address: IPAddress,
     ) -> Self {
         Self {
-            otp_token,
+            public_token: otp_token,
             otp_code,
             verification_method,
             user_agent,

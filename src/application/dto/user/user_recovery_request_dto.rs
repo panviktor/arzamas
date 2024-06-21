@@ -5,9 +5,9 @@ pub struct UserRecoveryRequest {
 }
 
 impl UserRecoveryRequest {
-    pub fn new(identifier: &str, user_agent: String, ip_address: String) -> Self {
+    pub fn new(identifier: String, user_agent: String, ip_address: String) -> Self {
         Self {
-            identifier: identifier.to_string(),
+            identifier,
             user_agent,
             ip_address,
         }
@@ -24,16 +24,16 @@ pub struct UserCompleteRecoveryRequest {
 
 impl UserCompleteRecoveryRequest {
     pub fn new(
-        token: &str,
-        new_password: &str,
-        password_confirm: &str,
+        token: String,
+        new_password: String,
+        password_confirm: String,
         user_agent: String,
         ip_address: String,
     ) -> Self {
         Self {
-            token: token.to_string(),
-            new_password: new_password.to_string(),
-            password_confirm: password_confirm.to_string(),
+            token,
+            new_password,
+            password_confirm,
             user_agent,
             ip_address,
         }
