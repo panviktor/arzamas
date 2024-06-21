@@ -23,7 +23,7 @@ pub enum Relation {
     #[sea_orm(has_many = "super::note::Entity")]
     Note,
     #[sea_orm(has_one = "super::user_authentication::Entity")]
-    UserAuthToken,
+    UserAuthentication,
     #[sea_orm(has_one = "super::user_confirmation::Entity")]
     UserConfirmation,
     #[sea_orm(has_one = "super::user_recovery_password::Entity")]
@@ -42,7 +42,7 @@ impl Related<super::note::Entity> for Entity {
 
 impl Related<super::user_authentication::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserAuthToken.def()
+        Relation::UserAuthentication.def()
     }
 }
 
