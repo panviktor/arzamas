@@ -3,13 +3,14 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "user_otp_token")]
+#[sea_orm(table_name = "user_auth_token")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i64,
     #[sea_orm(unique)]
     pub user_id: String,
-    pub otp_email_hash: Option<String>,
+    pub otp_public_token: Option<String>,
+    pub otp_email_code_hash: Option<String>,
     pub otp_email_currently_valid: bool,
     pub otp_app_hash: Option<String>,
     pub otp_app_currently_valid: bool,

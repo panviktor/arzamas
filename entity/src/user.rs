@@ -22,10 +22,10 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::note::Entity")]
     Note,
-    #[sea_orm(has_one = "super::user_confirmation::Entity")]
-    UserConfirmation,
     #[sea_orm(has_one = "super::user_auth_token::Entity")]
     UserAuthToken,
+    #[sea_orm(has_one = "super::user_confirmation::Entity")]
+    UserConfirmation,
     #[sea_orm(has_one = "super::user_recovery_password::Entity")]
     UserRecoveryPassword,
     #[sea_orm(has_one = "super::user_security_settings::Entity")]
@@ -40,15 +40,15 @@ impl Related<super::note::Entity> for Entity {
     }
 }
 
-impl Related<super::user_confirmation::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::UserConfirmation.def()
-    }
-}
-
 impl Related<super::user_auth_token::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserAuthToken.def()
+    }
+}
+
+impl Related<super::user_confirmation::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserConfirmation.def()
     }
 }
 
