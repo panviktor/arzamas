@@ -2,7 +2,9 @@ use crate::core::constants::emojis::EMOJIS;
 use crate::domain::entities::shared::value_objects::{IPAddress, OtpToken, UserAgent};
 use crate::domain::entities::shared::value_objects::{OtpCode, UserId};
 use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::user_authentication::UserAuthentication;
+use crate::domain::entities::user::user_authentication::{
+    UserAuthentication, UserAuthenticationData,
+};
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::AuthenticationOutcome;
 use crate::domain::error::{DomainError, ValidationError};
@@ -18,6 +20,7 @@ use crate::domain::services::user::{UserCredentialService, UserValidationService
 use actix_web::web::to;
 use chrono::{Duration, Utc};
 use std::sync::Arc;
+use tracing_subscriber::fmt::writer::EitherWriter::A;
 use uuid::Uuid;
 
 pub struct UserAuthenticationDomainService<A, S>
@@ -62,7 +65,12 @@ where
         &self,
         request: ContinueLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        //  request.otp_token - find user by token
+        let auth_result = self
+            .user_authentication_repository
+            .fetch_user_auth_by_token(request.public_token)
+            .await?;
+
+        // let token = request.public_token
 
         // let identifier = &request.identifier;
         // let user_result = self.identify_user(identifier).await?;
@@ -155,7 +163,7 @@ where
         tokio::try_join!(update_user_login_attempts, block_user_until)?;
 
         Ok(AuthenticationOutcome::AuthenticationFailed {
-            email: user.email.clone(),
+            email: user.auth_data.email.clone(),
             message: message.to_string(),
             email_notifications_enabled: user.security_setting.email_on_failure_enabled_at,
         })
@@ -171,67 +179,92 @@ where
             user.security_setting.two_factor_authenticator_app,
         ) {
             (true, true) => {
-                //         // Both two-factor authentication methods are enabled
-                //         // Handle case
-                //         // where both email and authenticator app verification is required
-                //         let duration = Duration::minutes(10);
-                //         let confirmation_token = self
-                //             .generate_and_prepare_token(
-                //                 &user.user_id,
-                //                 duration,
-                //                 request.user_agent,
-                //                 request.ip_address,
-                //                 request.persistent,
-                //             )
-                //             .await?;
-                //         Ok(AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
-                //             user_id: user.user_id.clone(),
-                //             email: user.email.clone(),
-                //             token: confirmation_token,
-                //         })
+                // Both two-factor authentication methods are enabled
+                // Handle case
+                // where both email and authenticator app verification is required
+                let user_id = UserId::new(&user.user_id);
+                let code_valid_duration = Utc::now() + Duration::minutes(10);
+                let otp_token_str = SharedDomainService::generate_token(64)?;
+                let otp_token = OtpToken::new(&otp_token_str);
 
-                todo!()
+                let otp_code_str = SharedDomainService::generate_token(16)?;
+                let otp_code = OtpCode::new(&otp_code_str);
+                let otp_code_hash = SharedDomainService::hash_token(&otp_code_str);
+
+                self.user_authentication_repository
+                    .prepare_user_for_2fa(
+                        user_id,
+                        otp_token.clone(),
+                        Some(otp_code_hash),
+                        code_valid_duration,
+                        request.user_agent,
+                        request.ip_address,
+                        request.persistent,
+                    )
+                    .await?;
+
+                Ok(AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
+                    otp_token,
+                    otp_code,
+                    email: user.auth_data.email.clone(),
+                })
             }
             (true, false) => {
-                //         // Only two-factor email authentication is enabled
-                //         // Handle case where only email verification is required
-                //         let duration = Duration::minutes(10);
-                //         let confirmation_token = self
-                //             .generate_and_prepare_token(
-                //                 &user.user_id,
-                //                 duration,
-                //                 request.user_agent,
-                //                 request.ip_address,
-                //                 request.persistent,
-                //             )
-                //             .await?;
-                //         Ok(AuthenticationOutcome::RequireEmailVerification {
-                //             user_id: user.user_id.clone(),
-                //             email: user.email.clone(),
-                //             token: confirmation_token,
-                //         })
-                todo!()
+                // Only two-factor email authentication is enabled
+                // Handle case where only email verification is required
+                let user_id = UserId::new(&user.user_id);
+                let code_valid_duration = Utc::now() + Duration::minutes(10);
+                let otp_token_str = SharedDomainService::generate_token(64)?;
+                let otp_token = OtpToken::new(&otp_token_str);
+
+                let otp_code_str = SharedDomainService::generate_token(16)?;
+                let otp_code = OtpCode::new(&otp_code_str);
+                let otp_code_hash = SharedDomainService::hash_token(&otp_code_str);
+
+                self.user_authentication_repository
+                    .prepare_user_for_2fa(
+                        user_id,
+                        otp_token.clone(),
+                        Some(otp_code_hash),
+                        code_valid_duration,
+                        request.user_agent,
+                        request.ip_address,
+                        request.persistent,
+                    )
+                    .await?;
+
+                Ok(AuthenticationOutcome::RequireEmailVerification {
+                    otp_token,
+                    otp_code,
+                    email: user.auth_data.email.clone(),
+                })
             }
             (false, true) => {
-                //         // Only two-factor authenticator app authentication is enabled
-                //         // Handle case where only authenticator app verification is required
-                //         let user_id = UserId::new(&user.user_id);
-                //         let expiry_duration = Duration::minutes(5);
-                //         self.prepare_2fa(
-                //             user_id,
-                //             expiry_duration,
-                //             request.user_agent,
-                //             request.ip_address,
-                //             request.persistent,
-                //         )
-                //         .await?;
-                //
-                //         Ok(AuthenticationOutcome::RequireAuthenticatorApp {
-                //             user_id: user.user_id.clone(),
-                //             email: user.email.clone(),
-                //             email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
-                //         })
-                todo!()
+                // Only two-factor authenticator app authentication is enabled
+                // Handle case where only authenticator app verification is required
+                let user_id = UserId::new(&user.user_id);
+                let code_valid_duration = Utc::now() + Duration::minutes(10);
+                let otp_token_str = SharedDomainService::generate_token(64)?;
+                let otp_token = OtpToken::new(&otp_token_str);
+
+                self.user_authentication_repository
+                    .prepare_user_for_2fa(
+                        user_id,
+                        otp_token.clone(),
+                        None,
+                        code_valid_duration,
+                        request.user_agent,
+                        request.ip_address,
+                        request.persistent,
+                    )
+                    .await?;
+
+                Ok(AuthenticationOutcome::RequireAuthenticatorApp {
+                    otp_token,
+
+                    email: user.auth_data.email.clone(),
+                    email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
+                })
             }
             (false, false) => {
                 self.create_session_for_user(
@@ -243,45 +276,6 @@ where
                 .await
             }
         }
-    }
-
-    async fn generate_and_prepare_token(
-        &self,
-        user_id: &str,
-        duration: Duration,
-        user_agent: UserAgent,
-        ip_address: IPAddress,
-        persistent: bool,
-    ) -> Result<OtpCode, DomainError> {
-        let user_id_dto = UserId::new(user_id);
-
-        // Generating token for public use
-        let otp_token_str = SharedDomainService::generate_token(64)?;
-        let otp_token = OtpToken::new(&otp_token_str);
-
-        // Generating code for email sending
-        let otp_code_str = SharedDomainService::generate_token(16)?;
-        let otp_code = OtpCode::new(&otp_code_str);
-        let otp_code_hash = SharedDomainService::hash_token(&otp_code_str);
-
-        // Setting code valid duration
-        let code_valid_duration = Utc::now() + duration;
-
-        // self.user_authentication_repository
-        //     .prepare_user_for_2fa(
-        //         user_id_dto,
-        //         otp_token,
-        //         otp_code_hash,
-        //         code_valid_duration,
-        //         user_agent,
-        //         ip_address,
-        //         persistent,
-        //     )
-        //     .await?;
-
-        todo!()
-
-        // Ok(otp_code)
     }
 
     fn is_request_from_trusted_source(
@@ -304,7 +298,7 @@ where
     ) -> Result<AuthenticationOutcome, DomainError> {
         let current_time = Utc::now();
 
-        // // Check if the OTP expiry is set and validate against current time
+        // Check if the OTP expiry is set and validate against current time
         // if let Some(expiry) = user_result.otp.expiry {
         //     if current_time > expiry {
         //         // Return an error if the OTP has expired
@@ -515,7 +509,7 @@ where
 
         Ok(AuthenticationOutcome::AuthenticatedWithPreferences {
             session,
-            email: user.email.clone(),
+            email: user.auth_data.email.clone(),
             message: "Login successful.".to_string(),
             email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
         })
@@ -533,7 +527,7 @@ where
             .await?;
 
         if now > confirmation.expiry {
-            self.generate_new_confirmation_token(user_id, user_result.email)
+            self.generate_new_confirmation_token(user_id, user_result.auth_data.email)
                 .await
         } else {
             Err(DomainError::ValidationError(

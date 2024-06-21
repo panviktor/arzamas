@@ -1,7 +1,9 @@
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::shared::value_objects::{OtpCode, UserId};
 use crate::domain::entities::shared::{Email, OtpToken, Username};
-use crate::domain::entities::user::user_authentication::UserAuthentication;
+use crate::domain::entities::user::user_authentication::{
+    UserAuthentication, UserAuthenticationData,
+};
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
@@ -10,7 +12,10 @@ use chrono::{DateTime, TimeZone, Utc};
 use entity::user_authentication;
 use entity::{user, user_session};
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
+    QuerySelect, RelationTrait,
+};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -113,7 +118,7 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         &self,
         user: UserId,
         otp_public_token: OtpToken,
-        email_otp_code_hash: Option<OtpCode>,
+        email_otp_code_hash: Option<String>,
         code_expiry: DateTime<Utc>,
         user_agent: UserAgent,
         ip_address: IPAddress,
@@ -121,20 +126,88 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
     ) -> Result<(), DomainError> {
         let mut otp = self.fetch_user_otp_token(&user.user_id).await?;
 
-        // user_otp_token.otp_email_currently_valid = Set(false);
-        // user_otp_token.otp_app_currently_valid = Set(false);
-        // user_otp_token.expiry = Set(Some(expiry.naive_utc()));
-        // user_otp_token.otp_email_hash = Set(email_token_hash);
-        //
-        // user_otp_token.user_agent = Set(Some(user_agent.value().to_string()));
-        // user_otp_token.ip_address = Set(Some(ip_address.value().to_string()));
-        // user_otp_token.long_session = Set(persistent);
+        otp.otp_email_currently_valid = Set(false);
+        otp.otp_app_currently_valid = Set(false);
+
+        otp.expiry = Set(Some(code_expiry.naive_utc()));
+        otp.otp_public_token = Set(Some(otp_public_token.into_inner()));
+        otp.otp_email_code_hash = Set(email_otp_code_hash);
+
+        otp.user_agent = Set(Some(user_agent.value().to_string()));
+        otp.ip_address = Set(Some(ip_address.value().to_string()));
+        otp.long_session = Set(long_session);
 
         otp.update(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
 
         Ok(())
+    }
+
+    async fn fetch_user_auth_by_token(
+        &self,
+        otp_public_token: OtpToken,
+    ) -> Result<UserAuthenticationData, DomainError> {
+        // Fetch the user authentication data by the public token
+        // let auth = entity::user_authentication::Entity::find()
+        //     .filter(user_authentication::Column::OtpPublicToken.eq(otp_public_token.into_inner()))
+        //     .one(&*self.db)
+        //     .await
+        //     .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+        //     .ok_or_else(|| {
+        //         DomainError::PersistenceError(PersistenceError::Retrieve(
+        //             "User authentication data not found".to_string(),
+        //         ))
+        //     })?;
+        //
+        // // Extract user ID from the authentication data
+        // let user_id = auth.user_id.clone();
+        //
+        // // Fetch the user model using the extracted user ID
+        // let user_model = entity::user::Entity::find()
+        //     .filter(user::Column::UserId.eq(user_id))
+        //     .one(&*self.db)
+        //     .await
+        //     .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+        //     .ok_or_else(|| {
+        //         DomainError::PersistenceError(PersistenceError::Retrieve(
+        //             "User data not found".to_string(),
+        //         ))
+        //     })?;
+        //
+        // Ok(UserAuthenticationData::from_model_with_email(
+        //     auth,
+        //     Email::new(&user_model.email),
+        // ))
+
+        let result = entity::user_authentication::Entity::find()
+            .join(
+                JoinType::InnerJoin,
+                user_authentication::Relation::User.def(),
+            )
+            .filter(user_authentication::Column::OtpPublicToken.eq(otp_public_token.into_inner()))
+            .select_also(user::Entity)
+            .one(&*self.db)
+            .await
+            .map_err(|e| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string()))
+            })?;
+
+        // Process the result
+        let (auth, user) = match result {
+            Some((auth, Some(user))) => (auth, user),
+            Some((_, None)) | None => {
+                return Err(DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "User data not found".to_string(),
+                )))
+            }
+        };
+
+        // Convert to UserAuthenticationData
+        Ok(UserAuthenticationData::from_model_with_email(
+            auth,
+            Email::new(&user.email),
+        ))
     }
 
     async fn set_email_otp_verified(&self, user: UserId) -> Result<(), DomainError> {
@@ -160,11 +233,19 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
     }
 
     async fn reset_otp_validity(&self, user: UserId) -> Result<(), DomainError> {
-        let mut user_otp_token = self.fetch_user_otp_token(&user.user_id).await?;
+        let mut active = self.fetch_user_otp_token(&user.user_id).await?;
 
-        user_otp_token.otp_email_currently_valid = Set(false);
-        user_otp_token.otp_app_currently_valid = Set(false);
-        user_otp_token
+        active.otp_email_currently_valid = Set(false);
+        active.otp_app_currently_valid = Set(false);
+
+        active.expiry = Set(None);
+        active.otp_public_token = Set(None);
+        active.otp_email_code_hash = Set(None);
+
+        active.user_agent = Set(None);
+        active.ip_address = Set(None);
+
+        active
             .update(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
@@ -206,24 +287,23 @@ impl SeaOrmUserAuthenticationRepository {
             })?
             .into();
 
-        let otp_token = otp_token_model
-            .ok_or_else(|| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "OTP token not found".to_string(),
-                ))
-            })?
-            .into();
+        let email = Email::new(&user.email);
+        let otp_token = otp_token_model.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "OTP token not found".to_string(),
+            ))
+        })?;
 
+        let auth_data = UserAuthenticationData::from_model(otp_token, email);
         let sessions: Vec<UserSession> = user_sessions.into_iter().map(UserSession::from).collect();
 
         Ok(UserAuthentication {
             user_id: user.user_id,
-            email: Email::new(&user.email),
             username: Username::new(&user.username),
             pass_hash: user.pass_hash,
             email_validated: user.email_validated,
             security_setting,
-            auth_data: otp_token,
+            auth_data,
             sessions,
             login_blocked_until,
         })

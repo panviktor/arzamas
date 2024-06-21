@@ -1,7 +1,9 @@
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
 use crate::domain::entities::shared::value_objects::{OtpCode, UserId};
 use crate::domain::entities::shared::{Email, OtpToken, Username};
-use crate::domain::entities::user::user_authentication::UserAuthentication;
+use crate::domain::entities::user::user_authentication::{
+    UserAuthentication, UserAuthenticationData,
+};
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::DomainError;
 use async_trait::async_trait;
@@ -41,12 +43,16 @@ pub trait UserAuthenticationDomainRepository {
         &self,
         user: UserId,
         otp_public_token: OtpToken,
-        email_otp_code_hash: Option<OtpCode>,
+        email_otp_code_hash: Option<String>,
         code_expiry: DateTime<Utc>,
         user_agent: UserAgent,
         ip_address: IPAddress,
         long_session: bool,
     ) -> Result<(), DomainError>;
+    async fn fetch_user_auth_by_token(
+        &self,
+        otp_public_token: OtpToken,
+    ) -> Result<UserAuthenticationData, DomainError>;
 
     /// Marks the email token as verified for a user.
     ///

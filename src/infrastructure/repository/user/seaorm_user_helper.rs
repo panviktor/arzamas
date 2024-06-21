@@ -37,8 +37,8 @@ impl From<user::Model> for UserRegistration {
     }
 }
 
-impl From<user_authentication::Model> for UserAuthenticationData {
-    fn from(model: user_authentication::Model) -> UserAuthenticationData {
+impl UserAuthenticationData {
+    pub fn from_model(model: user_authentication::Model, email: Email) -> Self {
         let expiry = model
             .expiry
             .map(|naive_dt| Utc.from_utc_datetime(&naive_dt));
@@ -48,6 +48,7 @@ impl From<user_authentication::Model> for UserAuthenticationData {
 
         UserAuthenticationData {
             user_id: model.user_id,
+            email,
             otp_public_token: model.otp_public_token.as_deref().map(OtpToken::new),
             otp_email_code_hash: model.otp_email_code_hash.as_deref().map(OtpCode::new),
             otp_email_currently_valid: model.otp_email_currently_valid,

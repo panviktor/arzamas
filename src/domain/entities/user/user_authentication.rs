@@ -15,7 +15,6 @@ pub enum AuthenticationOutcome {
     /// The first step is ok, but user needs 2FA Authenticator verification
     RequireAuthenticatorApp {
         otp_token: OtpToken,
-        otp_code: OtpCode,
         email: Email,
         email_notifications_enabled: bool,
     },
@@ -47,7 +46,6 @@ pub enum AuthenticationOutcome {
 #[derive(Debug)]
 pub struct UserAuthentication {
     pub user_id: String,
-    pub email: Email,
     pub username: Username,
     pub pass_hash: String,
     pub email_validated: bool,
@@ -67,6 +65,8 @@ pub struct UserAuthenticationData {
     /// Unique identifier for the user associated with these tokens.
     pub user_id: String,
 
+    pub email: Email,
+
     pub otp_public_token: Option<OtpToken>,
 
     /// Hash of the OTP sent via email. This is used for verifying the OTP entered by the user.
@@ -83,12 +83,14 @@ pub struct UserAuthenticationData {
     pub otp_app_hash: Option<String>,
 
     /// Indicates whether the current app OTP is valid.
-    /// this flag is used to quickly check the validity of the app OTP without repeated time comparisons.
+    /// This flag is used to quickly check the validity of the app OTP without repeated time comparisons.
     /// It must be managed carefully to ensure it accurately reflects the state based on `otp_app_valid_time`.
     pub otp_app_currently_valid: bool,
 
-    /// Optional mnemonic for the OTP. This is used for recovery purposes and should be handled with
-    /// care to avoid security risks. It's typically not recommended to store this unless absolutely necessary.
+    /// Optional mnemonic for the OTP.
+    /// This is used for recovery and should be handled with
+    /// care to avoid security risks.
+    /// It's typically not recommended to store this unless absolutely necessary.
     pub otp_app_mnemonic: Option<String>,
 
     /// General expiration time for the OTP token session. This might control the entire session's validity
