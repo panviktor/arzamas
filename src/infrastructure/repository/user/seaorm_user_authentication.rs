@@ -92,25 +92,12 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         user: &UserId,
         expiry: Option<DateTime<Utc>>,
     ) -> Result<(), DomainError> {
-        let user = entity::user::Entity::find()
-            .filter(user::Column::Username.eq(user.user_id.clone()))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-            .ok_or_else(|| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "User for blocking not found.".to_string(),
-                ))
-            })?;
-
-        let mut active: user::ActiveModel = user.into();
+        let mut active = self.fetch_user_otp_token(&user.user_id).await?;
         active.login_blocked_until = Set(expiry.map(|dt| dt.naive_utc()));
-
         active
             .update(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
-
         Ok(())
     }
 
@@ -147,67 +134,20 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
     async fn fetch_user_auth_by_token(
         &self,
         otp_public_token: OtpToken,
-    ) -> Result<UserAuthenticationData, DomainError> {
+    ) -> Result<UserAuthentication, DomainError> {
         // Fetch the user authentication data by the public token
-        // let auth = entity::user_authentication::Entity::find()
-        //     .filter(user_authentication::Column::OtpPublicToken.eq(otp_public_token.into_inner()))
-        //     .one(&*self.db)
-        //     .await
-        //     .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-        //     .ok_or_else(|| {
-        //         DomainError::PersistenceError(PersistenceError::Retrieve(
-        //             "User authentication data not found".to_string(),
-        //         ))
-        //     })?;
-        //
-        // // Extract user ID from the authentication data
-        // let user_id = auth.user_id.clone();
-        //
-        // // Fetch the user model using the extracted user ID
-        // let user_model = entity::user::Entity::find()
-        //     .filter(user::Column::UserId.eq(user_id))
-        //     .one(&*self.db)
-        //     .await
-        //     .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-        //     .ok_or_else(|| {
-        //         DomainError::PersistenceError(PersistenceError::Retrieve(
-        //             "User data not found".to_string(),
-        //         ))
-        //     })?;
-        //
-        // Ok(UserAuthenticationData::from_model_with_email(
-        //     auth,
-        //     Email::new(&user_model.email),
-        // ))
-
-        let result = entity::user_authentication::Entity::find()
-            .join(
-                JoinType::InnerJoin,
-                user_authentication::Relation::User.def(),
-            )
+        let auth = entity::user_authentication::Entity::find()
             .filter(user_authentication::Column::OtpPublicToken.eq(otp_public_token.into_inner()))
-            .select_also(user::Entity)
             .one(&*self.db)
             .await
-            .map_err(|e| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string()))
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
+            .ok_or_else(|| {
+                DomainError::PersistenceError(PersistenceError::Retrieve(
+                    "User authentication data not found".to_string(),
+                ))
             })?;
 
-        // Process the result
-        let (auth, user) = match result {
-            Some((auth, Some(user))) => (auth, user),
-            Some((_, None)) | None => {
-                return Err(DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "User data not found".to_string(),
-                )))
-            }
-        };
-
-        // Convert to UserAuthenticationData
-        Ok(UserAuthenticationData::from_model_with_email(
-            auth,
-            Email::new(&user.email),
-        ))
+        self.fetch_user_auth(auth).await
     }
 
     async fn set_email_otp_verified(&self, user: UserId) -> Result<(), DomainError> {
@@ -275,10 +215,6 @@ impl SeaOrmUserAuthenticationRepository {
         let (otp_token_model, user_security_settings, user_sessions) =
             tokio::try_join!(otp_token_future, security_settings_future, sessions_future)?;
 
-        let login_blocked_until = user
-            .login_blocked_until
-            .map(|naive_dt| Utc.from_utc_datetime(&naive_dt));
-
         let security_setting = user_security_settings
             .ok_or_else(|| {
                 DomainError::PersistenceError(PersistenceError::Retrieve(
@@ -294,18 +230,62 @@ impl SeaOrmUserAuthenticationRepository {
             ))
         })?;
 
-        let auth_data = UserAuthenticationData::from_model(otp_token, email);
         let sessions: Vec<UserSession> = user_sessions.into_iter().map(UserSession::from).collect();
 
         Ok(UserAuthentication {
             user_id: user.user_id,
             username: Username::new(&user.username),
+            email: Email::new(&user.email),
             pass_hash: user.pass_hash,
             email_validated: user.email_validated,
             security_setting,
-            auth_data,
+            auth_data: otp_token.into(),
             sessions,
-            login_blocked_until,
+        })
+    }
+
+    async fn fetch_user_auth(
+        &self,
+        user_auth_model: user_authentication::Model,
+    ) -> Result<UserAuthentication, DomainError> {
+        let user_id = user_auth_model.user_id.clone();
+
+        let base_future = entity::user::Entity::find()
+            .filter(user::Column::UserId.eq(user_id.clone()))
+            .one(&*self.db);
+
+        let security_settings_future = entity::user_security_settings::Entity::find()
+            .filter(entity::user_security_settings::Column::UserId.eq(user_id.clone()))
+            .one(&*self.db);
+
+        let sessions_future = entity::user_session::Entity::find()
+            .filter(user_session::Column::UserId.eq(user_id.clone()))
+            .all(&*self.db);
+
+        let (user_model, user_security_settings, user_sessions) =
+            tokio::try_join!(base_future, security_settings_future, sessions_future)?;
+
+        let user_model = user_model.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve("User not found".to_string()))
+        })?;
+
+        let security_setting = user_security_settings.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Security settings not found".to_string(),
+            ))
+        })?;
+
+        let sessions: Vec<UserSession> = user_sessions.into_iter().map(UserSession::from).collect();
+
+        Ok(UserAuthentication {
+            user_id: user_model.user_id,
+            username: Username::new(&user_model.username),
+            email: Email::new(&user_model.email),
+            pass_hash: user_model.pass_hash,
+            email_validated: user_model.email_validated,
+            security_setting: security_setting.into(),
+            auth_data: user_auth_model.into(),
+            sessions,
         })
     }
 

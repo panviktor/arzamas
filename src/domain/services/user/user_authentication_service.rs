@@ -12,6 +12,7 @@ use crate::domain::ports::repositories::user::user_authentication_dto::{
     ContinueLoginRequestDTO, CreateLoginRequestDTO, DomainVerificationMethod,
 };
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
+use std::ops::Deref;
 
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::shared::SharedDomainService;
@@ -55,7 +56,7 @@ where
         }
 
         UserValidationService::validate_blocked_time(
-            user_result.login_blocked_until,
+            user_result.auth_data.login_blocked_until,
             "Your account is locked until",
         )?;
         self.process_login_attempt(&user_result, request).await
@@ -67,23 +68,20 @@ where
     ) -> Result<AuthenticationOutcome, DomainError> {
         let auth_result = self
             .user_authentication_repository
-            .fetch_user_auth_by_token(request.public_token)
+            .fetch_user_auth_by_token(request.public_token.clone())
             .await?;
 
-        // let token = request.public_token
+        UserValidationService::validate_blocked_time(
+            auth_result.auth_data.login_blocked_until,
+            "Your account is locked until",
+        )?;
 
-        // let identifier = &request.identifier;
-        // let user_result = self.identify_user(identifier).await?;
-        // UserValidationService::validate_blocked_time(
-        //     user_result.login_blocked_until,
-        //     "Your account is locked until",
-        // )?;
-        // if !self.is_request_from_trusted_source(&request, &user_result) {
-        //     let message = "IP address or user agent mismatch.";
-        //     return self
-        //         .handle_failed_login_attempt(&user_result, message)
-        //         .await;
-        // }
+        if !self.is_request_from_trusted_source(&request, &auth_result.auth_data) {
+            let message = "IP address or user agent mismatch.";
+            return self
+                .handle_failed_login_attempt(&auth_result, message)
+                .await;
+        }
         // self.verify_otp(&user_result, request).await
 
         todo!()
@@ -132,7 +130,7 @@ where
             self.handle_successful_login_attempt(user, request).await
         } else {
             let message = "Incorrect password.";
-            self.handle_failed_login_attempt(user, message).await
+            self.handle_failed_login_attempt(&user, message).await
         }
     }
 
@@ -163,7 +161,7 @@ where
         tokio::try_join!(update_user_login_attempts, block_user_until)?;
 
         Ok(AuthenticationOutcome::AuthenticationFailed {
-            email: user.auth_data.email.clone(),
+            email: user.email.clone(),
             message: message.to_string(),
             email_notifications_enabled: user.security_setting.email_on_failure_enabled_at,
         })
@@ -206,7 +204,7 @@ where
                 Ok(AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
                     otp_token,
                     otp_code,
-                    email: user.auth_data.email.clone(),
+                    email: user.email.clone(),
                 })
             }
             (true, false) => {
@@ -236,7 +234,7 @@ where
                 Ok(AuthenticationOutcome::RequireEmailVerification {
                     otp_token,
                     otp_code,
-                    email: user.auth_data.email.clone(),
+                    email: user.email.clone(),
                 })
             }
             (false, true) => {
@@ -261,8 +259,7 @@ where
 
                 Ok(AuthenticationOutcome::RequireAuthenticatorApp {
                     otp_token,
-
-                    email: user.auth_data.email.clone(),
+                    email: user.email.clone(),
                     email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
                 })
             }
@@ -281,13 +278,13 @@ where
     fn is_request_from_trusted_source(
         &self,
         request: &ContinueLoginRequestDTO,
-        user_result: &UserAuthentication,
+        user_result: &UserAuthenticationData,
     ) -> bool {
         UserValidationService::validate_ip_ua(
             &request.user_agent,
             &request.ip_address,
-            user_result.auth_data.user_agent.as_ref(),
-            user_result.auth_data.ip_address.as_ref(),
+            user_result.user_agent.as_ref(),
+            user_result.ip_address.as_ref(),
         )
     }
 
@@ -299,43 +296,43 @@ where
         let current_time = Utc::now();
 
         // Check if the OTP expiry is set and validate against current time
-        // if let Some(expiry) = user_result.otp.expiry {
-        //     if current_time > expiry {
-        //         // Return an error if the OTP has expired
-        //         return Err(DomainError::ValidationError(
-        //             ValidationError::BusinessRuleViolation("OTP has expired.".to_string()),
-        //         ));
-        //     }
-        // } else {
-        //     // Return an error if no expiry is set (critical configuration error)
-        //     return Err(DomainError::ValidationError(
-        //         ValidationError::BusinessRuleViolation("Expiry must be set.".to_string()),
-        //     ));
-        // }
-        //
-        // // Determine the verification result based on the method specified in the request
-        // let verification_result = match &request.verification_method {
-        //     DomainVerificationMethod::EmailOTP => self.verify_email_otp(user_result, &request.code),
-        //     DomainVerificationMethod::AuthenticatorApp => {
-        //         self.verify_authenticator_app(user_result, &request.code)?
-        //     }
-        // };
-        //
-        // // Handle the result of the OTP verification
-        // match verification_result {
-        //     true => {
-        //         let user_id = UserId::new(&user_result.user_id);
-        //         self.update_verification_status(user_id, &request.verification_method)
-        //             .await?;
-        //         self.handle_verification_status(&user_result, request).await
-        //     }
-        //     false => {
-        //         let message = "Verification failed due to invalid OTP.";
-        //         self.handle_failed_login_attempt(user_result, message).await
-        //     }
-        // }
+        if let Some(expiry) = user_result.auth_data.expiry {
+            if current_time > expiry {
+                // Return an error if the OTP has expired
+                return Err(DomainError::ValidationError(
+                    ValidationError::BusinessRuleViolation("OTP has expired.".to_string()),
+                ));
+            }
+        } else {
+            // Return an error if no expiry is set (critical configuration error)
+            return Err(DomainError::ValidationError(
+                ValidationError::BusinessRuleViolation("Expiry must be set.".to_string()),
+            ));
+        }
 
-        todo!()
+        // Determine the verification result based on the method specified in the request
+        let verification_result = match &request.verification_method {
+            DomainVerificationMethod::EmailOTP => {
+                self.verify_email_otp(user_result, &request.otp_code.value())
+            }
+            DomainVerificationMethod::AuthenticatorApp => {
+                self.verify_authenticator_app(user_result, &request.otp_code.value())?
+            }
+        };
+
+        // Handle the result of the OTP verification
+        match verification_result {
+            true => {
+                let user_id = UserId::new(&user_result.user_id);
+                self.update_verification_status(user_id, &request.verification_method)
+                    .await?;
+                self.handle_verification_status(&user_result, request).await
+            }
+            false => {
+                let message = "Verification failed due to invalid OTP.";
+                self.handle_failed_login_attempt(user_result, message).await
+            }
+        }
     }
 
     fn verify_email_otp(&self, user: &UserAuthentication, code: &str) -> bool {
@@ -509,7 +506,7 @@ where
 
         Ok(AuthenticationOutcome::AuthenticatedWithPreferences {
             session,
-            email: user.auth_data.email.clone(),
+            email: user.email.clone(),
             message: "Login successful.".to_string(),
             email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
         })
@@ -527,7 +524,7 @@ where
             .await?;
 
         if now > confirmation.expiry {
-            self.generate_new_confirmation_token(user_id, user_result.auth_data.email)
+            self.generate_new_confirmation_token(user_id, user_result.email)
                 .await
         } else {
             Err(DomainError::ValidationError(

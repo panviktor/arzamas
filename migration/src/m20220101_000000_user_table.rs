@@ -36,7 +36,6 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(User::CreatedAt).timestamp().not_null())
                     .col(ColumnDef::new(User::UpdatedAt).timestamp().not_null())
-                    .col(ColumnDef::new(User::LoginBlockedUntil).timestamp().null())
                     .to_owned(),
             )
             .await
@@ -62,5 +61,4 @@ pub enum User {
     EmailValidated,
     CreatedAt,
     UpdatedAt,
-    LoginBlockedUntil,
 }

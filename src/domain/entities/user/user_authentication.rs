@@ -47,12 +47,12 @@ pub enum AuthenticationOutcome {
 pub struct UserAuthentication {
     pub user_id: String,
     pub username: Username,
+    pub email: Email,
     pub pass_hash: String,
     pub email_validated: bool,
     pub security_setting: UserSecuritySettings,
     pub auth_data: UserAuthenticationData,
     pub sessions: Vec<UserSession>,
-    pub login_blocked_until: Option<DateTime<Utc>>,
 }
 
 /// `UserAuthenticationData` holds the necessary details for handling One-Time Passwords (OTP)
@@ -63,10 +63,6 @@ pub struct UserAuthentication {
 #[derive(Debug)]
 pub struct UserAuthenticationData {
     /// Unique identifier for the user associated with these tokens.
-    pub user_id: String,
-
-    pub email: Email,
-
     pub otp_public_token: Option<OtpToken>,
 
     /// Hash of the OTP sent via email. This is used for verifying the OTP entered by the user.
@@ -111,5 +107,12 @@ pub struct UserAuthenticationData {
     /// from the same IP address or unusual locations.
     pub ip_address: Option<IPAddress>,
 
+    /// Indicates if the session is a long session.
+    /// By default, sessions are valid for 24 hours.
+    /// This flag can be used to extend the session duration for trusted devices or scenarios.
     pub long_session: bool,
+
+    /// The datetime until which the user is blocked from logging in.
+    /// This can be used to enforce a cooldown period after multiple failed login attempts.
+    pub login_blocked_until: Option<DateTime<Utc>>,
 }

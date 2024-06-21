@@ -92,6 +92,11 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
+                    .col(
+                        ColumnDef::new(UserAuthentication::LoginBlockedUntil)
+                            .timestamp()
+                            .null(),
+                    )
                     .to_owned(),
             )
             .await
@@ -122,4 +127,5 @@ pub enum UserAuthentication {
     UserAgent,
     IpAddress,
     LongSession,
+    LoginBlockedUntil,
 }

@@ -70,139 +70,137 @@ where
             .await
             .map_err(|e| ApplicationError::from(e))?;
 
-        // match create_login {
-        //     AuthenticationOutcome::AuthenticatedWithPreferences {
-        //         session,
-        //         email,
-        //         message,
-        //         email_notifications_enabled,
-        //     } => {
-        //         let payload = create_user_token(session).await?;
-        //         let exp = payload.exp;
-        //         let user_id = payload.user_id.clone();
-        //         let session_id = payload.session_id.clone();
-        //         let token = SharedService::generate_token(payload).await?;
-        //
-        //         self.caching_service
-        //             .store_user_token(&user_id, &session_id, &token, exp)
-        //             .await?;
-        //
-        //         if email_notifications_enabled {
-        //             self.email_service
-        //                 .send_email(email.value(), "Success Login to Arzamas App", &message)
-        //                 .await?;
-        //         }
-        //
-        //         Ok(LoginResponse::TokenResponse {
-        //             token,
-        //             token_type: "Bearer".to_string(),
-        //         })
-        //     }
-        //
-        //     AuthenticationOutcome::RequireEmailVerification {
-        //         otp_token,
-        //         email,
-        //         token,
-        //     } => {
-        //         let subject = "Initiate login to your account in Arzamas App";
-        //         let message = format!("Enter your Email code: {}", token.value());
-        //
-        //         self.email_service
-        //             .send_email(email.value(), &subject, &message)
-        //             .await?;
-        //
-        //         Ok(LoginResponse::OTPResponse {
-        //             otp_token,
-        //             message: "Please check the code sent to your email.".to_string(),
-        //         })
-        //     }
-        //
-        //     AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
-        //         user_id,
-        //         email,
-        //         token,
-        //     } => {
-        //         let subject = "Initiate login to your account in Arzamas App";
-        //         let message = format!(
-        //             "Enter your OTP Code and the Code from Email. Email code: {}",
-        //             token.value()
-        //         );
-        //
-        //         self.email_service
-        //             .send_email(email.value(), &subject, &message)
-        //             .await?;
-        //
-        //         Ok(LoginResponse::OTPResponse {
-        //             otp_token,
-        //             message: "Please check your email and the OTP app for codes.".to_string(),
-        //         })
-        //     }
+        match create_login {
+            AuthenticationOutcome::AuthenticatedWithPreferences {
+                session,
+                email,
+                message,
+                email_notifications_enabled,
+            } => {
+                let payload = create_user_token(session).await?;
+                let exp = payload.exp;
+                let user_id = payload.user_id.clone();
+                let session_id = payload.session_id.clone();
+                let token = SharedService::generate_token(payload).await?;
 
-        // AuthenticationOutcome::RequireAuthenticatorApp {
-        //     user_id,
-        //     email,
-        //     email_notifications_enabled,
-        // } => {
-        //     if email_notifications_enabled {
-        //         let subject = "Initiate login to your account in Arzamas App";
-        //         let message = "Please authenticate using your Authenticator App.";
-        //
-        //         self.email_service
-        //             .send_email(email.value(), &subject, &message)
-        //             .await?;
-        //     }
-        //
-        //     Ok(LoginResponse::OTPResponse {
-        //         otp_token,
-        //         message: "Please authenticate using your app.".to_string(),
-        //     })
-        // }
+                self.caching_service
+                    .store_user_token(&user_id, &session_id, &token, exp)
+                    .await?;
 
-        // AuthenticationOutcome::AuthenticationFailed {
-        //     email,
-        //     message,
-        //     email_notifications_enabled,
-        // } => {
-        //     let subject = "Initiate login to your account in Arzamas App was Failed";
-        //     if email_notifications_enabled {
-        //         let message = format!("Reason: {}", message);
-        //
-        //         self.email_service
-        //             .send_email(email.value(), &subject, &message)
-        //             .await?;
-        //     }
-        //
-        //     Err(ApplicationError::ValidationError(format!(
-        //         "{}: {}",
-        //         subject, message
-        //     )))
-        // }
-        //
-        // AuthenticationOutcome::PendingVerification { user_id, message } => {
-        //     Ok(LoginResponse::OTPResponse { user_id, message })
-        // }
+                if email_notifications_enabled {
+                    self.email_service
+                        .send_email(email.value(), "Success Login to Arzamas App", &message)
+                        .await?;
+                }
 
-        // AuthenticationOutcome::UserEmailConfirmation { email, token } => {
-        //     let subject = "Login Attempt Failed for Your Arzamas App Account";
-        //     let message = format!(
-        //         "The login attempt failed because email verification is required.\
-        //          A new token has been sent: {}",
-        //         token.into_inner()
-        //     );
-        //
-        //     self.email_service
-        //         .send_email(email.value(), subject, &message)
-        //         .await
-        //         .map_err(|e| ApplicationError::ExternalServiceError(e.to_string()))?;
-        //
-        //     Err(ApplicationError::ValidationError(format!(
-        //         "{}: Email verification is required",
-        //         subject
-        //     )))
-        // }
-        // }
+                Ok(LoginResponse::TokenResponse {
+                    token,
+                    token_type: "Bearer".to_string(),
+                })
+            }
 
-        todo!()
+            AuthenticationOutcome::RequireEmailVerification {
+                otp_token,
+                otp_code,
+                email,
+            } => {
+                let subject = "Initiate login to your account in Arzamas App";
+                let message = format!("Enter your Email code: {}", otp_code.value());
+
+                self.email_service
+                    .send_email(email.value(), &subject, &message)
+                    .await?;
+
+                Ok(LoginResponse::OTPResponse {
+                    otp_token: otp_token.into_inner(),
+                    message: "Please check the code sent to your email.".to_string(),
+                })
+            }
+
+            AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
+                otp_token: public_token,
+                otp_code,
+                email,
+            } => {
+                let subject = "Initiate login to your account in Arzamas App";
+                let message = format!(
+                    "Enter your OTP Code and the Code from Email. Email code: {}",
+                    otp_code.value()
+                );
+
+                self.email_service
+                    .send_email(email.value(), &subject, &message)
+                    .await?;
+
+                Ok(LoginResponse::OTPResponse {
+                    otp_token: public_token.into_inner(),
+                    message: "Please check your email and the OTP app for codes.".to_string(),
+                })
+            }
+
+            AuthenticationOutcome::RequireAuthenticatorApp {
+                otp_token: public_token,
+                email,
+                email_notifications_enabled,
+            } => {
+                if email_notifications_enabled {
+                    let subject = "Initiate login to your account in Arzamas App";
+                    let message = "Please authenticate using your Authenticator App.";
+
+                    self.email_service
+                        .send_email(email.value(), &subject, &message)
+                        .await?;
+                }
+
+                Ok(LoginResponse::OTPResponse {
+                    otp_token: public_token.into_inner(),
+                    message: "Please authenticate using your app.".to_string(),
+                })
+            }
+
+            AuthenticationOutcome::AuthenticationFailed {
+                email,
+                message,
+                email_notifications_enabled,
+            } => {
+                let subject = "Initiate login to your account in Arzamas App was Failed";
+                if email_notifications_enabled {
+                    let message = format!("Reason: {}", message);
+
+                    self.email_service
+                        .send_email(email.value(), &subject, &message)
+                        .await?;
+                }
+
+                Err(ApplicationError::ValidationError(format!(
+                    "{}: {}",
+                    subject, message
+                )))
+            }
+
+            AuthenticationOutcome::PendingVerification { message } => {
+                Ok(LoginResponse::PendingResponse { message })
+            }
+
+            AuthenticationOutcome::UserEmailConfirmation { email, token } => {
+                let subject = "Login Attempt Failed for Your Arzamas App Account";
+                let message = format!(
+                    "The login attempt failed because email verification is required.\
+                 A new token has been sent: {}",
+                    token.into_inner()
+                );
+
+                self.email_service
+                    .send_email(email.value(), subject, &message)
+                    .await
+                    .map_err(|e| ApplicationError::ExternalServiceError(e.to_string()))?;
+
+                Err(ApplicationError::ValidationError(format!(
+                    "{}: Email verification is required",
+                    subject
+                )))
+            }
+        }
     }
 
     pub async fn continue_login(
@@ -217,62 +215,61 @@ where
             .await
             .map_err(|e| ApplicationError::from(e))?;
 
-        todo!()
-        // match response {
-        //     AuthenticationOutcome::AuthenticatedWithPreferences {
-        //         session,
-        //         email,
-        //         message,
-        //         email_notifications_enabled,
-        //     } => {
-        //         let payload = create_user_token(session).await?;
-        //         let exp = payload.exp;
-        //         let user_id = payload.user_id.clone();
-        //         let session_id = payload.session_id.clone();
-        //         let token = SharedService::generate_token(payload).await?;
-        //
-        //         self.caching_service
-        //             .store_user_token(&user_id, &session_id, &token, exp)
-        //             .await?;
-        //
-        //         if email_notifications_enabled {
-        //             self.email_service
-        //                 .send_email(email.value(), "Success Login to Arzamas App", &message)
-        //                 .await?;
-        //         }
-        //
-        //         Ok(LoginResponse::TokenResponse {
-        //             token,
-        //             token_type: "Bearer".to_string(),
-        //         })
-        //     }
-        //     AuthenticationOutcome::AuthenticationFailed {
-        //         email,
-        //         message,
-        //         email_notifications_enabled,
-        //     } => {
-        //         if email_notifications_enabled {
-        //             let subject = "Initiate login to your account in Arzamas App was Failed";
-        //             let message = format!("Reason: {}", message);
-        //
-        //             self.email_service
-        //                 .send_email(email.value(), &subject, &message)
-        //                 .await?;
-        //         }
-        //
-        //         Err(ApplicationError::ValidationError(format!(
-        //             "{}: {:?}",
-        //             message, email
-        //         )))
-        //     }
-        //     AuthenticationOutcome::PendingVerification { user_id, message } => {
-        //         Ok(LoginResponse::OTPResponse { user_id, message })
-        //     }
-        //     // Catch-all for any other combinations, typically should not occur
-        //     _ => Err(ApplicationError::InternalServerError(
-        //         "Currently login not available".to_string(),
-        //     )),
-        // }
+        match response {
+            AuthenticationOutcome::AuthenticatedWithPreferences {
+                session,
+                email,
+                message,
+                email_notifications_enabled,
+            } => {
+                let payload = create_user_token(session).await?;
+                let exp = payload.exp;
+                let user_id = payload.user_id.clone();
+                let session_id = payload.session_id.clone();
+                let token = SharedService::generate_token(payload).await?;
+
+                self.caching_service
+                    .store_user_token(&user_id, &session_id, &token, exp)
+                    .await?;
+
+                if email_notifications_enabled {
+                    self.email_service
+                        .send_email(email.value(), "Success Login to Arzamas App", &message)
+                        .await?;
+                }
+
+                Ok(LoginResponse::TokenResponse {
+                    token,
+                    token_type: "Bearer".to_string(),
+                })
+            }
+            AuthenticationOutcome::AuthenticationFailed {
+                email,
+                message,
+                email_notifications_enabled,
+            } => {
+                if email_notifications_enabled {
+                    let subject = "Initiate login to your account in Arzamas App was Failed";
+                    let message = format!("Reason: {}", message);
+
+                    self.email_service
+                        .send_email(email.value(), &subject, &message)
+                        .await?;
+                }
+
+                Err(ApplicationError::ValidationError(format!(
+                    "{}: {:?}",
+                    message, email
+                )))
+            }
+            AuthenticationOutcome::PendingVerification { message } => {
+                Ok(LoginResponse::PendingResponse { message })
+            }
+            // Catch-all for any other combinations, typically should not occur
+            _ => Err(ApplicationError::InternalServerError(
+                "Currently login not available".to_string(),
+            )),
+        }
     }
 }
 

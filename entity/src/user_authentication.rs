@@ -20,6 +20,7 @@ pub struct Model {
     pub user_agent: Option<String>,
     pub ip_address: Option<String>,
     pub long_session: bool,
+    pub login_blocked_until: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

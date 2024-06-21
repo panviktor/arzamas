@@ -52,7 +52,7 @@ pub trait UserAuthenticationDomainRepository {
     async fn fetch_user_auth_by_token(
         &self,
         otp_public_token: OtpToken,
-    ) -> Result<UserAuthenticationData, DomainError>;
+    ) -> Result<UserAuthentication, DomainError>;
 
     /// Marks the email token as verified for a user.
     ///

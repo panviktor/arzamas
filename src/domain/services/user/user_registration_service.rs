@@ -63,7 +63,6 @@ where
         let confirmation_token_hash = SharedDomainService::hash_token(&token);
 
         let user_id = UserId::new(&user.user_id);
-
         let user = self.user_registration_repository.create_user(user).await?;
         let expiry = Utc::now() + Duration::days(1);
 
