@@ -41,21 +41,3 @@ pub struct ContinueLoginRequestDTO {
     pub user_agent: UserAgent,
     pub ip_address: IPAddress,
 }
-
-impl ContinueLoginRequestDTO {
-    pub fn new(
-        otp_token: OtpToken,
-        otp_code: OtpCode,
-        verification_method: DomainVerificationMethod,
-        user_agent: UserAgent,
-        ip_address: IPAddress,
-    ) -> Self {
-        Self {
-            public_token: otp_token,
-            otp_code,
-            verification_method,
-            user_agent,
-            ip_address,
-        }
-    }
-}

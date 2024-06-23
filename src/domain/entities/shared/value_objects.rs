@@ -99,11 +99,6 @@ impl OtpCode {
         &self.0
     }
 }
-impl OtpCode {
-    pub fn into_inner(self) -> String {
-        self.0
-    }
-}
 
 /// UserAgent
 

@@ -1,20 +1,16 @@
+use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
-use crate::domain::entities::shared::value_objects::{OtpCode, UserId};
 use crate::domain::entities::shared::{Email, OtpToken, Username};
-use crate::domain::entities::user::user_authentication::{
-    UserAuthentication, UserAuthenticationData,
-};
+use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
+use crate::infrastructure::repository::fetch_model;
 use async_trait::async_trait;
-use chrono::{DateTime, TimeZone, Utc};
-use entity::user_authentication;
-use entity::{user, user_session};
-use sea_orm::ActiveValue::Set;
+use chrono::{DateTime, Utc};
+use entity::{user, user_authentication, user_session};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
-    QuerySelect, RelationTrait,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
 use std::sync::Arc;
 
@@ -32,16 +28,12 @@ impl SeaOrmUserAuthenticationRepository {
 #[async_trait]
 impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
     async fn get_user_by_email(&self, email: Email) -> Result<UserAuthentication, DomainError> {
-        let user_model = entity::user::Entity::find()
-            .filter(user::Column::Email.eq(email.value()))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-            .ok_or_else(|| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "User not found".to_string(),
-                ))
-            })?;
+        let user_model = fetch_model::<user::Entity>(
+            &self.db,
+            user::Column::Email.eq(email.value()),
+            "User not found by email",
+        )
+        .await?;
         self.fetch_user_details(user_model).await
     }
 
@@ -49,16 +41,12 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         &self,
         username: &Username,
     ) -> Result<UserAuthentication, DomainError> {
-        let user_model = entity::user::Entity::find()
-            .filter(user::Column::Username.eq(username.value()))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-            .ok_or_else(|| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "User not found".to_string(),
-                ))
-            })?;
+        let user_model = fetch_model::<user::Entity>(
+            &self.db,
+            user::Column::Username.eq(username.value()),
+            "User not found by username",
+        )
+        .await?;
         self.fetch_user_details(user_model).await
     }
 
@@ -131,23 +119,17 @@ impl UserAuthenticationDomainRepository for SeaOrmUserAuthenticationRepository {
         Ok(())
     }
 
-    async fn fetch_user_auth_by_token(
+    async fn get_user_auth_by_token(
         &self,
         otp_public_token: OtpToken,
     ) -> Result<UserAuthentication, DomainError> {
-        // Fetch the user authentication data by the public token
-        let auth = entity::user_authentication::Entity::find()
-            .filter(user_authentication::Column::OtpPublicToken.eq(otp_public_token.into_inner()))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-            .ok_or_else(|| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "User authentication data not found".to_string(),
-                ))
-            })?;
-
-        self.fetch_user_auth(auth).await
+        let auth_model = fetch_model::<user_authentication::Entity>(
+            &self.db,
+            user_authentication::Column::OtpPublicToken.eq(otp_public_token.into_inner()),
+            "User authentication data not found by token",
+        )
+        .await?;
+        self.fetch_user_auth(auth_model).await
     }
 
     async fn set_email_otp_verified(&self, user: UserId) -> Result<(), DomainError> {
@@ -235,7 +217,7 @@ impl SeaOrmUserAuthenticationRepository {
         Ok(UserAuthentication {
             user_id: user.user_id,
             username: Username::new(&user.username),
-            email: Email::new(&user.email),
+            email,
             pass_hash: user.pass_hash,
             email_validated: user.email_validated,
             security_setting,
@@ -293,19 +275,12 @@ impl SeaOrmUserAuthenticationRepository {
         &self,
         user_id: &str,
     ) -> Result<user_authentication::ActiveModel, DomainError> {
-        let token_model = entity::user_authentication::Entity::find()
-            .filter(user_authentication::Column::UserId.eq(user_id))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))
-            .and_then(|opt_model| {
-                opt_model.ok_or_else(|| {
-                    DomainError::PersistenceError(PersistenceError::Retrieve(
-                        "OTP token not found".to_string(),
-                    ))
-                })
-            })?;
-
+        let token_model = fetch_model::<user_authentication::Entity>(
+            &self.db,
+            user_authentication::Column::UserId.eq(user_id),
+            "OTP token not found",
+        )
+        .await?;
         Ok(token_model.into())
     }
 }

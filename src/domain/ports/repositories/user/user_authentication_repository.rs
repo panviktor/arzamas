@@ -49,7 +49,7 @@ pub trait UserAuthenticationDomainRepository {
         ip_address: IPAddress,
         long_session: bool,
     ) -> Result<(), DomainError>;
-    async fn fetch_user_auth_by_token(
+    async fn get_user_auth_by_token(
         &self,
         otp_public_token: OtpToken,
     ) -> Result<UserAuthentication, DomainError>;

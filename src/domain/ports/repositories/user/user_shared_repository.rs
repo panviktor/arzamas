@@ -7,7 +7,6 @@ use crate::domain::entities::user::UserBase;
 use crate::domain::error::DomainError;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use std::todo;
 
 #[async_trait]
 pub trait UserSharedDomainRepository {

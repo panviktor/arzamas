@@ -12,12 +12,13 @@ use crate::domain::services::user::user_registration_service::UserRegistrationDo
 use crate::domain::services::user::user_security_settings_service::UserSecuritySettingsDomainService;
 use crate::infrastructure::cache::redis_adapter::RedisAdapter;
 use crate::infrastructure::email::lettre_email_adapter::LettreEmailAdapter;
-use crate::infrastructure::repository::note::seaorm_note::SeaOrmNoteRepository;
-use crate::infrastructure::repository::user::seaorm_user::SeaOrmUserSharedRepository;
-use crate::infrastructure::repository::user::seaorm_user_authentication::SeaOrmUserAuthenticationRepository;
-use crate::infrastructure::repository::user::seaorm_user_recovery::SeaOrmUserRecoveryRepository;
-use crate::infrastructure::repository::user::seaorm_user_registration::SeaOrmUserRegistrationRepository;
-use crate::infrastructure::repository::user::seaorm_user_security::SeaOrmUserSecurityRepository;
+
+use crate::infrastructure::repository::sea_orm::note::seaorm_note::SeaOrmNoteRepository;
+use crate::infrastructure::repository::sea_orm::user::seaorm_user::SeaOrmUserSharedRepository;
+use crate::infrastructure::repository::sea_orm::user::seaorm_user_authentication::SeaOrmUserAuthenticationRepository;
+use crate::infrastructure::repository::sea_orm::user::seaorm_user_recovery::SeaOrmUserRecoveryRepository;
+use crate::infrastructure::repository::sea_orm::user::seaorm_user_registration::SeaOrmUserRegistrationRepository;
+use crate::infrastructure::repository::sea_orm::user::seaorm_user_security::SeaOrmUserSecurityRepository;
 use deadpool_redis::Pool;
 use lettre::AsyncSmtpTransport;
 use sea_orm::DatabaseConnection;

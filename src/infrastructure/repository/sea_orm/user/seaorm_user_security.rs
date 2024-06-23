@@ -7,14 +7,14 @@ use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError, ValidationError};
 use crate::domain::ports::repositories::user::user_security_settings_dto::SecuritySettingsUpdateDTO;
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
+use crate::infrastructure::repository::fetch_model;
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
 use entity::{user, user_confirmation, user_session};
 use sea_orm::sea_query::Expr;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait,
-    QueryFilter,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
 };
 use std::sync::Arc;
 
@@ -32,17 +32,14 @@ impl SeaOrmUserSecurityRepository {
 #[async_trait]
 impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
     async fn invalidate_session(&self, user: &UserId, session_id: &str) -> Result<(), DomainError> {
-        let session = user_session::Entity::find()
-            .filter(user_session::Column::UserId.eq(&user.user_id))
-            .filter(user_session::Column::SessionId.eq(session_id))
-            .one(&*self.db)
-            .await
-            .map_err(|_| {
-                DomainError::PersistenceError(PersistenceError::Delete(
-                    "Database error occurred".to_string(),
-                ))
-            })?
-            .ok_or_else(|| DomainError::NotFound)?;
+        let session = fetch_model::<user_session::Entity>(
+            &self.db,
+            user_session::Column::UserId
+                .eq(&user.user_id)
+                .and(user_session::Column::SessionId.eq(session_id)),
+            "Session not found",
+        )
+        .await?;
 
         let mut active = session.into_active_model();
         active.valid = Set(false);
@@ -72,17 +69,15 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         user: &UserId,
         session_id: &str,
     ) -> Result<UserSession, DomainError> {
-        let session = user_session::Entity::find()
-            .filter(user_session::Column::UserId.eq(&user.user_id))
-            .filter(user_session::Column::SessionId.eq(session_id))
-            .one(&*self.db)
-            .await
-            .map_err(|_| {
-                DomainError::PersistenceError(PersistenceError::Delete(
-                    "Database error occurred".to_string(),
-                ))
-            })?
-            .ok_or_else(|| DomainError::NotFound)?;
+        let session = fetch_model::<user_session::Entity>(
+            &self.db,
+            user_session::Column::UserId
+                .eq(&user.user_id)
+                .and(user_session::Column::SessionId.eq(session_id)),
+            "Session not found",
+        )
+        .await?;
+
         Ok(session.into())
     }
 
@@ -104,16 +99,13 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
     }
 
     async fn get_old_passwd(&self, user: &UserId) -> Result<String, DomainError> {
-        let user_model = entity::user::Entity::find()
-            .filter(user::Column::UserId.eq(&user.user_id))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-            .ok_or_else(|| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "User not found".to_string(),
-                ))
-            })?;
+        let user_model = fetch_model::<user::Entity>(
+            &self.db,
+            user::Column::UserId.eq(&user.user_id),
+            "User not found",
+        )
+        .await?;
+
         Ok(user_model.pass_hash)
     }
 
@@ -123,21 +115,17 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         pass_hash: String,
         update_time: DateTime<Utc>,
     ) -> Result<(), DomainError> {
-        let user_model = entity::user::Entity::find()
-            .filter(user::Column::UserId.eq(&user.user_id))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-            .ok_or_else(|| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "User not found".to_string(),
-                ))
-            })?;
+        let mut user_model = fetch_model::<user::Entity>(
+            &self.db,
+            user::Column::UserId.eq(&user.user_id),
+            "User not found",
+        )
+        .await?
+        .into_active_model();
 
-        let mut active = user_model.into_active_model();
-        active.pass_hash = Set(pass_hash);
-        active.updated_at = Set(update_time.naive_utc());
-        active
+        user_model.pass_hash = Set(pass_hash);
+        user_model.updated_at = Set(update_time.naive_utc());
+        user_model
             .update(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
@@ -166,30 +154,26 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         &self,
         settings: SecuritySettingsUpdateDTO,
     ) -> Result<(), DomainError> {
-        let ss = entity::user_security_settings::Entity::find()
-            .filter(entity::user_security_settings::Column::UserId.eq(settings.user_id.user_id))
-            .one(&*self.db)
-            .await?
-            .ok_or_else(|| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "User security settings not found".to_string(),
-                ))
-            })?;
-
-        let mut active = ss.into_active_model();
+        let mut ss = fetch_model::<entity::user_security_settings::Entity>(
+            &self.db,
+            entity::user_security_settings::Column::UserId.eq(settings.user_id.user_id),
+            "User security settings not found",
+        )
+        .await?
+        .into_active_model();
 
         if let Some(email_on_success) = settings.email_on_success {
-            active.email_on_success_enabled_at = Set(email_on_success);
+            ss.email_on_success_enabled_at = Set(email_on_success);
         }
         if let Some(email_on_failure) = settings.email_on_failure {
-            active.email_on_failure_enabled_at = Set(email_on_failure);
+            ss.email_on_failure_enabled_at = Set(email_on_failure);
         }
         if let Some(close_sessions_on_change_password) = settings.close_sessions_on_change_password
         {
-            active.close_sessions_on_change_password = Set(close_sessions_on_change_password);
+            ss.close_sessions_on_change_password = Set(close_sessions_on_change_password);
         }
 
-        active.update(&*self.db).await.map_err(|e| {
+        ss.update(&*self.db).await.map_err(|e| {
             DomainError::PersistenceError(PersistenceError::Update(
                 "Failed to update user security settings".to_string(),
             ))
@@ -204,18 +188,18 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         email_token_hash: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError> {
-        let uc = entity::prelude::UserConfirmation::find()
-            .filter(user_confirmation::Column::UserId.eq(user_id.user_id))
-            .one(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Retrieve(e.to_string())))?
-            .ok_or_else(|| DomainError::NotFound)?;
+        let mut uc = fetch_model::<entity::prelude::UserConfirmation>(
+            &self.db,
+            user_confirmation::Column::UserId.eq(user_id.user_id),
+            "User confirmation not found",
+        )
+        .await?
+        .into_active_model();
 
-        let mut active = uc.into_active_model();
-        active.activate_email2_fa_token = Set(Some(email_token_hash));
-        active.activate_email2_fa_token_expiry = Set(Some(expiry.naive_utc()));
+        uc.activate_email2_fa_token = Set(Some(email_token_hash));
+        uc.activate_email2_fa_token_expiry = Set(Some(expiry.naive_utc()));
 
-        active.update(&*self.db).await.map_err(|e| {
+        uc.update(&*self.db).await.map_err(|e| {
             DomainError::PersistenceError(PersistenceError::Update(
                 "Failed to save email 2fa activating token".to_string(),
             ))
@@ -267,19 +251,16 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
     }
 
     async fn toggle_email_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError> {
-        let ss = entity::user_security_settings::Entity::find()
-            .filter(entity::user_security_settings::Column::UserId.eq(&user.user_id))
-            .one(&*self.db)
-            .await?
-            .ok_or_else(|| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "User security settings not found".to_string(),
-                ))
-            })?;
+        let mut ss = fetch_model::<entity::user_security_settings::Entity>(
+            &self.db,
+            entity::user_security_settings::Column::UserId.eq(&user.user_id),
+            "User security settings not found",
+        )
+        .await?
+        .into_active_model();
 
-        let mut active = ss.into_active_model();
-        active.two_factor_email = Set(enable);
-        active.update(&*self.db).await.map_err(|e| {
+        ss.two_factor_email = Set(enable);
+        ss.update(&*self.db).await.map_err(|e| {
             DomainError::PersistenceError(PersistenceError::Update(
                 "Failed to update email 2fa settings".to_string(),
             ))
