@@ -8,9 +8,9 @@ use crate::application::dto::user::user_security_response_dto::{
 use crate::application::dto::user::user_shared_request_dto::UserByIdRequest;
 use crate::application::dto::user::user_shared_response_dto::UniversalApplicationResponse;
 use crate::application::error::error::ApplicationError;
+use crate::application::services::user::shared::session_manager_service::SessionManager;
 use crate::application::services::user::shared::shared_service::SharedService;
 use crate::domain::entities::shared::value_objects::UserId;
-use crate::domain::ports::caching::caching::CachingPort;
 use crate::domain::ports::email::email::EmailPort;
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
@@ -18,48 +18,42 @@ use crate::domain::services::user::user_security_settings_service::UserSecurityS
 use std::sync::Arc;
 use tokio::join;
 
-pub struct UserSecurityApplicationService<S, U, E, C>
+pub struct UserSecurityApplicationService<S, U, E, SM>
 where
     S: UserSecuritySettingsDomainRepository,
     U: UserSharedDomainRepository,
     E: EmailPort,
-    C: CachingPort,
+    SM: SessionManager + Sync + Send,
 {
-    user_security_domain_service: UserSecuritySettingsDomainService<S, U>,
-    caching_service: Arc<C>,
+    user_security_service: UserSecuritySettingsDomainService<S, U>,
+    session_manager: Arc<SM>,
     email_service: Arc<E>,
 }
 
-impl<S, U, E, C> UserSecurityApplicationService<S, U, E, C>
+impl<S, U, E, SM> UserSecurityApplicationService<S, U, E, SM>
 where
     S: UserSecuritySettingsDomainRepository,
     U: UserSharedDomainRepository,
     E: EmailPort,
-    C: CachingPort,
+    SM: SessionManager + Sync + Send,
 {
     pub fn new(
-        user_security_domain_service: UserSecuritySettingsDomainService<S, U>,
-        caching_service: Arc<C>,
+        user_security_service: UserSecuritySettingsDomainService<S, U>,
+        session_manager: Arc<SM>,
         email_service: Arc<E>,
     ) -> Self {
         Self {
-            user_security_domain_service,
-            caching_service,
+            user_security_service,
+            session_manager,
             email_service,
         }
     }
-
     pub async fn logout_all_sessions(
         &self,
         request: UserByIdRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
         let user = UserId::new(&request.user_id);
-        self.caching_service
-            .invalidate_sessions(&user.user_id)
-            .await?;
-        self.user_security_domain_service
-            .invalidate_sessions(user)
-            .await?;
+        self.session_manager.invalidate_sessions(&user).await?;
         Ok(UniversalApplicationResponse::new(
             "You have successfully logged out of all active sessions.".to_string(),
             None,
@@ -73,11 +67,8 @@ where
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
         let user = UserId::new(&user.user_id);
         let decoded_token = SharedService::decode_token(session_token)?;
-        self.caching_service
-            .invalidate_session(&user.user_id, &decoded_token.session_id)
-            .await?;
-        self.user_security_domain_service
-            .invalidate_session(user, &decoded_token.session_id)
+        self.session_manager
+            .invalidate_session(&user, &decoded_token.session_id)
             .await?;
 
         Ok(UniversalApplicationResponse::new(
@@ -93,7 +84,7 @@ where
         let user = UserId::new(&user.user_id);
         let decoded_token = SharedService::decode_token(session_token)?;
         let session = self
-            .user_security_domain_service
+            .user_security_service
             .get_user_session(user, &decoded_token.session_id)
             .await?
             .into();
@@ -106,7 +97,7 @@ where
     ) -> Result<Vec<UserSessionResponse>, ApplicationError> {
         let user = UserId::new(&user.user_id);
         let sessions = self
-            .user_security_domain_service
+            .user_security_service
             .get_user_sessions(user)
             .await?
             .into_iter()
@@ -124,7 +115,7 @@ where
                 "Passwords do not match.".to_string(),
             ));
         }
-        self.user_security_domain_service
+        self.user_security_service
             .change_password(request.into())
             .await?;
         Ok(UniversalApplicationResponse::new(
@@ -144,7 +135,7 @@ where
         }
 
         let response = self
-            .user_security_domain_service
+            .user_security_service
             .change_email(request.into())
             .await?;
 
@@ -192,9 +183,7 @@ where
         user: UserByIdRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
         let user = UserId::new(&user.user_id);
-        self.user_security_domain_service
-            .cancel_email_change(user)
-            .await?;
+        self.user_security_service.cancel_email_change(user).await?;
         Ok(UniversalApplicationResponse::new(
             "Email change canceled successfully.".to_string(),
             None,
@@ -205,7 +194,7 @@ where
         &self,
         request: ConfirmEmailRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        self.user_security_domain_service
+        self.user_security_service
             .confirm_email(request.into())
             .await?;
         Ok(UniversalApplicationResponse::new(
@@ -220,7 +209,7 @@ where
     ) -> Result<SecuritySettingsResponse, ApplicationError> {
         let user = UserId::new(&user.user_id);
         let response = self
-            .user_security_domain_service
+            .user_security_service
             .get_security_settings(user)
             .await?;
         Ok(response.into())
@@ -230,7 +219,7 @@ where
         &self,
         request: SecuritySettingsUpdateRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        self.user_security_domain_service
+        self.user_security_service
             .update_security_settings(request.into())
             .await?;
         Ok(UniversalApplicationResponse::new(
@@ -244,7 +233,7 @@ where
         request: ActivateEmail2FARequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
         let response = self
-            .user_security_domain_service
+            .user_security_service
             .enable_email_2fa(request.into())
             .await?;
 
@@ -274,7 +263,7 @@ where
         &self,
         request: ConfirmEmail2FARequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        self.user_security_domain_service
+        self.user_security_service
             .confirm_email_2fa(request.into())
             .await?;
         Ok(UniversalApplicationResponse::new(
@@ -290,7 +279,7 @@ where
         let user_id = UserId::new(&request.user_id);
 
         let response = self
-            .user_security_domain_service
+            .user_security_service
             .disable_email_2fa(user_id)
             .await?;
 
@@ -320,7 +309,7 @@ where
         &self,
         request: ConfirmEmail2FARequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        self.user_security_domain_service
+        self.user_security_service
             .confirm_disable_email_2fa(request.into())
             .await?;
         Ok(UniversalApplicationResponse::new(

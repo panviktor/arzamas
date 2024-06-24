@@ -1,7 +1,7 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_security_settings::{
-    User2FAEmailConfirmation, UserSecuritySettings,
+    User2FAEmailConfirmation, UserChangeEmailConfirmation, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError, ValidationError};
@@ -133,6 +133,88 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         Ok(())
     }
 
+    async fn store_change_email_confirmation_token(
+        &self,
+        user: UserId,
+        token: String,
+        expiry: DateTime<Utc>,
+        new_email: Email,
+    ) -> Result<(), DomainError> {
+        let confirmation = self.get_user_confirmation(&user).await?;
+
+        let mut active: user_confirmation::ActiveModel = confirmation.into();
+        active.activate_user_token_hash = Set(Some(token));
+        active.activate_user_token_expiry = Set(Some(expiry.naive_utc()));
+        active.new_main_email = Set(Some(new_email.into_inner()));
+
+        active
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
+    }
+
+    async fn get_change_email_confirmation(
+        &self,
+        user: &UserId,
+    ) -> Result<UserChangeEmailConfirmation, DomainError> {
+        let confirmation = self.get_user_confirmation(user).await?;
+
+        let otp_hash = confirmation.activate_user_token_hash.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Missing OTP hash".to_string(),
+            ))
+        })?;
+        let expiry = confirmation.activate_user_token_expiry.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Missing expiry date".to_string(),
+            ))
+        })?;
+        if let Some(new_email) = confirmation.new_main_email {
+            let expiry = Utc.from_utc_datetime(&expiry);
+            return Ok(UserChangeEmailConfirmation {
+                otp_hash,
+                expiry,
+                new_email: Email::new(&new_email),
+            });
+        }
+        Err(DomainError::PersistenceError(PersistenceError::Retrieve(
+            "Missing new email".to_string(),
+        )))
+    }
+
+    async fn update_main_user_email(&self, user: &UserId, email: Email) -> Result<(), DomainError> {
+        let mut user = fetch_model::<user::Entity>(
+            &self.db,
+            user::Column::UserId.eq(&user.user_id),
+            "User for update email not found",
+        )
+        .await?
+        .into_active_model();
+
+        user.email = Set(email.into_inner());
+        user.update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
+    }
+
+    async fn clear_email_confirmation_token(&self, user: &UserId) -> Result<(), DomainError> {
+        let confirmation = self.get_user_confirmation(&user).await?;
+        let mut active: user_confirmation::ActiveModel = confirmation.into();
+        active.activate_user_token_hash = Set(None);
+        active.activate_user_token_expiry = Set(None);
+        active.new_main_email = Set(None);
+        active
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
+    }
+
     async fn get_security_settings(
         &self,
         user: &UserId,
@@ -174,9 +256,10 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         }
 
         ss.update(&*self.db).await.map_err(|e| {
-            DomainError::PersistenceError(PersistenceError::Update(
-                "Failed to update user security settings".to_string(),
-            ))
+            DomainError::PersistenceError(PersistenceError::Update(format!(
+                "Failed to update user security settings: {}",
+                e
+            )))
         })?;
 
         Ok(())
@@ -200,9 +283,10 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         uc.activate_email2_fa_token_expiry = Set(Some(expiry.naive_utc()));
 
         uc.update(&*self.db).await.map_err(|e| {
-            DomainError::PersistenceError(PersistenceError::Update(
-                "Failed to save email 2fa activating token".to_string(),
-            ))
+            DomainError::PersistenceError(PersistenceError::Update(format!(
+                "Failed to save email 2fa activating token: {}",
+                e
+            )))
         })?;
 
         Ok(())
@@ -261,11 +345,26 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
 
         ss.two_factor_email = Set(enable);
         ss.update(&*self.db).await.map_err(|e| {
-            DomainError::PersistenceError(PersistenceError::Update(
-                "Failed to update email 2fa settings".to_string(),
-            ))
+            DomainError::PersistenceError(PersistenceError::Update(format!(
+                "Failed to update email 2FA settings: {}",
+                e
+            )))
         })?;
 
         Ok(())
+    }
+}
+
+impl SeaOrmUserSecurityRepository {
+    async fn get_user_confirmation(
+        &self,
+        user_id: &UserId,
+    ) -> Result<user_confirmation::Model, DomainError> {
+        fetch_model::<user_confirmation::Entity>(
+            &self.db,
+            user_confirmation::Column::UserId.eq(&user_id.user_id),
+            "User confirmation not found",
+        )
+        .await
     }
 }

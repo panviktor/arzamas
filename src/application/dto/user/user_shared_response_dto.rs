@@ -10,17 +10,6 @@ pub struct BaseUserResponse {
     pub created_at: DateTime<Utc>,
 }
 
-impl BaseUserResponse {
-    pub fn new(user_id: &str, email: &str, username: &str, created_at: DateTime<Utc>) -> Self {
-        Self {
-            user_id: user_id.to_string(),
-            email: email.to_string(),
-            username: username.to_string(),
-            created_at,
-        }
-    }
-}
-
 impl From<UserBase> for BaseUserResponse {
     fn from(user: UserBase) -> Self {
         Self {

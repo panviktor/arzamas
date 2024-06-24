@@ -4,6 +4,7 @@ use crate::application::services::user::information::service::UserInformationApp
 use crate::application::services::user::recovery::service::UserRecoveryApplicationService;
 use crate::application::services::user::registration::service::UserRegistrationApplicationService;
 use crate::application::services::user::security::service::UserSecurityApplicationService;
+use crate::application::services::user::shared::session_manager_service::DefaultSessionManager;
 use crate::domain::services::note::note_service::NoteDomainService;
 use crate::domain::services::user::user_authentication_service::UserAuthenticationDomainService;
 use crate::domain::services::user::user_information_service::UserInformationDomainService;
@@ -12,7 +13,6 @@ use crate::domain::services::user::user_registration_service::UserRegistrationDo
 use crate::domain::services::user::user_security_settings_service::UserSecuritySettingsDomainService;
 use crate::infrastructure::cache::redis_adapter::RedisAdapter;
 use crate::infrastructure::email::lettre_email_adapter::LettreEmailAdapter;
-
 use crate::infrastructure::repository::sea_orm::note::seaorm_note::SeaOrmNoteRepository;
 use crate::infrastructure::repository::sea_orm::user::seaorm_user::SeaOrmUserSharedRepository;
 use crate::infrastructure::repository::sea_orm::user::seaorm_user_authentication::SeaOrmUserAuthenticationRepository;
@@ -33,7 +33,7 @@ pub struct ServiceContainer {
 
     pub user_authentication_service: UserAuthenticationApplicationService<
         SeaOrmUserAuthenticationRepository,
-        SeaOrmUserSharedRepository,
+        SeaOrmUserRegistrationRepository,
         LettreEmailAdapter,
         RedisAdapter,
     >,
@@ -44,15 +44,17 @@ pub struct ServiceContainer {
         SeaOrmUserSecurityRepository,
         SeaOrmUserSharedRepository,
         LettreEmailAdapter,
-        RedisAdapter,
+        DefaultSessionManager<SeaOrmUserSecurityRepository, RedisAdapter>,
     >,
 
     pub user_recovery_service: UserRecoveryApplicationService<
         SeaOrmUserRecoveryRepository,
         SeaOrmUserSecurityRepository,
         LettreEmailAdapter,
-        RedisAdapter,
+        DefaultSessionManager<SeaOrmUserSecurityRepository, RedisAdapter>,
     >,
+
+    pub session_manager: Arc<DefaultSessionManager<SeaOrmUserSecurityRepository, RedisAdapter>>,
 
     pub note_service: NoteApplicationService<SeaOrmNoteRepository>,
 }
@@ -72,9 +74,10 @@ impl ServiceContainer {
         let user_shared_repository = Arc::new(SeaOrmUserSharedRepository::new(db_arc.clone()));
 
         // User registration services
-        let user_registration_repository = SeaOrmUserRegistrationRepository::new(db_arc.clone());
+        let user_registration_repository =
+            Arc::new(SeaOrmUserRegistrationRepository::new(db_arc.clone()));
         let user_registration_domain_service = UserRegistrationDomainService::new(
-            user_registration_repository,
+            user_registration_repository.clone(),
             user_shared_repository.clone(),
         );
         let user_registration_service = UserRegistrationApplicationService::new(
@@ -87,7 +90,7 @@ impl ServiceContainer {
             SeaOrmUserAuthenticationRepository::new(db_arc.clone());
         let user_authentication_domain_service = UserAuthenticationDomainService::new(
             user_authentication_repository.clone(),
-            user_shared_repository.clone(),
+            user_registration_repository.clone(),
         );
         let user_authentication_service = UserAuthenticationApplicationService::new(
             user_authentication_domain_service,
@@ -107,9 +110,15 @@ impl ServiceContainer {
             user_security_repository.clone(),
             user_shared_repository.clone(),
         );
+
+        let session_manager = Arc::new(DefaultSessionManager::new(
+            user_security_repository.clone(),
+            redis_service.clone(),
+        ));
+
         let user_security_service = UserSecurityApplicationService::new(
             user_security_domain_service,
-            redis_service.clone(),
+            session_manager.clone(),
             email_service.clone(),
         );
 
@@ -117,11 +126,11 @@ impl ServiceContainer {
         let recovery_passwd_repository = SeaOrmUserRecoveryRepository::new(db_arc.clone());
         let user_recovery_domain_service = UserRecoveryPasswordDomainService::new(
             recovery_passwd_repository,
-            user_security_repository,
+            user_security_repository.clone(),
         );
         let user_recovery_service = UserRecoveryApplicationService::new(
             user_recovery_domain_service,
-            redis_service.clone(),
+            session_manager.clone(),
             email_service.clone(),
         );
 
@@ -136,6 +145,7 @@ impl ServiceContainer {
             user_information_service,
             user_security_service,
             user_recovery_service,
+            session_manager,
             note_service,
         }
     }

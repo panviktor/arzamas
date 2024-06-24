@@ -18,7 +18,7 @@ where
     U: UserSharedDomainRepository,
     E: EmailPort,
 {
-    user_registration_domain_service: UserRegistrationDomainService<R, U>,
+    user_registration_service: UserRegistrationDomainService<R, U>,
     email_service: Arc<E>,
 }
 
@@ -29,11 +29,11 @@ where
     E: EmailPort,
 {
     pub fn new(
-        user_registration_domain_service: UserRegistrationDomainService<R, U>,
+        user_registration_service: UserRegistrationDomainService<R, U>,
         email_service: Arc<E>,
     ) -> Self {
         Self {
-            user_registration_domain_service,
+            user_registration_service,
             email_service,
         }
     }
@@ -53,7 +53,7 @@ where
         let create_user = CreateUserDTO::new(username, email, request.password);
 
         let created_user = self
-            .user_registration_domain_service
+            .user_registration_service
             .create_user(create_user)
             .await
             .map_err(|e| ApplicationError::from(e))?;
@@ -76,17 +76,15 @@ where
         let email = Email::new(&request.email);
         let token = OtpToken(request.email_token);
 
-        self.user_registration_domain_service
-            .validate_email_user(email, token)
+        self.user_registration_service
+            .validate_user_primary_email_with_token(email, token)
             .await?;
         Ok(())
     }
 
     pub async fn delete_user(&self, request: FindUserByIdRequest) -> Result<(), ApplicationError> {
-        let find_user = UserId {
-            user_id: request.user_id,
-        };
-        self.user_registration_domain_service
+        let find_user = UserId::new(&request.user_id);
+        self.user_registration_service
             .delete_user(find_user)
             .await?;
         Ok(())

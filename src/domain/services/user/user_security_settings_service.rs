@@ -85,7 +85,7 @@ where
             .map_err(UserRegistrationError::InvalidPassword)?;
 
         let new_hash = UserCredentialService::generate_password_hash(&request.new_password)
-            .map_err(|e| DomainError::Unknown("Password hashing failed".to_string()))?;
+            .map_err(|e| DomainError::Unknown(format!("Password hashing failed: {:?}", e)))?;
 
         // Retrieve the old password hash from the database
         let old_db_hash = self
@@ -93,9 +93,10 @@ where
             .get_old_passwd(&request.user_id)
             .await
             .map_err(|e| {
-                DomainError::PersistenceError(PersistenceError::Retrieve(
-                    "Failed to retrieve old password hash".into(),
-                ))
+                DomainError::PersistenceError(Retrieve(format!(
+                    "Failed to retrieve old password hash for user. Error: {}",
+                    e
+                )))
             })?;
 
         // Validate that the current password matches the stored hash
@@ -125,9 +126,10 @@ where
             .set_new_password(&request.user_id, new_hash, Utc::now())
             .await
             .map_err(|e| {
-                DomainError::PersistenceError(PersistenceError::Update(
-                    "Failed to set new password".to_string(),
-                ))
+                DomainError::PersistenceError(PersistenceError::Update(format!(
+                    "Failed to set new password: {}",
+                    e
+                )))
             })?;
         Ok(())
     }
@@ -145,21 +147,23 @@ where
 
         // Handle the results of the concurrent operations
         let user = user_result.map_err(|e| {
-            DomainError::PersistenceError(PersistenceError::Retrieve(
-                "Failed to retrieve user".into(),
-            ))
+            DomainError::PersistenceError(PersistenceError::Retrieve(format!(
+                "Failed to retrieve user: {}",
+                e
+            )))
         })?;
 
         if user.email == request.new_email {
-            return Err(DomainError::PersistenceError(PersistenceError::Retrieve(
+            return Err(DomainError::PersistenceError(Retrieve(
                 "New email cannot be the same as the current email".into(),
             )));
         };
 
         if email_exists_result.map_err(|e| {
-            DomainError::PersistenceError(PersistenceError::Retrieve(
-                "Failed to check if email exists".into(),
-            ))
+            DomainError::PersistenceError(PersistenceError::Retrieve(format!(
+                "Failed to check if email exists: {}",
+                e
+            )))
         })? {
             return Err(UserRegistrationError::InvalidEmail(
                 ValidationServiceError::BusinessRuleViolation("Email already exists".to_string()),
@@ -170,12 +174,12 @@ where
         let (confirmation_token, confirmation_token_hash, expiry) =
             self.generate_email_token(64).await?;
 
-        self.user_repository
-            .store_email_confirmation_token(
+        self.user_security_settings_repository
+            .store_change_email_confirmation_token(
                 request.user_id,
                 confirmation_token_hash,
                 expiry,
-                Some(request.new_email.clone()),
+                request.new_email.clone(),
             )
             .await
             .map_err(|e| {
@@ -195,31 +199,32 @@ where
     }
 
     pub async fn cancel_email_change(&self, user_id: UserId) -> Result<(), DomainError> {
-        self.user_repository
-            .clear_email_confirmation_token(user_id)
+        self.user_security_settings_repository
+            .clear_email_confirmation_token(&user_id)
             .await
             .map_err(|e| {
-                DomainError::PersistenceError(PersistenceError::Update(
-                    "Failed to clear email confirmation token".to_string(),
-                ))
+                DomainError::PersistenceError(PersistenceError::Update(format!(
+                    "Failed to clear email confirmation token: {}",
+                    e
+                )))
             })?;
         Ok(())
     }
 
     pub async fn confirm_email(&self, request: ConfirmEmailDTO) -> Result<(), DomainError> {
         let confirmation = self
-            .user_repository
-            .retrieve_change_email_confirmation(&request.user_id)
+            .user_security_settings_repository
+            .get_change_email_confirmation(&request.user_id)
             .await?;
 
         if SharedDomainService::validate_hash(&request.token.value(), &confirmation.otp_hash) {
             let now = Utc::now();
             if confirmation.expiry > now {
                 let (complete_verification_result, update_email_result) = join!(
-                    self.user_repository
-                        .complete_email_verification(&request.user_id),
-                    self.user_repository
-                        .update_user_main_email(&request.user_id, confirmation.new_email)
+                    self.user_security_settings_repository
+                        .clear_email_confirmation_token(&request.user_id),
+                    self.user_security_settings_repository
+                        .update_main_user_email(&request.user_id, confirmation.new_email)
                 );
 
                 complete_verification_result?;

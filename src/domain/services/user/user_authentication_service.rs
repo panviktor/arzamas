@@ -13,7 +13,7 @@ use crate::domain::ports::repositories::user::user_authentication_dto::{
 };
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
 
-use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
+use crate::domain::ports::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
 use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::user_validation_service::EMAIL_REGEX;
 use crate::domain::services::user::{UserCredentialService, UserValidationService};
@@ -21,24 +21,24 @@ use chrono::{Duration, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
 
-pub struct UserAuthenticationDomainService<A, S>
+pub struct UserAuthenticationDomainService<A, R>
 where
     A: UserAuthenticationDomainRepository,
-    S: UserSharedDomainRepository,
+    R: UserRegistrationDomainRepository,
 {
     auth_repo: A,
-    user_repo: Arc<S>,
+    reg_repo: Arc<R>,
 }
 
-impl<A, S> UserAuthenticationDomainService<A, S>
+impl<A, R> UserAuthenticationDomainService<A, R>
 where
     A: UserAuthenticationDomainRepository,
-    S: UserSharedDomainRepository,
+    R: UserRegistrationDomainRepository,
 {
-    pub fn new(auth_repo: A, user_repo: Arc<S>) -> Self {
+    pub fn new(auth_repo: A, reg_repo: Arc<R>) -> Self {
         Self {
             auth_repo,
-            user_repo,
+            reg_repo,
         }
     }
     pub async fn initiate_login(
@@ -49,7 +49,7 @@ where
         let user_result = self.identify_user(identifier).await?;
 
         if !user_result.email_validated {
-            return self.handle_unvalidated_email(user_result).await;
+            return self.process_unvalidated_email(user_result).await;
         }
 
         UserValidationService::validate_blocked_time(
@@ -76,17 +76,17 @@ where
         if !self.is_request_from_trusted_source(&request, &auth_result.auth_data) {
             let message = "IP address or user agent mismatch.";
             return self
-                .handle_failed_login_attempt(&auth_result, message)
+                .process_failed_login_attempt(&auth_result, message)
                 .await;
         }
         self.verify_otp(&auth_result, request).await
     }
 }
 
-impl<R, U> UserAuthenticationDomainService<R, U>
+impl<A, R> UserAuthenticationDomainService<A, R>
 where
-    R: UserAuthenticationDomainRepository,
-    U: UserSharedDomainRepository,
+    A: UserAuthenticationDomainRepository,
+    R: UserRegistrationDomainRepository,
 {
     fn generate_session_name() -> String {
         use rand::seq::SliceRandom;
@@ -118,14 +118,14 @@ where
         UserValidationService::validate_passwd(&request.password)?;
 
         if UserCredentialService::credential_validator(&request.password, &user.pass_hash)? {
-            self.handle_successful_login_attempt(user, request).await
+            self.process_successful_login_attempt(user, request).await
         } else {
             let message = "Incorrect password.";
-            self.handle_failed_login_attempt(&user, message).await
+            self.process_failed_login_attempt(&user, message).await
         }
     }
 
-    async fn handle_failed_login_attempt(
+    async fn process_failed_login_attempt(
         &self,
         user: &UserAuthentication,
         message: &str,
@@ -147,7 +147,7 @@ where
         })
     }
 
-    async fn handle_successful_login_attempt(
+    async fn process_successful_login_attempt(
         &self,
         user: &UserAuthentication,
         request: CreateLoginRequestDTO,
@@ -158,9 +158,9 @@ where
         );
 
         match two_factor {
-            (true, true) => self.handle_both_two_factor(user, request).await,
-            (true, false) => self.handle_email_two_factor(user, request).await,
-            (false, true) => self.handle_app_two_factor(user, request).await,
+            (true, true) => self.process_both_two_factor(user, request).await,
+            (true, false) => self.process_email_two_factor(user, request).await,
+            (false, true) => self.process_app_two_factor(user, request).await,
             (false, false) => {
                 self.create_session(
                     user,
@@ -195,7 +195,7 @@ where
         Ok((otp_token, otp_code, otp_code_hash, duration))
     }
 
-    async fn handle_both_two_factor(
+    async fn process_both_two_factor(
         &self,
         user: &UserAuthentication,
         request: CreateLoginRequestDTO,
@@ -221,7 +221,7 @@ where
         })
     }
 
-    async fn handle_email_two_factor(
+    async fn process_email_two_factor(
         &self,
         user: &UserAuthentication,
         request: CreateLoginRequestDTO,
@@ -247,7 +247,7 @@ where
         })
     }
 
-    async fn handle_app_two_factor(
+    async fn process_app_two_factor(
         &self,
         user: &UserAuthentication,
         request: CreateLoginRequestDTO,
@@ -297,7 +297,9 @@ where
             if current_time > expiry {
                 // Return an error if the OTP has expired
                 return Err(DomainError::ValidationError(
-                    ValidationError::BusinessRuleViolation("OTP has expired.".to_string()),
+                    ValidationError::BusinessRuleViolation(
+                        "The OTP has expired. Please restart the login process.".to_string(),
+                    ),
                 ));
             }
         } else {
@@ -323,11 +325,13 @@ where
                 let user_id = UserId::new(&user_result.user_id);
                 self.update_verification_status(user_id, &request.verification_method)
                     .await?;
-                self.handle_verification_status(&user_result, request).await
+                self.process_verification_status(&user_result, request)
+                    .await
             }
             false => {
                 let message = "Verification failed due to invalid OTP.";
-                self.handle_failed_login_attempt(user_result, message).await
+                self.process_failed_login_attempt(user_result, message)
+                    .await
             }
         }
     }
@@ -382,7 +386,7 @@ where
         }
     }
 
-    async fn handle_verification_status(
+    async fn process_verification_status(
         &self,
         user: &UserAuthentication,
         request: ContinueLoginRequestDTO,
@@ -409,7 +413,7 @@ where
             (true, true, false, true) => {
                 // Email verification remains
                 Ok(AuthenticationOutcome::PendingVerification {
-                    message: "Please verify your email to complete login.".to_string(),
+                    message: "Please verify your email auth code to complete login.".to_string(),
                 })
             }
             (true, true, true, false) => {
@@ -496,16 +500,13 @@ where
         })
     }
 
-    async fn handle_unvalidated_email(
+    async fn process_unvalidated_email(
         &self,
         user_result: UserAuthentication,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let user_id = UserId::new(&user_result.user_id);
         let now = Utc::now();
-        let confirmation = self
-            .user_repo
-            .retrieve_change_email_confirmation(&user_id)
-            .await?;
+        let confirmation = self.reg_repo.get_primary_email_activation(&user_id).await?;
 
         if now > confirmation.expiry {
             self.generate_new_confirmation_token(user_id, user_result.email)
@@ -529,8 +530,8 @@ where
         let confirmation_token_hash = SharedDomainService::hash_token(&token);
         let expiry = Utc::now() + Duration::days(1);
 
-        self.user_repo
-            .store_email_confirmation_token(user_id.clone(), confirmation_token_hash, expiry, None)
+        self.reg_repo
+            .store_main_primary_activation_token(user_id.clone(), confirmation_token_hash, expiry)
             .await?;
 
         Ok(AuthenticationOutcome::UserEmailConfirmation {

@@ -20,8 +20,8 @@ pub struct UserRecoveryPasswordDomainService<R, S>
 where
     R: UserRecoveryPasswdDomainRepository,
 {
-    user_recovery_passwd_repository: R,
-    user_security_settings_repository: Arc<S>,
+    recovery_passwd_repo: R,
+    security_settings_repo: Arc<S>,
 }
 
 impl<R, S> UserRecoveryPasswordDomainService<R, S>
@@ -29,13 +29,10 @@ where
     R: UserRecoveryPasswdDomainRepository,
     S: UserSecuritySettingsDomainRepository,
 {
-    pub fn new(
-        user_recovery_passwd_repository: R,
-        user_security_settings_repository: Arc<S>,
-    ) -> Self {
+    pub fn new(recovery_passwd_repo: R, security_settings_repo: Arc<S>) -> Self {
         Self {
-            user_recovery_passwd_repository,
-            user_security_settings_repository,
+            recovery_passwd_repo,
+            security_settings_repo,
         }
     }
 
@@ -56,7 +53,7 @@ where
         UserValidationService::validate_passwd(&request.new_password)?;
 
         let recovery_request = self
-            .user_recovery_passwd_repository
+            .recovery_passwd_repo
             .get_recovery_token(&request.token)
             .await?;
 
@@ -86,13 +83,11 @@ where
         if EMAIL_REGEX.is_match(identifier) {
             let email = Email::new(identifier);
             UserValidationService::validate_email(&email)?;
-            self.user_recovery_passwd_repository
-                .get_user_by_email(email)
-                .await
+            self.recovery_passwd_repo.get_user_by_email(email).await
         } else {
             let username = Username::new(identifier);
             UserValidationService::validate_username(&username)?;
-            self.user_recovery_passwd_repository
+            self.recovery_passwd_repo
                 .get_user_by_username(username)
                 .await
         }
@@ -125,7 +120,7 @@ where
         let expiry = Utc::now() + duration;
         let token = OtpToken(token);
 
-        self.user_recovery_passwd_repository
+        self.recovery_passwd_repo
             .prepare_user_restore_passwd(
                 user_id_dto,
                 expiry,
@@ -160,7 +155,7 @@ where
                     None
                 };
 
-                self.user_recovery_passwd_repository
+                self.recovery_passwd_repo
                     .update_user_restore_attempts_and_block(
                         &UserId::new(&recovery_request.user_id),
                         total_attempt_count,
@@ -199,7 +194,7 @@ where
                 None
             };
 
-            self.user_recovery_passwd_repository
+            self.recovery_passwd_repo
                 .update_user_restore_attempts_and_block(
                     &user_id,
                     total_attempt_count,
@@ -222,22 +217,20 @@ where
         user_id: UserId,
     ) -> Result<UserRecoveryPasswdOutcome, DomainError> {
         let reset_future = self
-            .user_recovery_passwd_repository
+            .recovery_passwd_repo
             .reset_restore_attempts_and_block(&user_id);
 
         let pass_hash = UserCredentialService::generate_password_hash(&request.new_password)?;
-        let setup_future = self.user_security_settings_repository.set_new_password(
-            &user_id,
-            pass_hash,
-            Utc::now(),
-        );
+        let setup_future =
+            self.security_settings_repo
+                .set_new_password(&user_id, pass_hash, Utc::now());
 
         let session_invalidation_future = async {
             if recovery_request
                 .security_setting
                 .close_sessions_on_change_password
             {
-                self.user_security_settings_repository
+                self.security_settings_repo
                     .invalidate_sessions(&user_id)
                     .await
             } else {

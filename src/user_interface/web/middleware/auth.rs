@@ -7,6 +7,7 @@ use actix_web::{
 };
 
 use crate::application::services::service_container::ServiceContainer;
+use crate::application::services::user::shared::session_manager_service::SessionManager;
 use crate::core::constants::core_constants;
 use crate::infrastructure::error::error::InfrastructureError;
 use crate::user_interface::web::dto::shared::LoginUser;
@@ -73,22 +74,14 @@ where
             };
 
             match get_session_token_service_request(&req) {
-                Ok(token) => {
-                    match data
-                        .user_authentication_service
-                        .validate_session_for_user(&token)
-                        .await
-                    {
-                        Ok(user_id) => {
-                            let user = LoginUser { id: user_id };
-                            req.extensions_mut().insert(user);
-                            srv.call(req).await
-                        }
-                        Err(e) => {
-                            Ok(req.into_response(HttpResponse::InternalServerError().json(e)))
-                        }
+                Ok(token) => match data.session_manager.validate_session_for_user(&token).await {
+                    Ok(user_id) => {
+                        let user = LoginUser { id: user_id };
+                        req.extensions_mut().insert(user);
+                        srv.call(req).await
                     }
-                }
+                    Err(e) => Ok(req.into_response(HttpResponse::InternalServerError().json(e))),
+                },
                 Err(e) => Ok(req.into_response(HttpResponse::InternalServerError().json(e))),
             }
         })

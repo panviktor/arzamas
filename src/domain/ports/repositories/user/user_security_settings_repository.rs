@@ -1,6 +1,7 @@
 use crate::domain::entities::shared::value_objects::UserId;
+use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_security_settings::{
-    User2FAEmailConfirmation, UserSecuritySettings,
+    User2FAEmailConfirmation, UserChangeEmailConfirmation, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::DomainError;
@@ -18,7 +19,6 @@ pub trait UserSecuritySettingsDomainRepository {
         session_id: &str,
     ) -> Result<UserSession, DomainError>;
     async fn get_user_sessions(&self, user: &UserId) -> Result<Vec<UserSession>, DomainError>;
-
     async fn get_old_passwd(&self, user: &UserId) -> Result<String, DomainError>;
     async fn set_new_password(
         &self,
@@ -26,6 +26,22 @@ pub trait UserSecuritySettingsDomainRepository {
         pass_hash: String,
         update_time: DateTime<Utc>,
     ) -> Result<(), DomainError>;
+
+    async fn store_change_email_confirmation_token(
+        &self,
+        user: UserId,
+        token: String,
+        expiry: DateTime<Utc>,
+        new_email: Email,
+    ) -> Result<(), DomainError>;
+
+    async fn get_change_email_confirmation(
+        &self,
+        user: &UserId,
+    ) -> Result<UserChangeEmailConfirmation, DomainError>;
+    async fn update_main_user_email(&self, user: &UserId, email: Email) -> Result<(), DomainError>;
+    async fn clear_email_confirmation_token(&self, user: &UserId) -> Result<(), DomainError>;
+
     async fn get_security_settings(
         &self,
         user: &UserId,
@@ -34,6 +50,7 @@ pub trait UserSecuritySettingsDomainRepository {
         &self,
         settings: SecuritySettingsUpdateDTO,
     ) -> Result<(), DomainError>;
+
     async fn save_email_2fa_token(
         &self,
         user_id: UserId,

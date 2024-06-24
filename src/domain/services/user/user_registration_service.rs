@@ -19,7 +19,7 @@ where
     R: UserRegistrationDomainRepository,
     U: UserSharedDomainRepository,
 {
-    user_registration_repository: R,
+    user_registration_repository: Arc<R>,
     user_repository: Arc<U>,
 }
 
@@ -28,7 +28,7 @@ where
     R: UserRegistrationDomainRepository,
     U: UserSharedDomainRepository,
 {
-    pub fn new(user_registration_repository: R, user_repository: Arc<U>) -> Self {
+    pub fn new(user_registration_repository: Arc<R>, user_repository: Arc<U>) -> Self {
         Self {
             user_registration_repository,
             user_repository,
@@ -66,8 +66,8 @@ where
         let user = self.user_registration_repository.create_user(user).await?;
         let expiry = Utc::now() + Duration::days(1);
 
-        self.user_repository
-            .store_email_confirmation_token(user_id, confirmation_token_hash, expiry, None)
+        self.user_registration_repository
+            .store_main_primary_activation_token(user_id, confirmation_token_hash, expiry)
             .await?;
 
         Ok(UserRegistrationResponse {
@@ -77,11 +77,11 @@ where
     }
 
     pub async fn delete_user(&self, user: UserId) -> Result<(), DomainError> {
-        // FIXME - add email confirmation
+        // FIXME - add email confirmation, move to UserSecurity
         self.user_registration_repository.delete_user(user).await
     }
 
-    pub async fn validate_email_user(
+    pub async fn validate_user_primary_email_with_token(
         &self,
         email: Email,
         token: OtpToken,
@@ -95,15 +95,15 @@ where
         let user_id = UserId::new(&user.user_id);
 
         let confirmation = self
-            .user_repository
-            .retrieve_email_activation(&user_id)
+            .user_registration_repository
+            .get_primary_email_activation(&user_id)
             .await?;
 
         if SharedDomainService::validate_hash(&token.value(), &confirmation.otp_hash) {
             let now = Utc::now();
             if confirmation.expiry > now {
-                self.user_repository
-                    .complete_email_verification(&user_id)
+                self.user_registration_repository
+                    .complete_primary_email_verification(&user_id)
                     .await
             } else {
                 Err(DomainError::ValidationError(ValidationError::InvalidData(

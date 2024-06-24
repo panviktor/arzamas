@@ -12,24 +12,6 @@ pub struct NoteResponse {
 }
 
 impl NoteResponse {
-    pub fn new(
-        note_id: String,
-        user_id: String,
-        text: String,
-        created_at: DateTime<Utc>,
-        updated_at: DateTime<Utc>,
-    ) -> Self {
-        Self {
-            note_id,
-            user_id,
-            text,
-            created_at,
-            updated_at,
-        }
-    }
-}
-
-impl NoteResponse {
     pub fn from(note: Note) -> Self {
         Self {
             note_id: note.note_id,

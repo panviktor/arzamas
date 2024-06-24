@@ -15,11 +15,6 @@ pub enum SharedDomainError {
     TokenTooShort(String),
 }
 
-impl SharedDomainError {
-    fn from_getrandom_error(e: getrandom::Error) -> Self {
-        SharedDomainError::TokenGenerationError(format!("Error generating token: {}", e))
-    }
-}
 impl SharedDomainService {
     pub fn generate_token(length: usize) -> Result<String, SharedDomainError> {
         if length < 10 {

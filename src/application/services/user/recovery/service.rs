@@ -3,44 +3,45 @@ use crate::application::dto::user::user_recovery_request_dto::{
 };
 use crate::application::dto::user::user_shared_response_dto::UniversalApplicationResponse;
 use crate::application::error::error::ApplicationError;
-use crate::domain::entities::shared::value_objects::{IPAddress, OtpToken, UserAgent};
-use crate::domain::ports::caching::caching::CachingPort;
+use crate::application::services::user::shared::session_manager_service::SessionManager;
+use crate::domain::entities::shared::value_objects::{IPAddress, OtpToken, UserAgent, UserId};
 use crate::domain::ports::email::email::EmailPort;
 use crate::domain::ports::repositories::user::user_recovery_password_dto::{
-    RecoveryPasswdRequestDTO, UserCompleteRecoveryRequestDTO, UserRecoveryPasswdOutcome,
+    RecoveryPasswdRequestDTO, RecoveryPasswdResponse, UserCompleteRecoveryRequestDTO,
+    UserRecoveryPasswdOutcome,
 };
 use crate::domain::ports::repositories::user::user_recovery_password_repository::UserRecoveryPasswdDomainRepository;
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
 use crate::domain::services::user::user_recovery_password_service::UserRecoveryPasswordDomainService;
 use std::sync::Arc;
 
-pub struct UserRecoveryApplicationService<R, S, E, C>
+pub struct UserRecoveryApplicationService<R, S, E, SM>
 where
     R: UserRecoveryPasswdDomainRepository,
     S: UserSecuritySettingsDomainRepository,
     E: EmailPort,
-    C: CachingPort,
+    SM: SessionManager + Sync + Send,
 {
-    user_recovery_domain_service: UserRecoveryPasswordDomainService<R, S>,
-    caching_service: Arc<C>,
+    user_recovery_service: UserRecoveryPasswordDomainService<R, S>,
+    session_manager: Arc<SM>,
     email_service: Arc<E>,
 }
 
-impl<R, S, E, C> UserRecoveryApplicationService<R, S, E, C>
+impl<R, S, E, SM> UserRecoveryApplicationService<R, S, E, SM>
 where
     R: UserRecoveryPasswdDomainRepository,
     S: UserSecuritySettingsDomainRepository,
     E: EmailPort,
-    C: CachingPort,
+    SM: SessionManager + Sync + Send,
 {
     pub fn new(
-        user_recovery_domain_service: UserRecoveryPasswordDomainService<R, S>,
-        caching_service: Arc<C>,
+        user_recovery_service: UserRecoveryPasswordDomainService<R, S>,
+        session_manager: Arc<SM>,
         email_service: Arc<E>,
     ) -> Self {
         Self {
-            user_recovery_domain_service,
-            caching_service,
+            user_recovery_service,
+            session_manager,
             email_service,
         }
     }
@@ -55,30 +56,17 @@ where
         let recovery = RecoveryPasswdRequestDTO::new(request.identifier, user_agent, ip_address);
 
         let response = self
-            .user_recovery_domain_service
+            .user_recovery_service
             .initiate_password_reset(recovery)
             .await?;
 
-        // Generate the email content
-        let message = format!(
-            "Dear {},\n\n\
-            You requested a password reset for your account. \
-            Please use the following token to reset your password: {}\n\n\
-            This token will expire at: {}.\n\n\
-            If you did not request this, please ignore this email.\n\n\
-            Best regards,\n\
-            Arzamas App Team",
-            response.username.value(),
-            response.token.value(),
-            response.expiry.to_rfc3339()
-        );
+        let email_message = self.compose_recovery_email(&response);
 
-        // Send the email
         self.email_service
             .send_email(
                 response.email.value(),
                 "Password Recovery for Arzamas App",
-                &message,
+                &email_message,
             )
             .await?;
 
@@ -107,10 +95,32 @@ where
         );
 
         let outcome = self
-            .user_recovery_domain_service
+            .user_recovery_service
             .complete_recovery(domain_request)
             .await?;
 
+        self.process_recovery_outcome(outcome).await
+    }
+
+    fn compose_recovery_email(&self, response: &RecoveryPasswdResponse) -> String {
+        format!(
+            "Dear {},\n\n\
+            You requested a password reset for your account. \
+            Please use the following token to reset your password: {}\n\n\
+            This token will expire at: {}.\n\n\
+            If you did not request this, please ignore this email.\n\n\
+            Best regards,\n\
+            Arzamas App Team",
+            response.username.value(),
+            response.token.value(),
+            response.expiry.to_rfc3339()
+        )
+    }
+
+    async fn process_recovery_outcome(
+        &self,
+        outcome: UserRecoveryPasswdOutcome,
+    ) -> Result<UniversalApplicationResponse, ApplicationError> {
         match outcome {
             UserRecoveryPasswdOutcome::ValidToken {
                 user_id,
@@ -119,7 +129,8 @@ where
                 close_sessions_on_change_password,
             } => {
                 if close_sessions_on_change_password {
-                    self.caching_service.invalidate_sessions(&user_id).await?;
+                    let user = UserId::new(&user_id);
+                    self.session_manager.invalidate_sessions(&user).await?;
                 }
 
                 self.email_service

@@ -1,9 +1,7 @@
+use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::value_objects::{IPAddress, UserAgent};
-use crate::domain::entities::shared::value_objects::{OtpCode, UserId};
 use crate::domain::entities::shared::{Email, OtpToken, Username};
-use crate::domain::entities::user::user_authentication::{
-    UserAuthentication, UserAuthenticationData,
-};
+use crate::domain::entities::user::user_authentication::UserAuthentication;
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::DomainError;
 use async_trait::async_trait;

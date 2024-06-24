@@ -14,32 +14,32 @@ use crate::domain::ports::repositories::user::user_authentication_dto::{
     ContinueLoginRequestDTO, CreateLoginRequestDTO,
 };
 use crate::domain::ports::repositories::user::user_authentication_repository::UserAuthenticationDomainRepository;
-use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
+use crate::domain::ports::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
 use crate::domain::services::user::user_authentication_service::UserAuthenticationDomainService;
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
-pub struct UserAuthenticationApplicationService<A, S, E, C>
+pub struct UserAuthenticationApplicationService<A, R, E, C>
 where
     A: UserAuthenticationDomainRepository,
-    S: UserSharedDomainRepository,
+    R: UserRegistrationDomainRepository,
     E: EmailPort,
     C: CachingPort,
 {
-    auth_domain_service: UserAuthenticationDomainService<A, S>,
+    auth_domain_service: UserAuthenticationDomainService<A, R>,
     caching_service: Arc<C>,
     email_service: Arc<E>,
 }
 
-impl<A, S, E, C> UserAuthenticationApplicationService<A, S, E, C>
+impl<A, R, E, C> UserAuthenticationApplicationService<A, R, E, C>
 where
     A: UserAuthenticationDomainRepository,
-    S: UserSharedDomainRepository,
+    R: UserRegistrationDomainRepository,
     E: EmailPort,
     C: CachingPort,
 {
     pub fn new(
-        auth_domain_service: UserAuthenticationDomainService<A, S>,
+        auth_domain_service: UserAuthenticationDomainService<A, R>,
         caching_service: Arc<C>,
         email_service: Arc<E>,
     ) -> Self {
@@ -62,9 +62,33 @@ where
             .await
             .map_err(ApplicationError::from)?;
 
-        self.handle_authentication_outcome(auth_outcome).await
+        self.process_authentication_outcome(auth_outcome).await
     }
 
+    pub async fn continue_login(
+        &self,
+        request: OTPVerificationRequest,
+    ) -> Result<LoginResponse, ApplicationError> {
+        let request = ContinueLoginRequestDTO::from(request);
+
+        let response = self
+            .auth_domain_service
+            .continue_login(request)
+            .await
+            .map_err(|e| ApplicationError::from(e))?;
+
+        self.process_continue_login_authentication_outcome(response)
+            .await
+    }
+}
+
+impl<A, R, E, C> UserAuthenticationApplicationService<A, R, E, C>
+where
+    A: UserAuthenticationDomainRepository,
+    R: UserRegistrationDomainRepository,
+    E: EmailPort,
+    C: CachingPort,
+{
     fn create_login_dto(&self, request: LoginUserRequest) -> CreateLoginRequestDTO {
         CreateLoginRequestDTO::new(
             request.identifier,
@@ -74,8 +98,7 @@ where
             request.persistent,
         )
     }
-
-    async fn handle_authentication_outcome(
+    async fn process_authentication_outcome(
         &self,
         outcome: AuthenticationOutcome,
     ) -> Result<LoginResponse, ApplicationError> {
@@ -86,7 +109,7 @@ where
                 message,
                 email_notifications_enabled,
             } => {
-                self.handle_authenticated_with_preferences(
+                self.process_authenticated_with_preferences(
                     session,
                     email,
                     message,
@@ -99,7 +122,7 @@ where
                 otp_code,
                 email,
             } => {
-                self.handle_email_verification(otp_token, otp_code, email)
+                self.process_email_verification(otp_token, otp_code, email)
                     .await
             }
             AuthenticationOutcome::RequireEmailAndAuthenticatorApp {
@@ -107,7 +130,7 @@ where
                 otp_code,
                 email,
             } => {
-                self.handle_email_and_authenticator_app(otp_token, otp_code, email)
+                self.process_email_and_authenticator_app(otp_token, otp_code, email)
                     .await
             }
             AuthenticationOutcome::RequireAuthenticatorApp {
@@ -115,7 +138,7 @@ where
                 email,
                 email_notifications_enabled,
             } => {
-                self.handle_authenticator_app(otp_token, email, email_notifications_enabled)
+                self.process_authenticator_app(otp_token, email, email_notifications_enabled)
                     .await
             }
             AuthenticationOutcome::AuthenticationFailed {
@@ -123,19 +146,19 @@ where
                 message,
                 email_notifications_enabled,
             } => {
-                self.handle_authentication_failed(email, message, email_notifications_enabled)
+                self.process_authentication_failed(email, message, email_notifications_enabled)
                     .await
             }
             AuthenticationOutcome::PendingVerification { message } => {
                 Ok(LoginResponse::PendingResponse { message })
             }
             AuthenticationOutcome::UserEmailConfirmation { email, token } => {
-                self.handle_user_email_confirmation(email, token).await
+                self.process_user_email_confirmation(email, token).await
             }
         }
     }
 
-    async fn handle_authenticated_with_preferences(
+    async fn process_authenticated_with_preferences(
         &self,
         session: UserSession,
         email: Email,
@@ -164,7 +187,7 @@ where
         })
     }
 
-    async fn handle_email_verification(
+    async fn process_email_verification(
         &self,
         otp_token: OtpToken,
         otp_code: OtpCode,
@@ -178,12 +201,12 @@ where
             .await?;
 
         Ok(LoginResponse::OTPResponse {
-            otp_token: otp_token.into_inner(),
+            public_token: otp_token.into_inner(),
             message: "Please check the code sent to your email.".to_string(),
         })
     }
 
-    async fn handle_email_and_authenticator_app(
+    async fn process_email_and_authenticator_app(
         &self,
         otp_token: OtpToken,
         otp_code: OtpCode,
@@ -200,12 +223,12 @@ where
             .await?;
 
         Ok(LoginResponse::OTPResponse {
-            otp_token: otp_token.into_inner(),
+            public_token: otp_token.into_inner(),
             message: "Please check your email and the OTP app for codes.".to_string(),
         })
     }
 
-    async fn handle_authenticator_app(
+    async fn process_authenticator_app(
         &self,
         otp_token: OtpToken,
         email: Email,
@@ -221,12 +244,12 @@ where
         }
 
         Ok(LoginResponse::OTPResponse {
-            otp_token: otp_token.into_inner(),
+            public_token: otp_token.into_inner(),
             message: "Please authenticate using your app.".to_string(),
         })
     }
 
-    async fn handle_authentication_failed(
+    async fn process_authentication_failed(
         &self,
         email: Email,
         message: String,
@@ -247,7 +270,7 @@ where
         )))
     }
 
-    async fn handle_user_email_confirmation(
+    async fn process_user_email_confirmation(
         &self,
         email: Email,
         token: OtpToken,
@@ -269,97 +292,39 @@ where
         ))
     }
 
-    pub async fn continue_login(
+    async fn process_continue_login_authentication_outcome(
         &self,
-        request: OTPVerificationRequest,
+        outcome: AuthenticationOutcome,
     ) -> Result<LoginResponse, ApplicationError> {
-        let request = ContinueLoginRequestDTO::from(request);
-
-        let response = self
-            .auth_domain_service
-            .continue_login(request)
-            .await
-            .map_err(|e| ApplicationError::from(e))?;
-
-        match response {
+        match outcome {
             AuthenticationOutcome::AuthenticatedWithPreferences {
                 session,
                 email,
                 message,
                 email_notifications_enabled,
             } => {
-                let payload = Self::create_user_token(session).await?;
-                let exp = payload.exp;
-                let user_id = payload.user_id.clone();
-                let session_id = payload.session_id.clone();
-                let token = SharedService::generate_token(payload).await?;
-
-                self.caching_service
-                    .store_user_token(&user_id, &session_id, &token, exp)
-                    .await?;
-
-                if email_notifications_enabled {
-                    self.email_service
-                        .send_email(email.value(), "Success Login to Arzamas App", &message)
-                        .await?;
-                }
-
-                Ok(LoginResponse::TokenResponse {
-                    token,
-                    token_type: "Bearer".to_string(),
-                })
+                self.process_authenticated_with_preferences(
+                    session,
+                    email,
+                    message,
+                    email_notifications_enabled,
+                )
+                .await
             }
             AuthenticationOutcome::AuthenticationFailed {
                 email,
                 message,
                 email_notifications_enabled,
             } => {
-                if email_notifications_enabled {
-                    let subject = "Initiate login to your account in Arzamas App was Failed";
-                    let message = format!("Reason: {}", message);
-
-                    self.email_service
-                        .send_email(email.value(), &subject, &message)
-                        .await?;
-                }
-
-                Err(ApplicationError::ValidationError(format!(
-                    "{}: {:?}",
-                    message, email
-                )))
+                self.process_authentication_failed(email, message, email_notifications_enabled)
+                    .await
             }
             AuthenticationOutcome::PendingVerification { message } => {
                 Ok(LoginResponse::PendingResponse { message })
             }
-            // Catch-all for any other combinations, typically should not occur
             _ => Err(ApplicationError::InternalServerError(
                 "Currently login not available".to_string(),
             )),
-        }
-    }
-}
-
-impl<A, S, E, C> UserAuthenticationApplicationService<A, S, E, C>
-where
-    A: UserAuthenticationDomainRepository,
-    S: UserSharedDomainRepository,
-    E: EmailPort,
-    C: CachingPort,
-{
-    pub async fn validate_session_for_user(&self, token: &str) -> Result<String, ApplicationError> {
-        let decoded_token = SharedService::decode_token(token)?;
-        let user_id = &decoded_token.user_id;
-        let active_tokens = self
-            .caching_service
-            .get_user_sessions_tokens(user_id)
-            .await?;
-
-        if active_tokens.contains(&token.to_string()) {
-            Ok(user_id.to_string())
-        } else {
-            Err(ApplicationError::ValidationError(
-                "Invalid session token".to_string(),
-            ))
         }
     }
 
