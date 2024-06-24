@@ -1,8 +1,8 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::{Email, OtpToken};
 use crate::domain::ports::repositories::user::user_security_settings_dto::{
-    ActivateEmail2FADTO, ChangeEmailDTO, ChangePasswordDTO, ConfirmEmail2FADTO, ConfirmEmailDTO,
-    SecuritySettingsUpdateDTO,
+    ActivateEmail2FADTO, ChangeEmailDTO, ChangePasswordDTO, ConfirmDeleteUserDTO,
+    ConfirmEmail2FADTO, ConfirmEmailDTO, SecuritySettingsUpdateDTO,
 };
 
 /// ChangePasswordRequest
@@ -159,6 +159,25 @@ impl ConfirmEmail2FARequest {
 impl From<ConfirmEmail2FARequest> for ConfirmEmail2FADTO {
     fn from(request: ConfirmEmail2FARequest) -> Self {
         ConfirmEmail2FADTO {
+            user_id: UserId::new(&request.user_id),
+            token: OtpToken::new(&request.token),
+        }
+    }
+}
+pub struct ConfirmDeleteUserRequest {
+    pub user_id: String,
+    pub token: String,
+}
+
+impl ConfirmDeleteUserRequest {
+    pub fn new(user_id: String, token: String) -> Self {
+        Self { user_id, token }
+    }
+}
+
+impl From<ConfirmDeleteUserRequest> for ConfirmDeleteUserDTO {
+    fn from(request: ConfirmDeleteUserRequest) -> Self {
+        ConfirmDeleteUserDTO {
             user_id: UserId::new(&request.user_id),
             token: OtpToken::new(&request.token),
         }

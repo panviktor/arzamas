@@ -1,7 +1,8 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_security_settings::{
-    User2FAEmailConfirmation, UserChangeEmailConfirmation, UserSecuritySettings,
+    RemoveUserConfirmation, User2FAEmailConfirmation, UserChangeEmailConfirmation,
+    UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::DomainError;
@@ -26,7 +27,6 @@ pub trait UserSecuritySettingsDomainRepository {
         pass_hash: String,
         update_time: DateTime<Utc>,
     ) -> Result<(), DomainError>;
-
     async fn store_change_email_confirmation_token(
         &self,
         user: UserId,
@@ -34,14 +34,12 @@ pub trait UserSecuritySettingsDomainRepository {
         expiry: DateTime<Utc>,
         new_email: Email,
     ) -> Result<(), DomainError>;
-
     async fn get_change_email_confirmation(
         &self,
         user: &UserId,
     ) -> Result<UserChangeEmailConfirmation, DomainError>;
     async fn update_main_user_email(&self, user: &UserId, email: Email) -> Result<(), DomainError>;
     async fn clear_email_confirmation_token(&self, user: &UserId) -> Result<(), DomainError>;
-
     async fn get_security_settings(
         &self,
         user: &UserId,
@@ -50,7 +48,6 @@ pub trait UserSecuritySettingsDomainRepository {
         &self,
         settings: SecuritySettingsUpdateDTO,
     ) -> Result<(), DomainError>;
-
     async fn save_email_2fa_token(
         &self,
         user_id: UserId,
@@ -62,4 +59,15 @@ pub trait UserSecuritySettingsDomainRepository {
         user: &UserId,
     ) -> Result<User2FAEmailConfirmation, DomainError>;
     async fn toggle_email_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError>;
+    async fn store_token_for_remove_user(
+        &self,
+        user: UserId,
+        token: String,
+        expiry: DateTime<Utc>,
+    ) -> Result<(), DomainError>;
+    async fn get_token_for_remove_user(
+        &self,
+        user: UserId,
+    ) -> Result<RemoveUserConfirmation, DomainError>;
+    async fn delete_user(&self, user: UserId) -> Result<(), DomainError>;
 }

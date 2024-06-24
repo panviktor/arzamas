@@ -9,10 +9,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use entity::{
     user, user_authentication, user_confirmation, user_recovery_password, user_security_settings,
 };
-use sea_orm::QueryFilter;
-use sea_orm::{
-    ActiveModelTrait, DatabaseConnection, EntityTrait, Set, TransactionTrait, TryIntoModel,
-};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, Set, TransactionTrait, TryIntoModel};
 use sea_orm::{ColumnTrait, IntoActiveModel};
 use std::sync::Arc;
 
@@ -87,24 +84,6 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
 
         let domain_user: UserRegistration = user_model.try_into_model()?.into();
         Ok(domain_user)
-    }
-
-    async fn delete_user(&self, user: UserId) -> Result<(), DomainError> {
-        let txn = self.db.begin().await.map_err(|e| {
-            DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
-        })?;
-
-        user::Entity::delete_many()
-            .filter(user::Column::UserId.eq(user.user_id))
-            .exec(&txn)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Delete(e.to_string())))?;
-
-        txn.commit().await.map_err(|e| {
-            DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
-        })?;
-
-        Ok(())
     }
 
     async fn store_main_primary_activation_token(

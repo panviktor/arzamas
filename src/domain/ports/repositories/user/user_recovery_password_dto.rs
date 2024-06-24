@@ -19,7 +19,6 @@ impl RecoveryPasswdRequestDTO {
 }
 
 pub struct RecoveryPasswdResponse {
-    pub user_id: String,
     pub email: Email,
     pub username: Username,
     pub token: OtpToken,

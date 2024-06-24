@@ -1,5 +1,5 @@
 use crate::domain::entities::shared::value_objects::{IPAddress, OtpCode, UserAgent};
-use crate::domain::entities::shared::{Email, OtpToken, Username};
+use crate::domain::entities::shared::{Email, Username};
 use crate::domain::entities::user::user_authentication::UserAuthenticationData;
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
@@ -47,7 +47,6 @@ impl From<user_authentication::Model> for UserAuthenticationData {
         let ip_address = model.ip_address.as_deref().map(IPAddress::new);
 
         UserAuthenticationData {
-            otp_public_token: model.otp_public_token.as_deref().map(OtpToken::new),
             otp_email_code_hash: model.otp_email_code_hash.as_deref().map(OtpCode::new),
             otp_email_currently_valid: model.otp_email_currently_valid,
             otp_app_hash: model.otp_app_hash,

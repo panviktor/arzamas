@@ -57,3 +57,8 @@ impl User2FAEmailConfirmation {
         }
     }
 }
+
+pub struct RemoveUserConfirmation {
+    pub otp_hash: String,
+    pub expiry: DateTime<Utc>,
+}

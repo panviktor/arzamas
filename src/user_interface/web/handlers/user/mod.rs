@@ -77,6 +77,14 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
                         web::resource("/app/remove")
                             .route(web::post().to(controllers::remove_app_2fa)),
                     ),
+            )
+            .service(
+                web::resource("/delete-user")
+                    .route(web::post().to(controllers::initiate_delete_user)),
+            )
+            .service(
+                web::resource("/confirm-delete-user")
+                    .route(web::post().to(controllers::confirm_delete_user)),
             ),
     );
 }

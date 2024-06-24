@@ -10,23 +10,3 @@ pub struct UserBase {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-
-impl UserBase {
-    pub fn new(
-        user_id: String,
-        email: Email,
-        username: String,
-        email_validated: bool,
-        created_at: DateTime<Utc>,
-        updated_at: DateTime<Utc>,
-    ) -> Self {
-        Self {
-            user_id,
-            email,
-            username,
-            email_validated,
-            created_at,
-            updated_at,
-        }
-    }
-}

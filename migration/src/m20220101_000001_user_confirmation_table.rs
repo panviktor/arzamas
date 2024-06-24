@@ -68,6 +68,16 @@ impl MigrationTrait for Migration {
                             .timestamp()
                             .null(),
                     )
+                    .col(
+                        ColumnDef::new(UserConfirmation::RemoveUserTokenHash)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::RemoveUserTokenExpiry)
+                            .timestamp()
+                            .null(),
+                    )
                     .to_owned(),
             )
             .await
@@ -94,4 +104,6 @@ pub enum UserConfirmation {
     ActivateEmail2FATokenExpiry,
     ActivateApp2FAToken,
     ActivateApp2FATokenExpiry,
+    RemoveUserTokenHash,
+    RemoveUserTokenExpiry,
 }

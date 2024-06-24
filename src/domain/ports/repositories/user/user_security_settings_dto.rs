@@ -34,3 +34,8 @@ pub struct ConfirmEmail2FADTO {
     pub user_id: UserId,
     pub token: OtpToken,
 }
+
+pub struct ConfirmDeleteUserDTO {
+    pub user_id: UserId,
+    pub token: OtpToken,
+}

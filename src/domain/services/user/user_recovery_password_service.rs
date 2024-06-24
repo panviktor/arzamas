@@ -131,7 +131,6 @@ where
             .await?;
 
         Ok(RecoveryPasswdResponse {
-            user_id: user.user_id.to_string(),
             email: user.email,
             username: user.username,
             token,

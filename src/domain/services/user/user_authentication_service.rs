@@ -287,13 +287,13 @@ where
 
     async fn verify_otp(
         &self,
-        user_result: &UserAuthentication,
+        auth_result: &UserAuthentication,
         request: ContinueLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let current_time = Utc::now();
 
         // Check if the OTP expiry is set and validate against current time
-        if let Some(expiry) = user_result.auth_data.expiry {
+        if let Some(expiry) = auth_result.auth_data.expiry {
             if current_time > expiry {
                 // Return an error if the OTP has expired
                 return Err(DomainError::ValidationError(
@@ -312,25 +312,25 @@ where
         // Determine the verification result based on the method specified in the request
         let verification_result = match &request.verification_method {
             DomainVerificationMethod::EmailOTP => {
-                self.verify_email_otp(user_result, &request.otp_code.value())
+                self.verify_email_otp(auth_result, &request.otp_code.value())
             }
             DomainVerificationMethod::AuthenticatorApp => {
-                self.verify_authenticator_app(user_result, &request.otp_code.value())?
+                self.verify_authenticator_app(auth_result, &request.otp_code.value())?
             }
         };
 
         // Handle the result of the OTP verification
         match verification_result {
             true => {
-                let user_id = UserId::new(&user_result.user_id);
+                let user_id = UserId::new(&auth_result.user_id);
                 self.update_verification_status(user_id, &request.verification_method)
                     .await?;
-                self.process_verification_status(&user_result, request)
+                self.process_verification_status(&auth_result, request)
                     .await
             }
             false => {
                 let message = "Verification failed due to invalid OTP.";
-                self.process_failed_login_attempt(user_result, message)
+                self.process_failed_login_attempt(auth_result, message)
                     .await
             }
         }

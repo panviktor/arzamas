@@ -62,9 +62,6 @@ pub struct UserAuthentication {
 /// and to manage the lifecycle and validity of these tokens.
 #[derive(Debug)]
 pub struct UserAuthenticationData {
-    /// Unique identifier for the user associated with these tokens.
-    pub otp_public_token: Option<OtpToken>,
-
     /// Hash of the OTP sent via email. This is used for verifying the OTP entered by the user.
     pub otp_email_code_hash: Option<OtpCode>,
 

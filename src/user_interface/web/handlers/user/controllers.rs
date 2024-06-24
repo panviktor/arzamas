@@ -1,18 +1,18 @@
 use crate::application::dto::shared::universal_response::UniversalResponse;
+use crate::application::dto::user::user_security_request_dto::{
+    ActivateEmail2FARequest, ChangeEmailRequest, ChangePasswordRequest, ConfirmDeleteUserRequest,
+    ConfirmEmail2FARequest, ConfirmEmailRequest, SecuritySettingsUpdateRequest,
+};
 use crate::application::dto::user::user_shared_request_dto::UserByIdRequest;
+use crate::application::dto::user::user_shared_response_dto::UniversalApplicationResponse;
 use crate::application::error::response_error::AppResponseError;
 use crate::application::services::service_container::ServiceContainer;
 use crate::user_interface::web::actix_adapter::actix_adapter::extract_session_token_from_request;
 use crate::user_interface::web::dto::shared::LoginUser;
-
-use crate::application::dto::user::user_security_request_dto::{
-    ActivateEmail2FARequest, ChangeEmailRequest, ChangePasswordRequest, ConfirmEmail2FARequest,
-    ConfirmEmailRequest, SecuritySettingsUpdateRequest,
-};
-use crate::application::dto::user::user_shared_response_dto::UniversalApplicationResponse;
 use crate::user_interface::web::handlers::user::user_request_dto::{
     ActivateEmail2FARequestWeb, ChangeEmailRequestWeb, ChangePasswordRequestWeb,
-    ConfirmEmail2FARequestWeb, ConfirmEmailRequestWeb, SecuritySettingsUpdateRequestWeb,
+    ConfirmDeleteUserWeb, ConfirmEmail2FARequestWeb, ConfirmEmailRequestWeb,
+    SecuritySettingsUpdateRequestWeb,
 };
 use crate::user_interface::web::handlers::user::user_response_dto::{
     BaseUserResponseWeb, SecuritySettingsResponseWeb, UserSessionResponseWeb,
@@ -351,4 +351,38 @@ pub async fn remove_app_2fa(
     // );
     // Ok(HttpResponse::Ok().json(response))
     todo!()
+}
+
+pub async fn initiate_delete_user(
+    req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
+    user: LoginUser,
+) -> Result<HttpResponse, AppResponseError> {
+    let request = UserByIdRequest::new(&user.id);
+    let response: UniversalApplicationResponse = data
+        .user_security_service
+        .initiate_delete_user(request)
+        .await
+        .map_err(|e| e.into_service_error(&req))?
+        .into();
+
+    let response = UniversalResponse::new(response.title, response.subtitle, true);
+    Ok(HttpResponse::Ok().json(response))
+}
+
+pub async fn confirm_delete_user(
+    req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
+    user: LoginUser,
+    params: web::Json<ConfirmDeleteUserWeb>,
+) -> Result<HttpResponse, AppResponseError> {
+    let application_request = ConfirmDeleteUserRequest::new(user.id, params.token.to_string());
+    let response = data
+        .user_security_service
+        .confirm_delete_user(application_request)
+        .await
+        .map_err(|e| e.into_service_error(&req))?;
+
+    let response = UniversalResponse::new(response.title, response.subtitle, true);
+    Ok(HttpResponse::Ok().json(response))
 }

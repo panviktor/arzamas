@@ -12,6 +12,7 @@ pub struct BaseUserResponseWeb {
     pub email: String,
     pub username: String,
     pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl From<BaseUserResponse> for BaseUserResponseWeb {
@@ -21,6 +22,7 @@ impl From<BaseUserResponse> for BaseUserResponseWeb {
             email: user.email,
             username: user.username,
             created_at: user.created_at,
+            updated_at: user.updated_at,
         }
     }
 }

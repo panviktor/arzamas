@@ -10,9 +10,6 @@ pub trait UserRegistrationDomainRepository {
     /// Create the received user entity in the persistence system
     async fn create_user(&self, user: UserRegistration) -> Result<UserRegistration, DomainError>;
 
-    /// Delete the received user entity in the persistence system
-    async fn delete_user(&self, user: UserId) -> Result<(), DomainError>;
-
     async fn store_main_primary_activation_token(
         &self,
         user: UserId,

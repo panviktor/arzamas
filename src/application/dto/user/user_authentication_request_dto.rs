@@ -77,7 +77,7 @@ impl From<OTPVerificationRequest> for ContinueLoginRequestDTO {
         ContinueLoginRequestDTO {
             public_token: OtpToken::new(&request.public_token),
             otp_code: OtpCode::new(&request.otp_code),
-            verification_method: DomainVerificationMethod::EmailOTP,
+            verification_method: DomainVerificationMethod::from(request.verification_method),
             user_agent: UserAgent::new(&request.user_agent),
             ip_address: IPAddress::new(&request.ip_address),
         }

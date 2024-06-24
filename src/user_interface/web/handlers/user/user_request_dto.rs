@@ -32,3 +32,8 @@ pub struct ActivateEmail2FARequestWeb {
 pub struct ConfirmEmail2FARequestWeb {
     pub token: String,
 }
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct ConfirmDeleteUserWeb {
+    pub token: String,
+}

@@ -1,7 +1,7 @@
 use crate::domain::entities::shared::value_objects::OtpToken;
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::user::user_security_settings::{
-    ConfirmEmail2FA, UserChangeEmail, UserSecuritySettings,
+    ConfirmEmail2FA, RemoveUserConfirmation, UserChangeEmail, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError, ValidationError};
@@ -10,8 +10,8 @@ use crate::domain::entities::user::user_registration::UserRegistrationError;
 use crate::domain::error::PersistenceError::Retrieve;
 use crate::domain::error::ValidationError::BusinessRuleViolation;
 use crate::domain::ports::repositories::user::user_security_settings_dto::{
-    ActivateEmail2FADTO, ChangeEmailDTO, ChangePasswordDTO, ConfirmEmail2FADTO, ConfirmEmailDTO,
-    SecuritySettingsUpdateDTO,
+    ActivateEmail2FADTO, ChangeEmailDTO, ChangePasswordDTO, ConfirmDeleteUserDTO,
+    ConfirmEmail2FADTO, ConfirmEmailDTO, SecuritySettingsUpdateDTO,
 };
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
@@ -42,22 +42,6 @@ where
             user_security_settings_repository,
             user_repository,
         }
-    }
-
-    pub async fn invalidate_sessions(&self, user: UserId) -> Result<(), DomainError> {
-        self.user_security_settings_repository
-            .invalidate_sessions(&user)
-            .await
-    }
-
-    pub async fn invalidate_session(
-        &self,
-        user: UserId,
-        session_id: &str,
-    ) -> Result<(), DomainError> {
-        self.user_security_settings_repository
-            .invalidate_session(&user, session_id)
-            .await
     }
 
     pub async fn get_user_session(
@@ -427,6 +411,21 @@ where
                 "The validation code you entered is incorrect. Please try again.".to_string(),
             )))
         }
+    }
+
+    pub async fn initiate_remove_user(
+        &self,
+        user_id: UserId,
+    ) -> Result<RemoveUserConfirmation, DomainError> {
+        let (remove_token, remove_token_hash, expiry) = self.generate_email_token(32).await?;
+        todo!()
+    }
+
+    pub async fn confirm_remove_user(
+        &self,
+        user_id: ConfirmDeleteUserDTO,
+    ) -> Result<(), DomainError> {
+        todo!()
     }
 }
 

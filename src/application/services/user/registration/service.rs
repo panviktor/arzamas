@@ -1,9 +1,9 @@
 use crate::application::dto::user::user_registration_request_dto::{
-    CreateUserRequest, FindUserByIdRequest, ValidateEmailRequest,
+    CreateUserRequest, ValidateEmailRequest,
 };
 use crate::application::dto::user::user_registration_response_dto::CreatedUserResponse;
 use crate::application::error::error::ApplicationError;
-use crate::domain::entities::shared::value_objects::{OtpToken, UserId};
+use crate::domain::entities::shared::value_objects::OtpToken;
 use crate::domain::entities::shared::{Email, Username};
 use crate::domain::ports::email::email::EmailPort;
 use crate::domain::ports::repositories::user::user_registration_dto::CreateUserDTO;
@@ -78,14 +78,6 @@ where
 
         self.user_registration_service
             .validate_user_primary_email_with_token(email, token)
-            .await?;
-        Ok(())
-    }
-
-    pub async fn delete_user(&self, request: FindUserByIdRequest) -> Result<(), ApplicationError> {
-        let find_user = UserId::new(&request.user_id);
-        self.user_registration_service
-            .delete_user(find_user)
             .await?;
         Ok(())
     }

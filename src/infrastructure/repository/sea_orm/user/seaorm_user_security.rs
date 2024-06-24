@@ -1,7 +1,8 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_security_settings::{
-    User2FAEmailConfirmation, UserChangeEmailConfirmation, UserSecuritySettings,
+    RemoveUserConfirmation, User2FAEmailConfirmation, UserChangeEmailConfirmation,
+    UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError, ValidationError};
@@ -10,11 +11,15 @@ use crate::domain::ports::repositories::user::user_security_settings_repository:
 use crate::infrastructure::repository::fetch_model;
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
-use entity::{user, user_confirmation, user_session};
+use entity::{
+    user, user_authentication, user_confirmation, user_recovery_password, user_security_settings,
+    user_session,
+};
 use sea_orm::sea_query::Expr;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
+    TransactionTrait,
 };
 use std::sync::Arc;
 
@@ -202,12 +207,11 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
     }
 
     async fn clear_email_confirmation_token(&self, user: &UserId) -> Result<(), DomainError> {
-        let confirmation = self.get_user_confirmation(&user).await?;
-        let mut active: user_confirmation::ActiveModel = confirmation.into();
-        active.activate_user_token_hash = Set(None);
-        active.activate_user_token_expiry = Set(None);
-        active.new_main_email = Set(None);
-        active
+        let mut confirmation = self.get_user_confirmation(&user).await?.into_active_model();
+        confirmation.activate_user_token_hash = Set(None);
+        confirmation.activate_user_token_expiry = Set(None);
+        confirmation.new_main_email = Set(None);
+        confirmation
             .update(&*self.db)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
@@ -349,6 +353,95 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
                 "Failed to update email 2FA settings: {}",
                 e
             )))
+        })?;
+
+        Ok(())
+    }
+
+    async fn store_token_for_remove_user(
+        &self,
+        user: UserId,
+        token_hash: String,
+        expiry: DateTime<Utc>,
+    ) -> Result<(), DomainError> {
+        let mut confirmation = self.get_user_confirmation(&user).await?.into_active_model();
+        confirmation.remove_user_token_hash = Set(Some(token_hash));
+        confirmation.activate_user_token_expiry = Set(Some(expiry.naive_utc()));
+        confirmation
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
+    }
+
+    async fn get_token_for_remove_user(
+        &self,
+        user: UserId,
+    ) -> Result<RemoveUserConfirmation, DomainError> {
+        let confirmation = self.get_user_confirmation(&user).await?;
+
+        let token_hash = confirmation.remove_user_token_hash.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Missing remove user token hash".to_string(),
+            ))
+        })?;
+        let expiry = confirmation.activate_user_token_expiry.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Missing token expiry date".to_string(),
+            ))
+        })?;
+        let expiry_utc = Utc.from_utc_datetime(&expiry);
+
+        Ok(RemoveUserConfirmation {
+            otp_hash: token_hash,
+            expiry: expiry_utc,
+        })
+    }
+
+    async fn delete_user(&self, user: UserId) -> Result<(), DomainError> {
+        let txn = self.db.begin().await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
+        })?;
+
+        user_session::Entity::delete_many()
+            .filter(user_session::Column::UserId.eq(&user.user_id))
+            .exec(&txn)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Delete(e.to_string())))?;
+
+        user_authentication::Entity::delete_many()
+            .filter(user_authentication::Column::UserId.eq(&user.user_id))
+            .exec(&txn)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Delete(e.to_string())))?;
+
+        user_confirmation::Entity::delete_many()
+            .filter(user_confirmation::Column::UserId.eq(&user.user_id))
+            .exec(&txn)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Delete(e.to_string())))?;
+
+        user_recovery_password::Entity::delete_many()
+            .filter(user_recovery_password::Column::UserId.eq(&user.user_id))
+            .exec(&txn)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Delete(e.to_string())))?;
+
+        user_security_settings::Entity::delete_many()
+            .filter(user_security_settings::Column::UserId.eq(&user.user_id))
+            .exec(&txn)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Delete(e.to_string())))?;
+
+        user::Entity::delete_many()
+            .filter(user::Column::UserId.eq(&user.user_id))
+            .exec(&txn)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Delete(e.to_string())))?;
+
+        txn.commit().await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
         })?;
 
         Ok(())

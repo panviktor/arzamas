@@ -76,11 +76,6 @@ where
         })
     }
 
-    pub async fn delete_user(&self, user: UserId) -> Result<(), DomainError> {
-        // FIXME - add email confirmation, move to UserSecurity
-        self.user_registration_repository.delete_user(user).await
-    }
-
     pub async fn validate_user_primary_email_with_token(
         &self,
         email: Email,

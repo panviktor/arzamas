@@ -8,6 +8,7 @@ pub struct BaseUserResponse {
     pub email: String,
     pub username: String,
     pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl From<UserBase> for BaseUserResponse {
@@ -17,6 +18,7 @@ impl From<UserBase> for BaseUserResponse {
             email: user.email.into_inner(),
             username: user.username,
             created_at: user.created_at,
+            updated_at: user.updated_at,
         }
     }
 }

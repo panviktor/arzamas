@@ -1,6 +1,6 @@
 use crate::application::dto::user::user_security_request_dto::{
-    ActivateEmail2FARequest, ChangeEmailRequest, ChangePasswordRequest, ConfirmEmail2FARequest,
-    ConfirmEmailRequest, SecuritySettingsUpdateRequest,
+    ActivateEmail2FARequest, ChangeEmailRequest, ChangePasswordRequest, ConfirmDeleteUserRequest,
+    ConfirmEmail2FARequest, ConfirmEmailRequest, SecuritySettingsUpdateRequest,
 };
 use crate::application::dto::user::user_security_response_dto::{
     SecuritySettingsResponse, UserSessionResponse,
@@ -316,5 +316,19 @@ where
             "2FA email authentication has been successfully disabled.".to_string(),
             None,
         ))
+    }
+
+    pub async fn initiate_delete_user(
+        &self,
+        request: UserByIdRequest,
+    ) -> Result<UniversalApplicationResponse, ApplicationError> {
+        todo!()
+    }
+
+    pub async fn confirm_delete_user(
+        &self,
+        request: ConfirmDeleteUserRequest,
+    ) -> Result<UniversalApplicationResponse, ApplicationError> {
+        todo!()
     }
 }
