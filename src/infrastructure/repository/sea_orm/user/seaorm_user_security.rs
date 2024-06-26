@@ -296,6 +296,35 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         Ok(())
     }
 
+    async fn save_app_2fa_secret(
+        &self,
+        user_id: UserId,
+        secret: String,
+        email_token_hash: String,
+        expiry: DateTime<Utc>,
+    ) -> Result<(), DomainError> {
+        let mut uc = fetch_model::<entity::prelude::UserConfirmation>(
+            &self.db,
+            user_confirmation::Column::UserId.eq(user_id.user_id),
+            "User confirmation not found",
+        )
+        .await?
+        .into_active_model();
+
+        uc.activate_app2_fa_token = Set(Some(email_token_hash));
+        uc.activate_app2_fa_token_expiry = Set(Some(expiry.naive_utc()));
+        uc.activate_app2_secret = Set(Some(secret));
+
+        uc.update(&*self.db).await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Update(format!(
+                "Failed to save email 2fa activating token: {}",
+                e
+            )))
+        })?;
+
+        Ok(())
+    }
+
     async fn retrieve_email_2fa_token(
         &self,
         user: &UserId,

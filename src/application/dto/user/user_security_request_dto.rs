@@ -183,3 +183,8 @@ impl From<ConfirmDeleteUserRequest> for ConfirmDeleteUserDTO {
         }
     }
 }
+
+pub struct ConfirmApp2FARequest {
+    pub user_id: String,
+    pub code: String,
+}

@@ -1,13 +1,13 @@
 use crate::domain::entities::shared::value_objects::OtpToken;
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::user::user_security_settings::{
-    ConfirmEmail2FA, DeleteUserConfirmation, InitiateDeleteUserResponse, UserChangeEmail,
-    UserSecuritySettings,
+    ConfirmEnable2FA, InitiateDeleteUserResponse, UserChangeEmail, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError, ValidationError};
 
 use crate::domain::entities::user::user_registration::UserRegistrationError;
+use crate::domain::error::ExternalServiceError::Custom;
 use crate::domain::error::PersistenceError::Retrieve;
 use crate::domain::error::ValidationError::BusinessRuleViolation;
 use crate::domain::ports::repositories::user::user_security_settings_dto::{
@@ -20,10 +20,11 @@ use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::{
     UserCredentialService, UserValidationService, ValidationServiceError,
 };
-use actix_web::web::to;
 use chrono::{DateTime, Duration, Utc};
+use getrandom::getrandom;
 use std::sync::Arc;
 use tokio::join;
+use url::Url;
 
 pub struct UserSecuritySettingsDomainService<S, U>
 where
@@ -258,7 +259,7 @@ where
     pub async fn enable_email_2fa(
         &self,
         request: ActivateEmail2FADTO,
-    ) -> Result<ConfirmEmail2FA, DomainError> {
+    ) -> Result<ConfirmEnable2FA, DomainError> {
         // Validate the provided email
         UserValidationService::validate_email(&request.email)?;
 
@@ -296,7 +297,7 @@ where
             .save_email_2fa_token(request.user_id, confirmation_token_hash, expiry)
             .await?;
 
-        Ok(ConfirmEmail2FA::new(user.email, confirmation_token))
+        Ok(ConfirmEnable2FA::new(user.email, confirmation_token))
     }
 
     pub async fn confirm_email_2fa(&self, request: ConfirmEmail2FADTO) -> Result<(), DomainError> {
@@ -341,7 +342,10 @@ where
         }
     }
 
-    pub async fn disable_email_2fa(&self, user_id: UserId) -> Result<ConfirmEmail2FA, DomainError> {
+    pub async fn disable_email_2fa(
+        &self,
+        user_id: UserId,
+    ) -> Result<ConfirmEnable2FA, DomainError> {
         let (user_result, security_settings_result) = join!(
             self.user_repository.get_base_user_by_id(&user_id),
             self.user_security_settings_repository
@@ -366,7 +370,7 @@ where
             .save_email_2fa_token(user_id, disable_token_hash, expiry)
             .await?;
 
-        Ok(ConfirmEmail2FA::new(user.email, disable_token))
+        Ok(ConfirmEnable2FA::new(user.email, disable_token))
     }
 
     pub async fn confirm_disable_email_2fa(
@@ -413,6 +417,40 @@ where
                 "The validation code you entered is incorrect. Please try again.".to_string(),
             )))
         }
+    }
+
+    pub async fn enable_app_2fa(&self, user_id: UserId) -> Result<ConfirmEnable2FA, DomainError> {
+        let (user_result, security_settings_result) = join!(
+            self.user_repository.get_base_user_by_id(&user_id),
+            self.user_security_settings_repository
+                .get_security_settings(&user_id)
+        );
+
+        // Handle potential errors from the concurrent operations
+        let user = user_result?;
+        let security_settings = security_settings_result?;
+
+        // Check if email 2FA is already enabled
+        if security_settings.two_factor_authenticator_app {
+            return Err(DomainError::ValidationError(BusinessRuleViolation(
+                "Two-factor authentication via App is already enabled.".to_string(),
+            )));
+        }
+
+        let (confirmation_token, confirmation_token_hash, expiry) =
+            self.generate_email_token(32).await?;
+
+        let mut secret = [0u8; 32];
+        getrandom(&mut secret).map_err(|e| {
+            DomainError::ExternalServiceError(Custom(format!("Getrandom error: {}", e)))
+        })?;
+        let base32_secret = base32::encode(base32::Alphabet::Rfc4648 { padding: false }, &secret);
+
+        self.user_security_settings_repository
+            .save_app_2fa_secret(user_id, base32_secret, confirmation_token_hash, expiry)
+            .await?;
+
+        Ok(ConfirmEnable2FA::new(user.email, confirmation_token))
     }
 
     pub async fn initiate_delete_user(
@@ -501,5 +539,28 @@ where
         let token_hash = SharedDomainService::hash_token(&token);
         let expiry = Utc::now() + Duration::days(1);
         Ok((email_token, token_hash, expiry))
+    }
+
+    fn generate_totp_uri(secret: &str, user_id: &str, issuer: &str) -> Result<String, DomainError> {
+        let mut url = Url::parse("otpauth://totp/").map_err(|e| {
+            DomainError::ExternalServiceError(Custom(format!("Failed to parse base URL: {}", e)))
+        })?;
+
+        url.path_segments_mut()
+            .map_err(|_| {
+                DomainError::ExternalServiceError(Custom(
+                    "Failed to get mutable path segments".to_string(),
+                ))
+            })?
+            .push(&format!("{}:{}", issuer, user_id));
+
+        url.query_pairs_mut()
+            .append_pair("secret", secret)
+            .append_pair("issuer", issuer)
+            .append_pair("algorithm", "SHA1")
+            .append_pair("digits", "6")
+            .append_pair("period", "30");
+
+        Ok(url.to_string())
     }
 }

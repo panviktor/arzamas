@@ -1,5 +1,4 @@
 use crate::domain::entities::shared::{Email, OtpToken};
-use crate::domain::entities::user::UserRegistration;
 use chrono::{DateTime, Utc};
 
 #[derive(Debug)]
@@ -32,12 +31,12 @@ pub struct UserChangeEmailConfirmation {
 }
 
 #[derive(Debug)]
-pub struct ConfirmEmail2FA {
+pub struct ConfirmEnable2FA {
     pub email: Email,
     pub token: OtpToken,
 }
 
-impl ConfirmEmail2FA {
+impl ConfirmEnable2FA {
     pub fn new(email: Email, token: OtpToken) -> Self {
         Self { email, token }
     }

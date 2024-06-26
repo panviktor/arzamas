@@ -54,6 +54,13 @@ pub trait UserSecuritySettingsDomainRepository {
         email_token_hash: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError>;
+    async fn save_app_2fa_secret(
+        &self,
+        user_id: UserId,
+        secret: String,
+        email_token_hash: String,
+        expiry: DateTime<Utc>,
+    ) -> Result<(), DomainError>;
     async fn retrieve_email_2fa_token(
         &self,
         user: &UserId,

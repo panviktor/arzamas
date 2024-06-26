@@ -28,6 +28,12 @@ pub struct SecuritySettingsUpdateRequestWeb {
 pub struct ActivateEmail2FARequestWeb {
     pub email: String,
 }
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct ActivateApp2FARequestWeb {
+    pub code: String,
+}
+
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct ConfirmEmail2FARequestWeb {
     pub token: String,

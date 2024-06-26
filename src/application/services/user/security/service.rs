@@ -1,6 +1,7 @@
 use crate::application::dto::user::user_security_request_dto::{
-    ActivateEmail2FARequest, ChangeEmailRequest, ChangePasswordRequest, ConfirmDeleteUserRequest,
-    ConfirmEmail2FARequest, ConfirmEmailRequest, SecuritySettingsUpdateRequest,
+    ActivateEmail2FARequest, ChangeEmailRequest, ChangePasswordRequest, ConfirmApp2FARequest,
+    ConfirmDeleteUserRequest, ConfirmEmail2FARequest, ConfirmEmailRequest,
+    SecuritySettingsUpdateRequest,
 };
 use crate::application::dto::user::user_security_response_dto::{
     SecuritySettingsResponse, UserSessionResponse,
@@ -259,7 +260,7 @@ where
         ))
     }
 
-    pub async fn confirm_email_2fa(
+    pub async fn confirm_enable_email_2fa(
         &self,
         request: ConfirmEmail2FARequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
@@ -316,6 +317,34 @@ where
             "2FA email authentication has been successfully disabled.".to_string(),
             None,
         ))
+    }
+
+    pub async fn enable_app_2fa(
+        &self,
+        request: UserByIdRequest,
+    ) -> Result<UniversalApplicationResponse, ApplicationError> {
+        let user_id = UserId::new(&request.user_id);
+
+        self.user_security_service.enable_app_2fa(user_id).await?;
+
+        Ok(UniversalApplicationResponse::new(
+            "-------".to_string(),
+            None,
+        ))
+    }
+
+    pub async fn confirm_enable_app_2fa(
+        &self,
+        request: ConfirmApp2FARequest,
+    ) -> Result<UniversalApplicationResponse, ApplicationError> {
+        todo!()
+    }
+
+    pub async fn disable_app_2fa(
+        &self,
+        request: ConfirmApp2FARequest,
+    ) -> Result<UniversalApplicationResponse, ApplicationError> {
+        todo!()
     }
 
     pub async fn initiate_delete_user(

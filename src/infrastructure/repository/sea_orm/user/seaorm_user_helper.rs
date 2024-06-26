@@ -51,7 +51,6 @@ impl From<user_authentication::Model> for UserAuthenticationData {
             otp_email_currently_valid: model.otp_email_currently_valid,
             otp_app_hash: model.otp_app_hash,
             otp_app_currently_valid: model.otp_app_currently_valid,
-            otp_app_mnemonic: model.otp_app_mnemonic,
             expiry,
             attempt_count: model.attempt_count,
             user_agent,

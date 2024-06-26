@@ -80,12 +80,6 @@ pub struct UserAuthenticationData {
     /// It must be managed carefully to ensure it accurately reflects the state based on `otp_app_valid_time`.
     pub otp_app_currently_valid: bool,
 
-    /// Optional mnemonic for the OTP.
-    /// This is used for recovery and should be handled with
-    /// care to avoid security risks.
-    /// It's typically not recommended to store this unless absolutely necessary.
-    pub otp_app_mnemonic: Option<String>,
-
     /// General expiration time for the OTP token session. This might control the entire session's validity
     /// for OTP entry and should be checked before accepting any OTP entries.
     pub expiry: Option<DateTime<Utc>>,

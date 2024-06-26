@@ -61,11 +61,6 @@ impl MigrationTrait for Migration {
                             .default(false),
                     )
                     .col(
-                        ColumnDef::new(UserAuthentication::OtpAppMnemonic)
-                            .string()
-                            .null(),
-                    )
-                    .col(
                         ColumnDef::new(UserAuthentication::Expiry)
                             .timestamp()
                             .null(),
@@ -121,7 +116,6 @@ pub enum UserAuthentication {
     OtpEmailCurrentlyValid,
     OtpAppHash,
     OtpAppCurrentlyValid,
-    OtpAppMnemonic,
     Expiry,
     AttemptCount,
     UserAgent,

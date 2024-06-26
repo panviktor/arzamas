@@ -249,7 +249,7 @@ pub async fn confirm_email_2fa(
     let application_request = ConfirmEmail2FARequest::new(user.id, params.token.to_string());
     let response: UniversalApplicationResponse = data
         .user_security_service
-        .confirm_email_2fa(application_request)
+        .confirm_enable_email_2fa(application_request)
         .await
         .map_err(|e| e.into_service_error(&req))?
         .into();
@@ -300,9 +300,15 @@ pub async fn enable_app_2fa(
     data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
 ) -> Result<HttpResponse, AppResponseError> {
-    // let json = try_2fa_add(&req, &user.id).await?;
-    // Ok(HttpResponse::Ok().json(json))
-    todo!()
+    let user = UserByIdRequest::new(&user.id);
+    let response: UniversalApplicationResponse = data
+        .user_security_service
+        .enable_app_2fa(user)
+        .await
+        .map_err(|e| e.into_service_error(&req))?
+        .into();
+    let response = UniversalResponse::new(response.title, response.subtitle, true);
+    Ok(HttpResponse::Ok().json(response))
 }
 
 pub async fn verify_app_2fa(
