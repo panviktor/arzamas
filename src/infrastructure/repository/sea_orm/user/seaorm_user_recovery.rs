@@ -130,7 +130,6 @@ impl UserRecoveryPasswdDomainRepository for SeaOrmUserRecoveryRepository {
                 recovery.user_agent.as_deref().map(UserAgent::new),
                 recovery.ip_address.as_deref().map(IPAddress::new),
                 security_setting,
-                recovery.recovery_token,
                 recovery.expiry.map(|dt| Utc.from_utc_datetime(&dt)),
                 recovery.attempt_count,
                 recovery
@@ -195,7 +194,6 @@ impl SeaOrmUserRecoveryRepository {
             None,
             None,
             security_setting,
-            None,
             None,
             0,
             None,

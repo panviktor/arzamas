@@ -1,6 +1,5 @@
 use crate::domain::entities::shared::value_objects::{OtpCode, UserId};
 use crate::domain::entities::shared::{Email, OtpToken};
-use chrono::{DateTime, Utc};
 
 #[derive(Debug)]
 pub struct ChangePasswordDTO {
@@ -41,7 +40,7 @@ pub struct ConfirmDeleteUserDTO {
     pub token: OtpToken,
 }
 
-pub struct ConfirmEnableApp2FADTO {
+pub struct ConfirmChangeApp2FADTO {
     pub user_id: UserId,
     pub email_code: OtpCode,
     pub app_code: OtpCode,

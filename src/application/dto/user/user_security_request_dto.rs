@@ -1,8 +1,8 @@
 use crate::domain::entities::shared::value_objects::{OtpCode, UserId};
 use crate::domain::entities::shared::{Email, OtpToken};
 use crate::domain::ports::repositories::user::user_security_settings_dto::{
-    ActivateEmail2FADTO, ChangeEmailDTO, ChangePasswordDTO, ConfirmDeleteUserDTO,
-    ConfirmEmail2FADTO, ConfirmEmailDTO, ConfirmEnableApp2FADTO, SecuritySettingsUpdateDTO,
+    ActivateEmail2FADTO, ChangeEmailDTO, ChangePasswordDTO, ConfirmChangeApp2FADTO,
+    ConfirmDeleteUserDTO, ConfirmEmail2FADTO, ConfirmEmailDTO, SecuritySettingsUpdateDTO,
 };
 
 /// ChangePasswordRequest
@@ -200,9 +200,9 @@ impl ConfirmApp2FARequest {
     }
 }
 
-impl From<ConfirmApp2FARequest> for ConfirmEnableApp2FADTO {
+impl From<ConfirmApp2FARequest> for ConfirmChangeApp2FADTO {
     fn from(request: ConfirmApp2FARequest) -> Self {
-        ConfirmEnableApp2FADTO {
+        ConfirmChangeApp2FADTO {
             user_id: UserId::new(&request.user_id),
             email_code: OtpCode::new(&request.email_code),
             app_code: OtpCode::new(&request.app_code),

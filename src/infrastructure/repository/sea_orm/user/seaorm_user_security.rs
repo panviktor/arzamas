@@ -11,7 +11,6 @@ use crate::domain::ports::repositories::user::user_security_settings_repository:
 use crate::infrastructure::repository::fetch_model;
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
-use entity::user_confirmation::ActiveModel;
 use entity::{
     user, user_authentication, user_confirmation, user_recovery_password, user_security_settings,
     user_session,
@@ -620,27 +619,10 @@ impl SeaOrmUserSecurityRepository {
             )))
         })?;
 
-        let (uc_result, ss_result, bs_result) = join!(
-            fetch_model::<user_confirmation::Entity>(
-                db,
-                user_confirmation::Column::UserId.eq(&user.user_id),
-                "User confirmation not found"
-            ),
-            fetch_model::<user_security_settings::Entity>(
-                db,
-                user_security_settings::Column::UserId.eq(&user.user_id),
-                "User security settings not found"
-            ),
-            fetch_model::<user::Entity>(
-                db,
-                user::Column::UserId.eq(&user.user_id),
-                "User not found",
-            )
-        );
-
-        let mut confirmation = uc_result?.into_active_model();
-        let mut security = ss_result?.into_active_model();
-        let mut base_user = bs_result?.into_active_model();
+        let (confirmation, security, base_user) = Self::fetch_models(db, user).await?;
+        let mut confirmation = confirmation.into_active_model();
+        let mut security = security.into_active_model();
+        let mut base_user = base_user.into_active_model();
 
         if let Some(enable) = enable_app_2fa {
             security.two_factor_authenticator_app = Set(enable);
@@ -669,7 +651,7 @@ impl SeaOrmUserSecurityRepository {
     async fn update_and_commit_transaction(
         txn: DatabaseTransaction,
         security: user_security_settings::ActiveModel,
-        confirmation: ActiveModel,
+        confirmation: user_confirmation::ActiveModel,
         base_user: user::ActiveModel,
     ) -> Result<(), DomainError> {
         security.update(&txn).await.map_err(|e| {
@@ -701,5 +683,37 @@ impl SeaOrmUserSecurityRepository {
         })?;
 
         Ok(())
+    }
+
+    async fn fetch_models(
+        db: &DatabaseConnection,
+        user: &UserId,
+    ) -> Result<
+        (
+            user_confirmation::Model,
+            user_security_settings::Model,
+            user::Model,
+        ),
+        DomainError,
+    > {
+        let (uc_result, ss_result, bs_result) = join!(
+            fetch_model::<user_confirmation::Entity>(
+                db,
+                user_confirmation::Column::UserId.eq(&user.user_id),
+                "User confirmation not found"
+            ),
+            fetch_model::<user_security_settings::Entity>(
+                db,
+                user_security_settings::Column::UserId.eq(&user.user_id),
+                "User security settings not found"
+            ),
+            fetch_model::<user::Entity>(
+                db,
+                user::Column::UserId.eq(&user.user_id),
+                "User not found",
+            )
+        );
+
+        Ok((uc_result?, ss_result?, bs_result?))
     }
 }

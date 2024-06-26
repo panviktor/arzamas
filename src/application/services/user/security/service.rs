@@ -16,6 +16,9 @@ use crate::domain::ports::email::email::EmailPort;
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
 use crate::domain::services::user::user_security_settings_service::UserSecuritySettingsDomainService;
+use qrcode::render::svg;
+use qrcode::QrCode;
+use std::io;
 use std::sync::Arc;
 use tokio::join;
 
@@ -339,8 +342,18 @@ where
             response.secret
         );
 
+        let qr_code_svg = Self::generate_qr_code_svg(&response.totp_uri).map_err(|_| {
+            ApplicationError::ExternalServiceError("Failed to generate QR code.".to_string())
+        })?;
+
         self.email_service
-            .send_email(response.email.value(), &subject, &message)
+            .send_email_with_attachment(
+                response.email.value(),
+                &subject,
+                &message,
+                qr_code_svg,
+                "qr_code.svg",
+            )
             .await
             .map_err(|_| {
                 ApplicationError::ExternalServiceError(
@@ -359,7 +372,7 @@ where
         request: ConfirmApp2FARequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
         self.user_security_service
-            .confirm_app_2fa(request.into())
+            .confirm_enable_app_2fa(request.into())
             .await
             .map_err(|e| {
                 ApplicationError::ExternalServiceError(format!(
@@ -375,6 +388,13 @@ where
     }
 
     pub async fn disable_app_2fa(
+        &self,
+        request: UserByIdRequest,
+    ) -> Result<UniversalApplicationResponse, ApplicationError> {
+        todo!()
+    }
+
+    pub async fn confirm_app_2fa(
         &self,
         request: ConfirmApp2FARequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
@@ -428,5 +448,20 @@ where
             "Your account has been successfully deleted.".to_string(),
             None,
         ))
+    }
+}
+
+impl<S, U, E, SM> UserSecurityApplicationService<S, U, E, SM>
+where
+    S: UserSecuritySettingsDomainRepository,
+    U: UserSharedDomainRepository,
+    E: EmailPort,
+    SM: SessionManager + Sync + Send,
+{
+    fn generate_qr_code_svg(data: &str) -> Result<Vec<u8>, io::Error> {
+        let code =
+            QrCode::new(data).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        let svg_string = code.render::<svg::Color>().build();
+        Ok(svg_string.into_bytes())
     }
 }

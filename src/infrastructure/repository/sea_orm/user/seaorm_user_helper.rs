@@ -66,10 +66,8 @@ impl From<user_authentication::Model> for UserAuthenticationData {
 impl From<user_security_settings::Model> for UserSecuritySettings {
     fn from(model: user_security_settings::Model) -> UserSecuritySettings {
         UserSecuritySettings {
-            user_id: model.user_id,
             two_factor_email: model.two_factor_email,
             two_factor_authenticator_app: model.two_factor_authenticator_app,
-            totp_secret: model.totp_secret,
             email_on_success_enabled_at: model.email_on_success_enabled_at,
             email_on_failure_enabled_at: model.email_on_failure_enabled_at,
             close_sessions_on_change_password: model.close_sessions_on_change_password,

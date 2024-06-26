@@ -30,7 +30,7 @@ pub struct ActivateEmail2FARequestWeb {
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
-pub struct ActivateApp2FARequestWeb {
+pub struct ChangeApp2FAStateRequestWeb {
     pub email_code: String,
     pub code: String,
 }

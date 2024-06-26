@@ -3,10 +3,8 @@ use chrono::{DateTime, Utc};
 
 #[derive(Debug)]
 pub struct UserSecuritySettings {
-    pub user_id: String,
     pub two_factor_email: bool,
     pub two_factor_authenticator_app: bool,
-    pub totp_secret: Option<String>,
     pub email_on_success_enabled_at: bool,
     pub email_on_failure_enabled_at: bool,
     pub close_sessions_on_change_password: bool,
@@ -41,7 +39,7 @@ impl ConfirmEnableEmail2FA {
         Self { email, token }
     }
 }
-#[derive(Debug)]
+
 pub struct User2FAEmailConfirmation {
     pub otp_hash: String,
     pub expiry: DateTime<Utc>,
@@ -73,16 +71,23 @@ pub struct ConfirmEnableApp2FA {
     pub email: Email,
     pub token: OtpToken,
     pub secret: String,
+    pub totp_uri: String,
 }
 
 impl ConfirmEnableApp2FA {
-    pub fn new(email: Email, token: OtpToken, secret: String) -> Self {
+    pub fn new(email: Email, token: OtpToken, secret: String, totp_uri: String) -> Self {
         Self {
             email,
             token,
             secret,
+            totp_uri,
         }
     }
+}
+
+pub struct ConfirmDisableApp2FA {
+    pub email: Email,
+    pub token: OtpToken,
 }
 
 pub struct User2FAAppConfirmation {

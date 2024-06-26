@@ -1,8 +1,8 @@
 use crate::domain::entities::shared::value_objects::OtpToken;
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::user::user_security_settings::{
-    ConfirmEnableApp2FA, ConfirmEnableEmail2FA, InitiateDeleteUserResponse, UserChangeEmail,
-    UserSecuritySettings,
+    ConfirmDisableApp2FA, ConfirmEnableApp2FA, ConfirmEnableEmail2FA, InitiateDeleteUserResponse,
+    UserChangeEmail, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError, ValidationError};
@@ -12,8 +12,8 @@ use crate::domain::error::ExternalServiceError::Custom;
 use crate::domain::error::PersistenceError::Retrieve;
 use crate::domain::error::ValidationError::BusinessRuleViolation;
 use crate::domain::ports::repositories::user::user_security_settings_dto::{
-    ActivateEmail2FADTO, ChangeEmailDTO, ChangePasswordDTO, ConfirmDeleteUserDTO,
-    ConfirmEmail2FADTO, ConfirmEmailDTO, ConfirmEnableApp2FADTO, SecuritySettingsUpdateDTO,
+    ActivateEmail2FADTO, ChangeEmailDTO, ChangePasswordDTO, ConfirmChangeApp2FADTO,
+    ConfirmDeleteUserDTO, ConfirmEmail2FADTO, ConfirmEmailDTO, SecuritySettingsUpdateDTO,
 };
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
@@ -21,6 +21,7 @@ use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::{
     UserCredentialService, UserValidationService, ValidationServiceError,
 };
+use actix_web::web::to;
 use chrono::{DateTime, Duration, Utc};
 use getrandom::getrandom;
 use std::sync::Arc;
@@ -135,10 +136,7 @@ where
 
         // Handle the results of the concurrent operations
         let user = user_result.map_err(|e| {
-            DomainError::PersistenceError(PersistenceError::Retrieve(format!(
-                "Failed to retrieve user: {}",
-                e
-            )))
+            DomainError::PersistenceError(Retrieve(format!("Failed to retrieve user: {}", e)))
         })?;
 
         if user.email == request.new_email {
@@ -148,7 +146,7 @@ where
         };
 
         if email_exists_result.map_err(|e| {
-            DomainError::PersistenceError(PersistenceError::Retrieve(format!(
+            DomainError::PersistenceError(Retrieve(format!(
                 "Failed to check if email exists: {}",
                 e
             )))
@@ -423,8 +421,6 @@ where
         &self,
         user_id: UserId,
     ) -> Result<ConfirmEnableApp2FA, DomainError> {
-        println!("{}", &user_id.user_id);
-
         let (user_result, security_settings_result) = join!(
             self.user_repository.get_base_user_by_id(&user_id),
             self.user_security_settings_repository
@@ -460,16 +456,19 @@ where
             )
             .await?;
 
+        let url_for_app = Self::generate_totp_uri(&base32_secret, &user.username, "Arzamas")?;
+
         Ok(ConfirmEnableApp2FA::new(
             user.email,
             confirmation_token,
             base32_secret,
+            url_for_app,
         ))
     }
 
-    pub async fn confirm_app_2fa(
+    pub async fn confirm_enable_app_2fa(
         &self,
-        request: ConfirmEnableApp2FADTO,
+        request: ConfirmChangeApp2FADTO,
     ) -> Result<(), DomainError> {
         let app_token = self
             .user_security_settings_repository
@@ -483,6 +482,7 @@ where
             let now = Utc::now();
             if app_token.expiry > now {
                 UserValidationService::verify_totp(&app_token.secret, request.app_code.value())?;
+
                 Ok(self
                     .user_security_settings_repository
                     .toggle_app_2fa(&request.user_id, true, now)
@@ -497,6 +497,20 @@ where
                 "The validation code you entered is incorrect. Please try again.".to_string(),
             )))
         }
+    }
+
+    pub async fn disable_app_2fa(
+        &self,
+        user_id: UserId,
+    ) -> Result<ConfirmDisableApp2FA, DomainError> {
+        todo!()
+    }
+
+    pub async fn confirm_disable_app_2fa(
+        &self,
+        request: ConfirmChangeApp2FADTO,
+    ) -> Result<(), DomainError> {
+        todo!()
     }
 
     pub async fn initiate_delete_user(
@@ -587,7 +601,11 @@ where
         Ok((email_token, token_hash, expiry))
     }
 
-    fn generate_totp_uri(secret: &str, user_id: &str, issuer: &str) -> Result<String, DomainError> {
+    fn generate_totp_uri(
+        secret: &str,
+        user_name: &str,
+        issuer: &str,
+    ) -> Result<String, DomainError> {
         let mut url = Url::parse("otpauth://totp/").map_err(|e| {
             DomainError::ExternalServiceError(Custom(format!("Failed to parse base URL: {}", e)))
         })?;
@@ -598,7 +616,7 @@ where
                     "Failed to get mutable path segments".to_string(),
                 ))
             })?
-            .push(&format!("{}:{}", issuer, user_id));
+            .push(&format!("{}:{}", issuer, user_name));
 
         url.query_pairs_mut()
             .append_pair("secret", secret)
