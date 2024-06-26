@@ -190,7 +190,12 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         )))
     }
 
-    async fn update_main_user_email(&self, user: &UserId, email: Email) -> Result<(), DomainError> {
+    async fn update_main_user_email(
+        &self,
+        user: &UserId,
+        email: Email,
+        update_time: DateTime<Utc>,
+    ) -> Result<(), DomainError> {
         let mut user = fetch_model::<user::Entity>(
             &self.db,
             user::Column::UserId.eq(&user.user_id),
@@ -240,6 +245,7 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
     async fn update_security_settings(
         &self,
         settings: SecuritySettingsUpdateDTO,
+        update_time: DateTime<Utc>,
     ) -> Result<(), DomainError> {
         let mut ss = fetch_model::<user_security_settings::Entity>(
             &self.db,
@@ -276,7 +282,7 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         email_token_hash: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError> {
-        let mut uc = fetch_model::<entity::prelude::UserConfirmation>(
+        let mut uc = fetch_model::<user_confirmation::Entity>(
             &self.db,
             user_confirmation::Column::UserId.eq(user_id.user_id),
             "User confirmation not found",
@@ -301,7 +307,7 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         &self,
         user: &UserId,
     ) -> Result<User2FAEmailConfirmation, DomainError> {
-        let uc_future = entity::prelude::UserConfirmation::find()
+        let uc_future = entity::user_confirmation::Entity::find()
             .filter(user_confirmation::Column::UserId.eq(&user.user_id))
             .one(&*self.db);
 
@@ -339,7 +345,12 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         )))
     }
 
-    async fn toggle_email_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError> {
+    async fn toggle_email_2fa(
+        &self,
+        user: &UserId,
+        enable: bool,
+        update_time: DateTime<Utc>,
+    ) -> Result<(), DomainError> {
         let mut ss = fetch_model::<user_security_settings::Entity>(
             &self.db,
             user_security_settings::Column::UserId.eq(&user.user_id),
@@ -374,7 +385,7 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         })?;
 
         let (uc_result, ss_result) = join!(
-            fetch_model::<user_confirmation>(
+            fetch_model::<user_confirmation::Entity>(
                 &self.db,
                 user_confirmation::Column::UserId.eq(&user_id.user_id),
                 "User confirmation not found"
@@ -421,8 +432,6 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         &self,
         user: &UserId,
     ) -> Result<User2FAAppConfirmation, DomainError> {
-        println!("423");
-
         let uc_future = entity::user_confirmation::Entity::find()
             .filter(user_confirmation::Column::UserId.eq(&user.user_id))
             .one(&*self.db);
@@ -468,19 +477,70 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         Ok(User2FAAppConfirmation::new(otp_hash, expiry_utc, secret))
     }
 
-    async fn toggle_app_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError> {
-        let mut ss = fetch_model::<user_security_settings::Entity>(
-            &self.db,
-            user_security_settings::Column::UserId.eq(&user.user_id),
-            "User security settings not found",
-        )
-        .await?
-        .into_active_model();
+    async fn toggle_app_2fa(
+        &self,
+        user: &UserId,
+        enable: bool,
+        update_time: DateTime<Utc>,
+    ) -> Result<(), DomainError> {
+        let txn = self.db.begin().await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Transaction(format!(
+                "Failed to begin transaction: {}",
+                e
+            )))
+        })?;
 
-        ss.two_factor_authenticator_app = Set(enable);
-        ss.update(&*self.db).await.map_err(|e| {
+        let (uc_result, ss_result, bs_result) = join!(
+            fetch_model::<user_confirmation::Entity>(
+                &self.db,
+                user_confirmation::Column::UserId.eq(&user.user_id),
+                "User confirmation not found"
+            ),
+            fetch_model::<user_security_settings::Entity>(
+                &self.db,
+                user_security_settings::Column::UserId.eq(&user.user_id),
+                "User security settings not found"
+            ),
+            fetch_model::<user::Entity>(
+                &self.db,
+                user::Column::UserId.eq(&user.user_id),
+                "User not found",
+            )
+        );
+
+        let mut confirmation = uc_result?.into_active_model();
+        let mut security = ss_result?.into_active_model();
+        let mut base_user = bs_result?.into_active_model();
+
+        security.two_factor_authenticator_app = Set(enable);
+        confirmation.activate_app2_fa_token = Set(None);
+        confirmation.activate_app2_fa_token_expiry = Set(None);
+        base_user.updated_at = Set(update_time.naive_utc());
+
+        security.update(&txn).await.map_err(|e| {
             DomainError::PersistenceError(PersistenceError::Update(format!(
-                "Failed to update App 2FA settings: {}",
+                "Failed to save TOTP secret: {}",
+                e
+            )))
+        })?;
+
+        confirmation.update(&txn).await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Update(format!(
+                "Failed to save email 2fa activating token: {}",
+                e
+            )))
+        })?;
+
+        base_user.update(&txn).await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Update(format!(
+                "Failed to save email 2fa activating token: {}",
+                e
+            )))
+        })?;
+
+        txn.commit().await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Transaction(format!(
+                "Failed to commit transaction: {}",
                 e
             )))
         })?;

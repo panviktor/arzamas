@@ -212,7 +212,7 @@ where
                     self.user_security_settings_repository
                         .clear_email_confirmation_token(&request.user_id),
                     self.user_security_settings_repository
-                        .update_main_user_email(&request.user_id, confirmation.new_email)
+                        .update_main_user_email(&request.user_id, confirmation.new_email, now)
                 );
 
                 complete_verification_result?;
@@ -251,8 +251,9 @@ where
         &self,
         request: SecuritySettingsUpdateDTO,
     ) -> Result<(), DomainError> {
+        let now = Utc::now();
         self.user_security_settings_repository
-            .update_security_settings(request)
+            .update_security_settings(request, now)
             .await?;
         Ok(())
     }
@@ -325,7 +326,7 @@ where
             let now = Utc::now();
             if confirmation.expiry > now {
                 self.user_security_settings_repository
-                    .toggle_email_2fa(&request.user_id, true)
+                    .toggle_email_2fa(&request.user_id, true, now)
                     .await?;
                 return Ok(());
             } else {
@@ -401,7 +402,7 @@ where
             let now = Utc::now();
             if confirmation.expiry > now {
                 self.user_security_settings_repository
-                    .toggle_email_2fa(&request.user_id, false)
+                    .toggle_email_2fa(&request.user_id, false, now)
                     .await?;
                 Ok(())
             } else {
@@ -422,6 +423,8 @@ where
         &self,
         user_id: UserId,
     ) -> Result<ConfirmEnableApp2FA, DomainError> {
+        println!("{}", &user_id.user_id);
+
         let (user_result, security_settings_result) = join!(
             self.user_repository.get_base_user_by_id(&user_id),
             self.user_security_settings_repository
@@ -480,10 +483,10 @@ where
             let now = Utc::now();
             if app_token.expiry > now {
                 UserValidationService::verify_totp(&app_token.secret, request.app_code.value())?;
-
-                println!("Code is valid");
-
-                todo!()
+                Ok(self
+                    .user_security_settings_repository
+                    .toggle_app_2fa(&request.user_id, true, now)
+                    .await?)
             } else {
                 Err(DomainError::ValidationError(ValidationError::InvalidData(
                     "The confirmation token has expired. Please request a new token.".to_string(),

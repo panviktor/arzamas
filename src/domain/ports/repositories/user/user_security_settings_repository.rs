@@ -38,7 +38,12 @@ pub trait UserSecuritySettingsDomainRepository {
         &self,
         user: &UserId,
     ) -> Result<UserChangeEmailConfirmation, DomainError>;
-    async fn update_main_user_email(&self, user: &UserId, email: Email) -> Result<(), DomainError>;
+    async fn update_main_user_email(
+        &self,
+        user: &UserId,
+        email: Email,
+        update_time: DateTime<Utc>,
+    ) -> Result<(), DomainError>;
     async fn clear_email_confirmation_token(&self, user: &UserId) -> Result<(), DomainError>;
     async fn get_security_settings(
         &self,
@@ -47,6 +52,7 @@ pub trait UserSecuritySettingsDomainRepository {
     async fn update_security_settings(
         &self,
         settings: SecuritySettingsUpdateDTO,
+        update_time: DateTime<Utc>,
     ) -> Result<(), DomainError>;
     async fn save_email_2fa_token(
         &self,
@@ -58,7 +64,12 @@ pub trait UserSecuritySettingsDomainRepository {
         &self,
         user: &UserId,
     ) -> Result<User2FAEmailConfirmation, DomainError>;
-    async fn toggle_email_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError>;
+    async fn toggle_email_2fa(
+        &self,
+        user: &UserId,
+        enable: bool,
+        update_time: DateTime<Utc>,
+    ) -> Result<(), DomainError>;
     async fn save_app_2fa_secret(
         &self,
         user_id: UserId,
@@ -69,7 +80,12 @@ pub trait UserSecuritySettingsDomainRepository {
 
     async fn get_app_2fa_token(&self, user: &UserId)
         -> Result<User2FAAppConfirmation, DomainError>;
-    async fn toggle_app_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError>;
+    async fn toggle_app_2fa(
+        &self,
+        user: &UserId,
+        enable: bool,
+        update_time: DateTime<Utc>,
+    ) -> Result<(), DomainError>;
 
     async fn store_token_for_remove_user(
         &self,
