@@ -1,7 +1,8 @@
 use crate::application::dto::shared::universal_response::UniversalResponse;
 use crate::application::dto::user::user_security_request_dto::{
-    ActivateEmail2FARequest, ChangeEmailRequest, ChangePasswordRequest, ConfirmDeleteUserRequest,
-    ConfirmEmail2FARequest, ConfirmEmailRequest, SecuritySettingsUpdateRequest,
+    ActivateEmail2FARequest, ChangeEmailRequest, ChangePasswordRequest, ConfirmApp2FARequest,
+    ConfirmDeleteUserRequest, ConfirmEmail2FARequest, ConfirmEmailRequest,
+    SecuritySettingsUpdateRequest,
 };
 use crate::application::dto::user::user_shared_request_dto::UserByIdRequest;
 use crate::application::dto::user::user_shared_response_dto::UniversalApplicationResponse;
@@ -10,9 +11,9 @@ use crate::application::services::service_container::ServiceContainer;
 use crate::user_interface::web::actix_adapter::actix_adapter::extract_session_token_from_request;
 use crate::user_interface::web::dto::shared::LoginUser;
 use crate::user_interface::web::handlers::user::user_request_dto::{
-    ActivateEmail2FARequestWeb, ChangeEmailRequestWeb, ChangePasswordRequestWeb,
-    ConfirmDeleteUserWeb, ConfirmEmail2FARequestWeb, ConfirmEmailRequestWeb,
-    SecuritySettingsUpdateRequestWeb,
+    ActivateApp2FARequestWeb, ActivateEmail2FARequestWeb, ChangeEmailRequestWeb,
+    ChangePasswordRequestWeb, ConfirmDeleteUserWeb, ConfirmEmail2FARequestWeb,
+    ConfirmEmailRequestWeb, SecuritySettingsUpdateRequestWeb,
 };
 use crate::user_interface::web::handlers::user::user_response_dto::{
     BaseUserResponseWeb, SecuritySettingsResponseWeb, UserSessionResponseWeb,
@@ -311,7 +312,46 @@ pub async fn enable_app_2fa(
     Ok(HttpResponse::Ok().json(response))
 }
 
-pub async fn verify_app_2fa(
+pub async fn confirm_app_2fa(
+    req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
+    user: LoginUser,
+    params: web::Json<ActivateApp2FARequestWeb>,
+) -> Result<HttpResponse, AppResponseError> {
+    let request = ConfirmApp2FARequest::new(
+        user.id,
+        params.email_code.to_string(),
+        params.code.to_string(),
+    );
+
+    let response: UniversalApplicationResponse = data
+        .user_security_service
+        .confirm_enable_app_2fa(request)
+        .await
+        .map_err(|e| e.into_service_error(&req))?
+        .into();
+    let response = UniversalResponse::new(response.title, response.subtitle, true);
+    Ok(HttpResponse::Ok().json(response))
+}
+pub async fn remove_app_2fa(
+    req: HttpRequest,
+    data: web::Data<Arc<ServiceContainer>>,
+    user: LoginUser,
+) -> Result<HttpResponse, AppResponseError> {
+    // try_2fa_remove(&req, &user.id).await?;
+    // let response = UniversalResponse::new(
+    //     "2FA Successfully Removed".to_string(),
+    //     Some("Please keep in mind that disabling two-factor authentication (2FA) reduces the security of your account.\
+    //     It is recommended to use alternative security measures such as strong passwords,\
+    //     regular account monitoring,\
+    //     and enabling other security features provided by the platform to maintain the security of your account.".to_string()),
+    //     true,
+    // );
+    // Ok(HttpResponse::Ok().json(response))
+    todo!()
+}
+
+pub async fn confirm_disable_app_2fa(
     req: HttpRequest,
     data: web::Data<Arc<ServiceContainer>>,
     user: LoginUser,
@@ -325,34 +365,6 @@ pub async fn verify_app_2fa(
     //          This additional layer of security will help protect your account and ensure that only authorized individuals can access it.\
     //          Remember to keep your 2FA device or app safe and secure.".to_string()
     //     ),
-    //     true,
-    // );
-    // Ok(HttpResponse::Ok().json(response))
-    todo!()
-}
-
-pub async fn reset_app_2fa(
-    req: HttpRequest,
-    data: web::Data<Arc<ServiceContainer>>,
-    user: LoginUser,
-) -> Result<HttpResponse, AppResponseError> {
-    // let json = try_2fa_reset(&req, &user.id).await?;
-    // Ok(HttpResponse::Ok().json(json))
-    todo!()
-}
-
-pub async fn remove_app_2fa(
-    req: HttpRequest,
-    data: web::Data<Arc<ServiceContainer>>,
-    user: LoginUser,
-) -> Result<HttpResponse, AppResponseError> {
-    // try_2fa_remove(&req, &user.id).await?;
-    // let response = UniversalResponse::new(
-    //     "2FA Successfully Removed".to_string(),
-    //     Some("Please keep in mind that disabling two-factor authentication (2FA) reduces the security of your account.\
-    //     It is recommended to use alternative security measures such as strong passwords,\
-    //     regular account monitoring,\
-    //     and enabling other security features provided by the platform to maintain the security of your account.".to_string()),
     //     true,
     // );
     // Ok(HttpResponse::Ok().json(response))

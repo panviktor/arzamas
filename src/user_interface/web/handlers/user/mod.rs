@@ -66,16 +66,16 @@ pub fn init_user_routes(cfg: &mut web::ServiceConfig) {
                             .route(web::post().to(controllers::enable_app_2fa)),
                     )
                     .service(
-                        web::resource("/app/verify")
-                            .route(web::post().to(controllers::verify_app_2fa)),
-                    )
-                    .service(
-                        web::resource("/app/reset")
-                            .route(web::post().to(controllers::reset_app_2fa)),
+                        web::resource("/app/confirm")
+                            .route(web::post().to(controllers::confirm_app_2fa)),
                     )
                     .service(
                         web::resource("/app/remove")
                             .route(web::post().to(controllers::remove_app_2fa)),
+                    )
+                    .service(
+                        web::resource("/app/confirm-disable")
+                            .route(web::post().to(controllers::confirm_disable_app_2fa)),
                     ),
             )
             .service(

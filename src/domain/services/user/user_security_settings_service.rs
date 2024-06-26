@@ -1,7 +1,8 @@
 use crate::domain::entities::shared::value_objects::OtpToken;
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::user::user_security_settings::{
-    ConfirmEnable2FA, InitiateDeleteUserResponse, UserChangeEmail, UserSecuritySettings,
+    ConfirmEnableApp2FA, ConfirmEnableEmail2FA, InitiateDeleteUserResponse, UserChangeEmail,
+    UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError, ValidationError};
@@ -12,7 +13,7 @@ use crate::domain::error::PersistenceError::Retrieve;
 use crate::domain::error::ValidationError::BusinessRuleViolation;
 use crate::domain::ports::repositories::user::user_security_settings_dto::{
     ActivateEmail2FADTO, ChangeEmailDTO, ChangePasswordDTO, ConfirmDeleteUserDTO,
-    ConfirmEmail2FADTO, ConfirmEmailDTO, SecuritySettingsUpdateDTO,
+    ConfirmEmail2FADTO, ConfirmEmailDTO, ConfirmEnableApp2FADTO, SecuritySettingsUpdateDTO,
 };
 use crate::domain::ports::repositories::user::user_security_settings_repository::UserSecuritySettingsDomainRepository;
 use crate::domain::ports::repositories::user::user_shared_repository::UserSharedDomainRepository;
@@ -259,10 +260,8 @@ where
     pub async fn enable_email_2fa(
         &self,
         request: ActivateEmail2FADTO,
-    ) -> Result<ConfirmEnable2FA, DomainError> {
-        // Validate the provided email
+    ) -> Result<ConfirmEnableEmail2FA, DomainError> {
         UserValidationService::validate_email(&request.email)?;
-
         let (user_result, security_settings_result) = join!(
             self.user_repository.get_base_user_by_id(&request.user_id),
             self.user_security_settings_repository
@@ -297,13 +296,13 @@ where
             .save_email_2fa_token(request.user_id, confirmation_token_hash, expiry)
             .await?;
 
-        Ok(ConfirmEnable2FA::new(user.email, confirmation_token))
+        Ok(ConfirmEnableEmail2FA::new(user.email, confirmation_token))
     }
 
     pub async fn confirm_email_2fa(&self, request: ConfirmEmail2FADTO) -> Result<(), DomainError> {
         let confirmation_result = self
             .user_security_settings_repository
-            .retrieve_email_2fa_token(&request.user_id)
+            .get_email_2fa_token(&request.user_id)
             .await;
 
         let confirmation = match confirmation_result {
@@ -345,7 +344,7 @@ where
     pub async fn disable_email_2fa(
         &self,
         user_id: UserId,
-    ) -> Result<ConfirmEnable2FA, DomainError> {
+    ) -> Result<ConfirmEnableEmail2FA, DomainError> {
         let (user_result, security_settings_result) = join!(
             self.user_repository.get_base_user_by_id(&user_id),
             self.user_security_settings_repository
@@ -370,7 +369,7 @@ where
             .save_email_2fa_token(user_id, disable_token_hash, expiry)
             .await?;
 
-        Ok(ConfirmEnable2FA::new(user.email, disable_token))
+        Ok(ConfirmEnableEmail2FA::new(user.email, disable_token))
     }
 
     pub async fn confirm_disable_email_2fa(
@@ -379,7 +378,7 @@ where
     ) -> Result<(), DomainError> {
         let confirmation_result = self
             .user_security_settings_repository
-            .retrieve_email_2fa_token(&request.user_id)
+            .get_email_2fa_token(&request.user_id)
             .await;
 
         let confirmation = match confirmation_result {
@@ -419,7 +418,10 @@ where
         }
     }
 
-    pub async fn enable_app_2fa(&self, user_id: UserId) -> Result<ConfirmEnable2FA, DomainError> {
+    pub async fn enable_app_2fa(
+        &self,
+        user_id: UserId,
+    ) -> Result<ConfirmEnableApp2FA, DomainError> {
         let (user_result, security_settings_result) = join!(
             self.user_repository.get_base_user_by_id(&user_id),
             self.user_security_settings_repository
@@ -447,10 +449,51 @@ where
         let base32_secret = base32::encode(base32::Alphabet::Rfc4648 { padding: false }, &secret);
 
         self.user_security_settings_repository
-            .save_app_2fa_secret(user_id, base32_secret, confirmation_token_hash, expiry)
+            .save_app_2fa_secret(
+                user_id,
+                base32_secret.clone(),
+                confirmation_token_hash,
+                expiry,
+            )
             .await?;
 
-        Ok(ConfirmEnable2FA::new(user.email, confirmation_token))
+        Ok(ConfirmEnableApp2FA::new(
+            user.email,
+            confirmation_token,
+            base32_secret,
+        ))
+    }
+
+    pub async fn confirm_app_2fa(
+        &self,
+        request: ConfirmEnableApp2FADTO,
+    ) -> Result<(), DomainError> {
+        let app_token = self
+            .user_security_settings_repository
+            .get_app_2fa_token(&request.user_id)
+            .await
+            .map_err(|e| {
+                DomainError::PersistenceError(Retrieve(format!("Failed to retrieve user: {}", e)))
+            })?;
+
+        if SharedDomainService::validate_hash(request.email_code.value(), &app_token.otp_hash) {
+            let now = Utc::now();
+            if app_token.expiry > now {
+                UserValidationService::verify_totp(&app_token.secret, request.app_code.value())?;
+
+                println!("Code is valid");
+
+                todo!()
+            } else {
+                Err(DomainError::ValidationError(ValidationError::InvalidData(
+                    "The confirmation token has expired. Please request a new token.".to_string(),
+                )))
+            }
+        } else {
+            Err(DomainError::ValidationError(ValidationError::InvalidData(
+                "The validation code you entered is incorrect. Please try again.".to_string(),
+            )))
+        }
     }
 
     pub async fn initiate_delete_user(

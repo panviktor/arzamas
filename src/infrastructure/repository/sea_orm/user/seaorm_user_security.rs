@@ -1,8 +1,8 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_security_settings::{
-    DeleteUserConfirmation, User2FAEmailConfirmation, UserChangeEmailConfirmation,
-    UserSecuritySettings,
+    DeleteUserConfirmation, User2FAAppConfirmation, User2FAEmailConfirmation,
+    UserChangeEmailConfirmation, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError, ValidationError};
@@ -22,6 +22,7 @@ use sea_orm::{
     TransactionTrait,
 };
 use std::sync::Arc;
+use tokio::join;
 
 #[derive(Clone)]
 pub struct SeaOrmUserSecurityRepository {
@@ -240,9 +241,9 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         &self,
         settings: SecuritySettingsUpdateDTO,
     ) -> Result<(), DomainError> {
-        let mut ss = fetch_model::<entity::user_security_settings::Entity>(
+        let mut ss = fetch_model::<user_security_settings::Entity>(
             &self.db,
-            entity::user_security_settings::Column::UserId.eq(settings.user_id.user_id),
+            user_security_settings::Column::UserId.eq(settings.user_id.user_id),
             "User security settings not found",
         )
         .await?
@@ -296,36 +297,7 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         Ok(())
     }
 
-    async fn save_app_2fa_secret(
-        &self,
-        user_id: UserId,
-        secret: String,
-        email_token_hash: String,
-        expiry: DateTime<Utc>,
-    ) -> Result<(), DomainError> {
-        let mut uc = fetch_model::<entity::prelude::UserConfirmation>(
-            &self.db,
-            user_confirmation::Column::UserId.eq(user_id.user_id),
-            "User confirmation not found",
-        )
-        .await?
-        .into_active_model();
-
-        uc.activate_app2_fa_token = Set(Some(email_token_hash));
-        uc.activate_app2_fa_token_expiry = Set(Some(expiry.naive_utc()));
-        uc.activate_app2_secret = Set(Some(secret));
-
-        uc.update(&*self.db).await.map_err(|e| {
-            DomainError::PersistenceError(PersistenceError::Update(format!(
-                "Failed to save email 2fa activating token: {}",
-                e
-            )))
-        })?;
-
-        Ok(())
-    }
-
-    async fn retrieve_email_2fa_token(
+    async fn get_email_2fa_token(
         &self,
         user: &UserId,
     ) -> Result<User2FAEmailConfirmation, DomainError> {
@@ -337,9 +309,9 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
             .filter(user::Column::UserId.eq(&user.user_id))
             .one(&*self.db);
 
-        let (us, bu) = tokio::try_join!(uc_future, bu_future)?;
+        let (uc, bu) = tokio::try_join!(uc_future, bu_future)?;
 
-        let user_security = us.ok_or_else(|| {
+        let user_confirmation = uc.ok_or_else(|| {
             DomainError::PersistenceError(PersistenceError::Retrieve(
                 "User security settings not found".to_string(),
             ))
@@ -351,8 +323,8 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
             ))
         })?;
 
-        if let Some(token) = user_security.activate_email2_fa_token {
-            if let Some(expiry) = user_security.activate_email2_fa_token_expiry {
+        if let Some(token) = user_confirmation.activate_email2_fa_token {
+            if let Some(expiry) = user_confirmation.activate_email2_fa_token_expiry {
                 let expiry_utc: DateTime<Utc> = Utc.from_utc_datetime(&expiry);
                 return Ok(User2FAEmailConfirmation::new(
                     token,
@@ -368,9 +340,9 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
     }
 
     async fn toggle_email_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError> {
-        let mut ss = fetch_model::<entity::user_security_settings::Entity>(
+        let mut ss = fetch_model::<user_security_settings::Entity>(
             &self.db,
-            entity::user_security_settings::Column::UserId.eq(&user.user_id),
+            user_security_settings::Column::UserId.eq(&user.user_id),
             "User security settings not found",
         )
         .await?
@@ -380,6 +352,135 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         ss.update(&*self.db).await.map_err(|e| {
             DomainError::PersistenceError(PersistenceError::Update(format!(
                 "Failed to update email 2FA settings: {}",
+                e
+            )))
+        })?;
+
+        Ok(())
+    }
+
+    async fn save_app_2fa_secret(
+        &self,
+        user_id: UserId,
+        secret: String,
+        email_token_hash: String,
+        expiry: DateTime<Utc>,
+    ) -> Result<(), DomainError> {
+        let txn = self.db.begin().await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Transaction(format!(
+                "Failed to begin transaction: {}",
+                e
+            )))
+        })?;
+
+        let (uc_result, ss_result) = join!(
+            fetch_model::<user_confirmation>(
+                &self.db,
+                user_confirmation::Column::UserId.eq(&user_id.user_id),
+                "User confirmation not found"
+            ),
+            fetch_model::<user_security_settings::Entity>(
+                &self.db,
+                user_security_settings::Column::UserId.eq(user_id.user_id),
+                "User security settings not found"
+            )
+        );
+
+        let mut uc = uc_result?.into_active_model();
+        let mut ss = ss_result?.into_active_model();
+
+        uc.activate_app2_fa_token = Set(Some(email_token_hash));
+        uc.activate_app2_fa_token_expiry = Set(Some(expiry.naive_utc()));
+        ss.totp_secret = Set(Some(secret));
+
+        ss.update(&txn).await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Update(format!(
+                "Failed to save TOTP secret: {}",
+                e
+            )))
+        })?;
+
+        uc.update(&txn).await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Update(format!(
+                "Failed to save email 2fa activating token: {}",
+                e
+            )))
+        })?;
+
+        txn.commit().await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Transaction(format!(
+                "Failed to commit transaction: {}",
+                e
+            )))
+        })?;
+
+        Ok(())
+    }
+
+    async fn get_app_2fa_token(
+        &self,
+        user: &UserId,
+    ) -> Result<User2FAAppConfirmation, DomainError> {
+        println!("423");
+
+        let uc_future = entity::user_confirmation::Entity::find()
+            .filter(user_confirmation::Column::UserId.eq(&user.user_id))
+            .one(&*self.db);
+
+        let ss_future = entity::user_security_settings::Entity::find()
+            .filter(user_security_settings::Column::UserId.eq(&user.user_id))
+            .one(&*self.db);
+
+        let (confirmation, security) = tokio::try_join!(uc_future, ss_future)?;
+
+        let confirmation = confirmation.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Model user confirmation not found".to_string(),
+            ))
+        })?;
+
+        let security = security.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Base user settings not found".to_string(),
+            ))
+        })?;
+
+        let otp_hash = confirmation.activate_app2_fa_token.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "OTP hash not found".to_string(),
+            ))
+        })?;
+
+        let expiry = confirmation.activate_app2_fa_token_expiry.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "Token expiry not found".to_string(),
+            ))
+        })?;
+
+        let expiry_utc = Utc.from_utc_datetime(&expiry);
+
+        let secret = security.totp_secret.ok_or_else(|| {
+            DomainError::PersistenceError(PersistenceError::Retrieve(
+                "TOTP secret not found".to_string(),
+            ))
+        })?;
+
+        Ok(User2FAAppConfirmation::new(otp_hash, expiry_utc, secret))
+    }
+
+    async fn toggle_app_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError> {
+        let mut ss = fetch_model::<user_security_settings::Entity>(
+            &self.db,
+            user_security_settings::Column::UserId.eq(&user.user_id),
+            "User security settings not found",
+        )
+        .await?
+        .into_active_model();
+
+        ss.two_factor_authenticator_app = Set(enable);
+        ss.update(&*self.db).await.map_err(|e| {
+            DomainError::PersistenceError(PersistenceError::Update(format!(
+                "Failed to update App 2FA settings: {}",
                 e
             )))
         })?;

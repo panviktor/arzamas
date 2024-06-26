@@ -31,12 +31,12 @@ pub struct UserChangeEmailConfirmation {
 }
 
 #[derive(Debug)]
-pub struct ConfirmEnable2FA {
+pub struct ConfirmEnableEmail2FA {
     pub email: Email,
     pub token: OtpToken,
 }
 
-impl ConfirmEnable2FA {
+impl ConfirmEnableEmail2FA {
     pub fn new(email: Email, token: OtpToken) -> Self {
         Self { email, token }
     }
@@ -66,4 +66,37 @@ pub struct InitiateDeleteUserResponse {
 pub struct DeleteUserConfirmation {
     pub otp_hash: String,
     pub expiry: DateTime<Utc>,
+}
+
+#[derive(Debug)]
+pub struct ConfirmEnableApp2FA {
+    pub email: Email,
+    pub token: OtpToken,
+    pub secret: String,
+}
+
+impl ConfirmEnableApp2FA {
+    pub fn new(email: Email, token: OtpToken, secret: String) -> Self {
+        Self {
+            email,
+            token,
+            secret,
+        }
+    }
+}
+
+pub struct User2FAAppConfirmation {
+    pub otp_hash: String,
+    pub expiry: DateTime<Utc>,
+    pub secret: String,
+}
+
+impl User2FAAppConfirmation {
+    pub fn new(otp_hash: String, expiry: DateTime<Utc>, secret: String) -> Self {
+        Self {
+            otp_hash,
+            expiry,
+            secret,
+        }
+    }
 }

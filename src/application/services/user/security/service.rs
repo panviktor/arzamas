@@ -324,11 +324,32 @@ where
         request: UserByIdRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
         let user_id = UserId::new(&request.user_id);
+        let response = self.user_security_service.enable_app_2fa(user_id).await?;
 
-        self.user_security_service.enable_app_2fa(user_id).await?;
+        // Send an email with the confirmation token and instructions
+        let subject = "Enable Two-Factor Authentication (2FA)";
+        let message = format!(
+            "To confirm enabling Two-Factor Authentication, please enter the following code: {}\n\n\
+        Additionally, to set up 2FA using an authenticator app like Google Authenticator, follow these steps:\n\
+        1. Download and install an authenticator app (e.g., Google Authenticator, Authy) on your smartphone.\n\
+        2. Open the app and select 'Set up account' or the '+' icon to add a new account.\n\
+        3. Choose 'Scan a barcode' and use your phone's camera to scan the QR code provided in your account settings, or enter the following secret key manually: {}\n\
+        4. After adding the account, your authenticator app will generate a 6-digit code which you will use for logging in.",
+            response.token.value(),
+            response.secret
+        );
+
+        self.email_service
+            .send_email(response.email.value(), &subject, &message)
+            .await
+            .map_err(|_| {
+                ApplicationError::ExternalServiceError(
+                    "Failed to send the confirmation email for enabling 2FA.".to_string(),
+                )
+            })?;
 
         Ok(UniversalApplicationResponse::new(
-            "-------".to_string(),
+            "A confirmation code and instructions to enable Two-Factor Authentication (2FA) have been sent to your email.".to_string(),
             None,
         ))
     }
@@ -337,7 +358,20 @@ where
         &self,
         request: ConfirmApp2FARequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        todo!()
+        self.user_security_service
+            .confirm_app_2fa(request.into())
+            .await
+            .map_err(|e| {
+                ApplicationError::ExternalServiceError(format!(
+                    "Failed to confirm enabling 2FA: {}",
+                    e
+                ))
+            })?;
+
+        Ok(UniversalApplicationResponse::new(
+            "Two-Factor Authentication (2FA) has been successfully enabled.".to_string(),
+            None,
+        ))
     }
 
     pub async fn disable_app_2fa(

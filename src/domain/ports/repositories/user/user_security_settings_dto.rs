@@ -1,4 +1,4 @@
-use crate::domain::entities::shared::value_objects::UserId;
+use crate::domain::entities::shared::value_objects::{OtpCode, UserId};
 use crate::domain::entities::shared::{Email, OtpToken};
 
 #[derive(Debug)]
@@ -38,4 +38,10 @@ pub struct ConfirmEmail2FADTO {
 pub struct ConfirmDeleteUserDTO {
     pub user_id: UserId,
     pub token: OtpToken,
+}
+
+pub struct ConfirmEnableApp2FADTO {
+    pub user_id: UserId,
+    pub email_code: OtpCode,
+    pub app_code: OtpCode,
 }

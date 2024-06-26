@@ -1,8 +1,8 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_security_settings::{
-    DeleteUserConfirmation, User2FAEmailConfirmation, UserChangeEmailConfirmation,
-    UserSecuritySettings,
+    DeleteUserConfirmation, User2FAAppConfirmation, User2FAEmailConfirmation,
+    UserChangeEmailConfirmation, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::DomainError;
@@ -54,6 +54,11 @@ pub trait UserSecuritySettingsDomainRepository {
         email_token_hash: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError>;
+    async fn get_email_2fa_token(
+        &self,
+        user: &UserId,
+    ) -> Result<User2FAEmailConfirmation, DomainError>;
+    async fn toggle_email_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError>;
     async fn save_app_2fa_secret(
         &self,
         user_id: UserId,
@@ -61,11 +66,11 @@ pub trait UserSecuritySettingsDomainRepository {
         email_token_hash: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError>;
-    async fn retrieve_email_2fa_token(
-        &self,
-        user: &UserId,
-    ) -> Result<User2FAEmailConfirmation, DomainError>;
-    async fn toggle_email_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError>;
+
+    async fn get_app_2fa_token(&self, user: &UserId)
+        -> Result<User2FAAppConfirmation, DomainError>;
+    async fn toggle_app_2fa(&self, user: &UserId, enable: bool) -> Result<(), DomainError>;
+
     async fn store_token_for_remove_user(
         &self,
         user: UserId,

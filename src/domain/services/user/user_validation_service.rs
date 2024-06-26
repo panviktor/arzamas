@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::fmt;
+use totp_rs::{Algorithm, Secret, TOTP};
 
 lazy_static! {
     pub static ref EMAIL_REGEX: Regex = Regex::new(
@@ -98,6 +99,22 @@ impl UserValidationService {
             (Some(ua), Some(ip)) => request_user_agent == ua && request_ip_address == ip,
             _ => false,
         }
+    }
+
+    pub fn verify_totp(secret: &str, token: &str) -> Result<(), ValidationServiceError> {
+        if let Ok(secret) = Secret::Encoded(secret.to_string()).to_bytes() {
+            let totp = TOTP::new(Algorithm::SHA1, 6, 1, 30, secret).map_err(|e| {
+                ValidationServiceError::InvalidFormat(format!("Failed to create TOTP: {}", e))
+            })?;
+            if let Ok(res) = totp.check_current(token) {
+                if res {
+                    return Ok(());
+                }
+            }
+        }
+        Err(ValidationServiceError::InvalidFormat(
+            "Invalid OTP Code!".to_string(),
+        ))
     }
 }
 
