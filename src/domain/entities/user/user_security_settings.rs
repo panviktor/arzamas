@@ -1,4 +1,5 @@
 use crate::domain::entities::shared::{Email, OtpToken};
+use crate::domain::entities::user::UserRegistration;
 use chrono::{DateTime, Utc};
 
 #[derive(Debug)]
@@ -58,7 +59,12 @@ impl User2FAEmailConfirmation {
     }
 }
 
-pub struct RemoveUserConfirmation {
+pub struct InitiateDeleteUserResponse {
+    pub email: Email,
+    pub token: OtpToken,
+}
+
+pub struct DeleteUserConfirmation {
     pub otp_hash: String,
     pub expiry: DateTime<Utc>,
 }

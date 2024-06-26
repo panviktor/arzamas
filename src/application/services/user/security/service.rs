@@ -322,13 +322,48 @@ where
         &self,
         request: UserByIdRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        todo!()
+        let user_id = UserId::new(&request.user_id);
+        let response = self
+            .user_security_service
+            .initiate_delete_user(user_id)
+            .await?;
+
+        let subject = "Deleting Account Authentication";
+        let message = format!(
+            "Please confirm deleting account by entering the following code: {}",
+            response.token.value()
+        );
+
+        self.email_service
+            .send_email(response.email.value(), &subject, &message)
+            .await
+            .map_err(|_| {
+                ApplicationError::ExternalServiceError(
+                    "Failed to send delete account confirmation email.".to_string(),
+                )
+            })?;
+
+        Ok(UniversalApplicationResponse::new(
+            "A confirmation code to delete your account has been sent to your email.".to_string(),
+            None,
+        ))
     }
 
     pub async fn confirm_delete_user(
         &self,
         request: ConfirmDeleteUserRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        todo!()
+        let user_id = UserId::new(&request.user_id);
+
+        self.user_security_service
+            .confirm_remove_user(request.into())
+            .await?;
+
+        self.session_manager.invalidate_sessions(&user_id).await?;
+
+        Ok(UniversalApplicationResponse::new(
+            "Your account has been successfully deleted.".to_string(),
+            None,
+        ))
     }
 }

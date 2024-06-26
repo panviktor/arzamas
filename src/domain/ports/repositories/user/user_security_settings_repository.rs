@@ -1,7 +1,7 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_security_settings::{
-    RemoveUserConfirmation, User2FAEmailConfirmation, UserChangeEmailConfirmation,
+    DeleteUserConfirmation, User2FAEmailConfirmation, UserChangeEmailConfirmation,
     UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
@@ -67,7 +67,7 @@ pub trait UserSecuritySettingsDomainRepository {
     ) -> Result<(), DomainError>;
     async fn get_token_for_remove_user(
         &self,
-        user: UserId,
-    ) -> Result<RemoveUserConfirmation, DomainError>;
+        user: &UserId,
+    ) -> Result<DeleteUserConfirmation, DomainError>;
     async fn delete_user(&self, user: UserId) -> Result<(), DomainError>;
 }

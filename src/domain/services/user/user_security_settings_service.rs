@@ -1,7 +1,8 @@
 use crate::domain::entities::shared::value_objects::OtpToken;
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::user::user_security_settings::{
-    ConfirmEmail2FA, RemoveUserConfirmation, UserChangeEmail, UserSecuritySettings,
+    ConfirmEmail2FA, DeleteUserConfirmation, InitiateDeleteUserResponse, UserChangeEmail,
+    UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::error::{DomainError, PersistenceError, ValidationError};
@@ -19,6 +20,7 @@ use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::{
     UserCredentialService, UserValidationService, ValidationServiceError,
 };
+use actix_web::web::to;
 use chrono::{DateTime, Duration, Utc};
 use std::sync::Arc;
 use tokio::join;
@@ -413,19 +415,75 @@ where
         }
     }
 
-    pub async fn initiate_remove_user(
+    pub async fn initiate_delete_user(
         &self,
         user_id: UserId,
-    ) -> Result<RemoveUserConfirmation, DomainError> {
+    ) -> Result<InitiateDeleteUserResponse, DomainError> {
         let (remove_token, remove_token_hash, expiry) = self.generate_email_token(32).await?;
-        todo!()
+
+        let user = self
+            .user_repository
+            .get_base_user_by_id(&user_id)
+            .await
+            .map_err(|e| {
+                DomainError::PersistenceError(Retrieve(format!("Failed to retrieve user: {}", e)))
+            })?;
+
+        self.user_security_settings_repository
+            .store_token_for_remove_user(user_id, remove_token_hash, expiry)
+            .await
+            .map_err(|e| {
+                DomainError::PersistenceError(PersistenceError::Update(format!(
+                    "Failed to store remove user token: {}",
+                    e
+                )))
+            })?;
+
+        let response = InitiateDeleteUserResponse {
+            email: user.email,
+            token: remove_token,
+        };
+        Ok(response)
     }
 
     pub async fn confirm_remove_user(
         &self,
-        user_id: ConfirmDeleteUserDTO,
+        request: ConfirmDeleteUserDTO,
     ) -> Result<(), DomainError> {
-        todo!()
+        let stored_token = self
+            .user_security_settings_repository
+            .get_token_for_remove_user(&request.user_id)
+            .await
+            .map_err(|e| {
+                DomainError::PersistenceError(Retrieve(format!(
+                    "Failed to retrieve remove user token: {}",
+                    e
+                )))
+            })?;
+
+        if !SharedDomainService::validate_hash(&request.token.value(), &stored_token.otp_hash) {
+            return Err(DomainError::ValidationError(ValidationError::InvalidData(
+                "The validation code you entered is incorrect. Please try again.".to_string(),
+            )));
+        }
+
+        if stored_token.expiry < Utc::now() {
+            return Err(DomainError::ValidationError(ValidationError::InvalidData(
+                "The remove user token has expired. Please request a new token.".to_string(),
+            )));
+        }
+
+        self.user_security_settings_repository
+            .delete_user(request.user_id)
+            .await
+            .map_err(|e| {
+                DomainError::PersistenceError(PersistenceError::Delete(format!(
+                    "Failed to remove user: {}",
+                    e
+                )))
+            })?;
+
+        Ok(())
     }
 }
 

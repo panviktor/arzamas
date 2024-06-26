@@ -1,7 +1,7 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_security_settings::{
-    RemoveUserConfirmation, User2FAEmailConfirmation, UserChangeEmailConfirmation,
+    DeleteUserConfirmation, User2FAEmailConfirmation, UserChangeEmailConfirmation,
     UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
@@ -377,8 +377,8 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
 
     async fn get_token_for_remove_user(
         &self,
-        user: UserId,
-    ) -> Result<RemoveUserConfirmation, DomainError> {
+        user: &UserId,
+    ) -> Result<DeleteUserConfirmation, DomainError> {
         let confirmation = self.get_user_confirmation(&user).await?;
 
         let token_hash = confirmation.remove_user_token_hash.ok_or_else(|| {
@@ -393,7 +393,7 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         })?;
         let expiry_utc = Utc.from_utc_datetime(&expiry);
 
-        Ok(RemoveUserConfirmation {
+        Ok(DeleteUserConfirmation {
             otp_hash: token_hash,
             expiry: expiry_utc,
         })
