@@ -48,7 +48,7 @@ where
         let identifier = &request.identifier;
         let user_result = self.identify_user(identifier).await?;
 
-        if !user_result.email_validated {
+        if !user_result.user_credentials.email_validated {
             return self.process_unvalidated_email(user_result).await;
         }
 
@@ -117,7 +117,10 @@ where
     ) -> Result<AuthenticationOutcome, DomainError> {
         UserValidationService::validate_passwd(&request.password)?;
 
-        if UserCredentialService::credential_validator(&request.password, &user.pass_hash)? {
+        if UserCredentialService::credential_validator(
+            &request.password,
+            &user.user_credentials.pass_hash,
+        )? {
             self.process_successful_login_attempt(user, request).await
         } else {
             let message = "Incorrect password.";
@@ -131,12 +134,13 @@ where
         message: &str,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let attempt_count: i64 = user.auth_data.attempt_count + 1;
-        let user_id = UserId::new(&user.user_id);
         let block_duration = Self::calculate_block_duration(attempt_count);
         let update_attempts = self
             .auth_repo
-            .update_user_login_attempts(user_id.clone(), attempt_count);
-        let block_user = self.auth_repo.block_user_until(&user_id, block_duration);
+            .update_user_login_attempts(&user.user_id, attempt_count);
+        let block_user = self
+            .auth_repo
+            .block_user_until(&user.user_id, block_duration);
 
         tokio::try_join!(update_attempts, block_user)?;
 
@@ -184,7 +188,6 @@ where
     }
     fn prepare_two_factor_data(
         &self,
-        user_id: &str,
     ) -> Result<(OtpToken, OtpCode, String, chrono::DateTime<Utc>), DomainError> {
         let otp_token_str = SharedDomainService::generate_token(64)?;
         let otp_token = OtpToken::new(&otp_token_str);
@@ -200,11 +203,10 @@ where
         user: &UserAuthentication,
         request: CreateLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        let (otp_token, otp_code, otp_code_hash, duration) =
-            self.prepare_two_factor_data(&user.user_id)?;
+        let (otp_token, otp_code, otp_code_hash, duration) = self.prepare_two_factor_data()?;
         self.auth_repo
             .prepare_user_for_2fa(
-                UserId::new(&user.user_id),
+                &user.user_id,
                 otp_token.clone(),
                 Some(otp_code_hash),
                 duration,
@@ -226,11 +228,10 @@ where
         user: &UserAuthentication,
         request: CreateLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        let (otp_token, otp_code, otp_code_hash, duration) =
-            self.prepare_two_factor_data(&user.user_id)?;
+        let (otp_token, otp_code, otp_code_hash, duration) = self.prepare_two_factor_data()?;
         self.auth_repo
             .prepare_user_for_2fa(
-                UserId::new(&user.user_id),
+                &user.user_id,
                 otp_token.clone(),
                 Some(otp_code_hash),
                 duration,
@@ -252,10 +253,10 @@ where
         user: &UserAuthentication,
         request: CreateLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        let (otp_token, _, _, duration) = self.prepare_two_factor_data(&user.user_id)?;
+        let (otp_token, _, _, duration) = self.prepare_two_factor_data()?;
         self.auth_repo
             .prepare_user_for_2fa(
-                UserId::new(&user.user_id),
+                &user.user_id,
                 otp_token.clone(),
                 None,
                 duration,
@@ -314,16 +315,16 @@ where
             DomainVerificationMethod::EmailOTP => {
                 self.verify_email_otp(auth_result, &request.otp_code.value())
             }
-            DomainVerificationMethod::AuthenticatorApp => {
-                self.verify_authenticator_app(auth_result, &request.otp_code.value())?
-            }
+            DomainVerificationMethod::AuthenticatorApp => self.verify_authenticator_app(
+                auth_result.user_credentials.totp_secret.clone(),
+                &request.otp_code.value(),
+            )?,
         };
 
         // Handle the result of the OTP verification
         match verification_result {
             true => {
-                let user_id = UserId::new(&auth_result.user_id);
-                self.update_verification_status(user_id, &request.verification_method)
+                self.update_verification_status(&auth_result.user_id, &request.verification_method)
                     .await?;
                 self.process_verification_status(&auth_result, request)
                     .await
@@ -347,33 +348,24 @@ where
 
     fn verify_authenticator_app(
         &self,
-        user: &UserAuthentication,
+        totp_secret: Option<String>,
         code: &str,
     ) -> Result<bool, DomainError> {
-        // let secret = "secret".to_string().into_bytes();
-        // let code = "code";
-        //
-        // let totp = TOTP::new(Algorithm::SHA1, 6, 1, 30, secret).map_err(|e| {
-        //     e.to_string();
-        //     DomainError::ExternalServiceError(ExternalServiceError::Custom(format!(
-        //         "Failed to create TOTP: {}",
-        //         e
-        //     )))
-        // });
-        //
-        // let res = totp.expect("REASON").check_current(code);
-        // if res {
-        //     true
-        // } else {
-        //     false
-        // }
+        let secret = totp_secret.ok_or_else(|| {
+            DomainError::ValidationError(ValidationError::BusinessRuleViolation(
+                "Missing totp secret".to_string(),
+            ))
+        })?;
 
-        todo!()
+        match UserValidationService::verify_totp(&secret, code) {
+            Ok(_) => Ok(true),
+            Err(_) => Ok(false),
+        }
     }
 
     async fn update_verification_status(
         &self,
-        user_id: UserId,
+        user_id: &UserId,
         verification_method: &DomainVerificationMethod,
     ) -> Result<(), DomainError> {
         match verification_method {
@@ -392,7 +384,6 @@ where
         request: ContinueLoginRequestDTO,
     ) -> Result<AuthenticationOutcome, DomainError> {
         let user_updated = self.auth_repo.get_user_by_username(&user.username).await?;
-
         // Determine if further verification is needed
         let email_needed = user_updated.security_setting.two_factor_email;
         let app_needed = user_updated.security_setting.two_factor_authenticator_app;
@@ -466,7 +457,6 @@ where
     ) -> Result<AuthenticationOutcome, DomainError> {
         let session_id = Uuid::new_v4().to_string();
         let session_name = Self::generate_session_name();
-        let user_id = UserId::new(&user.user_id);
         let expiry = Utc::now()
             + if long_session {
                 Duration::days(14)
@@ -475,7 +465,7 @@ where
             };
 
         let session = UserSession::new(
-            &user.user_id,
+            &user.user_id.user_id,
             &session_id,
             &session_name,
             Utc::now(),
@@ -486,10 +476,8 @@ where
         );
 
         let save_session = self.auth_repo.save_user_session(&session);
-        let reset_attempts = self
-            .auth_repo
-            .update_user_login_attempts(user_id.clone(), 0);
-        let reset_validity = self.auth_repo.reset_otp_validity(user_id);
+        let reset_attempts = self.auth_repo.update_user_login_attempts(&user.user_id, 0);
+        let reset_validity = self.auth_repo.reset_otp_validity(&user.user_id);
 
         tokio::try_join!(save_session, reset_attempts, reset_validity)?;
         Ok(AuthenticationOutcome::AuthenticatedWithPreferences {
@@ -504,12 +492,14 @@ where
         &self,
         user_result: UserAuthentication,
     ) -> Result<AuthenticationOutcome, DomainError> {
-        let user_id = UserId::new(&user_result.user_id);
         let now = Utc::now();
-        let confirmation = self.reg_repo.get_primary_email_activation(&user_id).await?;
+        let confirmation = self
+            .reg_repo
+            .get_primary_email_activation(&user_result.user_id)
+            .await?;
 
         if now > confirmation.expiry {
-            self.generate_new_confirmation_token(user_id, user_result.email)
+            self.generate_new_confirmation_token(user_result.user_id, user_result.email)
                 .await
         } else {
             Err(DomainError::ValidationError(

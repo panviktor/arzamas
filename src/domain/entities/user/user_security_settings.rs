@@ -43,16 +43,11 @@ impl ConfirmEnableEmail2FA {
 pub struct User2FAEmailConfirmation {
     pub otp_hash: String,
     pub expiry: DateTime<Utc>,
-    pub user_email: Email,
 }
 
 impl User2FAEmailConfirmation {
-    pub fn new(otp_hash: String, expiry: DateTime<Utc>, user_email: Email) -> Self {
-        Self {
-            otp_hash,
-            expiry,
-            user_email,
-        }
+    pub fn new(otp_hash: String, expiry: DateTime<Utc>) -> Self {
+        Self { otp_hash, expiry }
     }
 }
 
@@ -85,9 +80,21 @@ impl ConfirmEnableApp2FA {
     }
 }
 
-pub struct ConfirmDisableApp2FA {
+pub struct DisableApp2FA {
     pub email: Email,
     pub token: OtpToken,
+}
+
+impl DisableApp2FA {
+    pub fn new(email: Email, token: OtpToken) -> Self {
+        Self { email, token }
+    }
+}
+
+pub struct ConfirmDisableApp2FA {
+    pub token_hash: String,
+    pub secret: String,
+    pub expiry: DateTime<Utc>,
 }
 
 pub struct User2FAAppConfirmation {

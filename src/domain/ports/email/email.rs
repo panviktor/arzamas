@@ -1,10 +1,4 @@
-use crate::core::config::get_config;
-use crate::domain::error::{DomainError, ExternalServiceError};
-use crate::infrastructure::email::error::EmailError;
-use lettre::message::header::ContentType;
-use lettre::message::{Attachment, MultiPart, SinglePart};
-use lettre::Message;
-use std::format;
+use crate::domain::error::DomainError;
 
 #[async_trait::async_trait]
 pub trait EmailPort {

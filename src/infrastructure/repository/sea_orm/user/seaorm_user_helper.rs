@@ -1,46 +1,17 @@
 use crate::domain::entities::shared::value_objects::{IPAddress, OtpCode, UserAgent};
-use crate::domain::entities::shared::{Email, Username};
-use crate::domain::entities::user::user_authentication::UserAuthenticationData;
+use crate::domain::entities::shared::Email;
+use crate::domain::entities::user::user_authentication::{UserAuthenticationData, UserCredentials};
 use crate::domain::entities::user::user_security_settings::UserSecuritySettings;
 use crate::domain::entities::user::user_sessions::UserSession;
-use crate::domain::entities::user::{UserBase, UserRegistration};
+use crate::domain::entities::user::UserBase;
 use chrono::{TimeZone, Utc};
-use entity::{user, user_authentication, user_security_settings, user_session};
+use entity::{user, user_authentication, user_credentials, user_security_settings, user_session};
 use sea_orm::ActiveValue::Set;
-
-impl UserRegistration {
-    pub fn into_active_model(self) -> user::ActiveModel {
-        user::ActiveModel {
-            user_id: Set(self.user_id),
-            email: Set(self.email.into_inner()),
-            username: Set(self.username.into_inner()),
-            pass_hash: Set(self.pass_hash),
-            created_at: Set(self.created_at.naive_utc()),
-            updated_at: Set(self.created_at.naive_utc()),
-
-            ..Default::default()
-        }
-    }
-}
-
-impl From<user::Model> for UserRegistration {
-    fn from(model: user::Model) -> Self {
-        let email = Email::try_from(model.email).expect("Invalid email");
-
-        UserRegistration::new(
-            model.user_id,
-            email,
-            Username(model.username),
-            model.pass_hash,
-            Utc.from_utc_datetime(&model.created_at),
-        )
-    }
-}
 
 impl From<user_authentication::Model> for UserAuthenticationData {
     fn from(model: user_authentication::Model) -> Self {
         let expiry = model
-            .expiry
+            .attempt_expiry
             .map(|naive_dt| Utc.from_utc_datetime(&naive_dt));
 
         let user_agent = model.user_agent.as_deref().map(UserAgent::new);
@@ -49,7 +20,6 @@ impl From<user_authentication::Model> for UserAuthenticationData {
         UserAuthenticationData {
             otp_email_code_hash: model.otp_email_code_hash.as_deref().map(OtpCode::new),
             otp_email_currently_valid: model.otp_email_currently_valid,
-            otp_app_hash: model.otp_app_hash,
             otp_app_currently_valid: model.otp_app_currently_valid,
             expiry,
             attempt_count: model.attempt_count,
@@ -116,9 +86,18 @@ impl From<user::Model> for UserBase {
             user_id: user.user_id,
             email: Email::new(&user.email),
             username: user.username,
-            email_validated: user.email_validated,
             created_at: Utc.from_utc_datetime(&user.created_at),
             updated_at: Utc.from_utc_datetime(&user.updated_at),
+        }
+    }
+}
+
+impl From<user_credentials::Model> for UserCredentials {
+    fn from(user: user_credentials::Model) -> Self {
+        UserCredentials {
+            pass_hash: user.pass_hash,
+            email_validated: user.email_validated,
+            totp_secret: user.totp_secret,
         }
     }
 }

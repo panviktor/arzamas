@@ -77,7 +77,7 @@ where
         let token = OtpToken(request.email_token);
 
         self.user_registration_service
-            .validate_user_primary_email_with_token(email, token)
+            .verify_primary_email_with_token(email, token)
             .await?;
         Ok(())
     }

@@ -54,9 +54,6 @@ impl Username {
     pub fn value(&self) -> &String {
         &self.0
     }
-    pub fn into_inner(self) -> String {
-        self.0
-    }
 }
 
 impl TryFrom<String> for Username {

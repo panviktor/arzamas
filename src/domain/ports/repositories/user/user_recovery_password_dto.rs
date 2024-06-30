@@ -48,16 +48,9 @@ impl UserCompleteRecoveryRequestDTO {
     }
 }
 
-pub enum UserRecoveryPasswdOutcome {
-    ValidToken {
-        user_id: String,
-        email: Email,
-        message: String,
-        close_sessions_on_change_password: bool,
-    },
-    InvalidToken {
-        email: Email,
-        message: String,
-        email_notifications_enabled: bool,
-    },
+pub struct UserRecoveryPasswdOutcome {
+    pub user_id: String,
+    pub email: Email,
+    pub message: String,
+    pub close_sessions_on_change_password: bool,
 }

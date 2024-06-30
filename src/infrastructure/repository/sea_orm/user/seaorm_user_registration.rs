@@ -7,9 +7,10 @@ use crate::infrastructure::repository::fetch_model;
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
 use entity::{
-    user, user_authentication, user_confirmation, user_recovery_password, user_security_settings,
+    user, user_authentication, user_confirmation, user_credentials, user_recovery_password,
+    user_security_settings,
 };
-use sea_orm::{ActiveModelTrait, DatabaseConnection, Set, TransactionTrait, TryIntoModel};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, Set, TransactionTrait};
 use sea_orm::{ColumnTrait, IntoActiveModel};
 use std::sync::Arc;
 
@@ -25,21 +26,39 @@ impl SeaOrmUserRegistrationRepository {
 }
 #[async_trait]
 impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
-    async fn create_user(&self, user: UserRegistration) -> Result<UserRegistration, DomainError> {
+    async fn create_user(&self, user: &UserRegistration) -> Result<(), DomainError> {
         let txn = self.db.begin().await.map_err(|e| {
             DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
         })?;
 
-        let user_id_clone = user.user_id.clone();
-        let user_model = user.into_active_model();
+        let user_name_str = user.username.value().to_string();
 
-        let user_model = user_model
+        let base_user = user::ActiveModel {
+            user_id: Set(user.user_id.clone()),
+            email: Set(user.email.to_string()),
+            username: Set(user_name_str),
+            created_at: Set(user.created_at.naive_utc()),
+            ..Default::default()
+        };
+
+        base_user
+            .save(&txn)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Create(e.to_string())))?;
+
+        let user_credentials = user_credentials::ActiveModel {
+            user_id: Set(user.user_id.clone()),
+            pass_hash: Set(user.pass_hash.to_string()),
+            ..Default::default()
+        };
+
+        user_credentials
             .save(&txn)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Create(e.to_string())))?;
 
         let user_security_settings = user_security_settings::ActiveModel {
-            user_id: Set(user_id_clone.clone()),
+            user_id: Set(user.user_id.clone()),
             ..Default::default()
         };
 
@@ -49,7 +68,7 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Create(e.to_string())))?;
 
         let user_confirmation = user_confirmation::ActiveModel {
-            user_id: Set(user_id_clone.clone()),
+            user_id: Set(user.user_id.clone()),
             ..Default::default()
         };
 
@@ -59,7 +78,7 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Create(e.to_string())))?;
 
         let user_otp_token = user_authentication::ActiveModel {
-            user_id: Set(user_id_clone.clone()),
+            user_id: Set(user.user_id.clone()),
             ..Default::default()
         };
 
@@ -69,7 +88,7 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Create(e.to_string())))?;
 
         let user_recovery_password = user_recovery_password::ActiveModel {
-            user_id: Set(user_id_clone),
+            user_id: Set(user.user_id.clone()),
             ..Default::default()
         };
 
@@ -82,8 +101,7 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
             DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
         })?;
 
-        let domain_user: UserRegistration = user_model.try_into_model()?.into();
-        Ok(domain_user)
+        Ok(())
     }
 
     async fn store_main_primary_activation_token(
@@ -123,31 +141,41 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
         Ok(UserEmailConfirmation { otp_hash, expiry })
     }
 
+    async fn get_user_email_validation_state(&self, user_id: &UserId) -> Result<bool, DomainError> {
+        let uc = fetch_model::<user_credentials::Entity>(
+            &self.db,
+            user_confirmation::Column::UserId.eq(&user_id.user_id),
+            "User credentials",
+        )
+        .await?;
+
+        Ok(uc.email_validated)
+    }
+
     async fn complete_primary_email_verification(&self, user: &UserId) -> Result<(), DomainError> {
         let txn = self.db.begin().await.map_err(|e| {
             DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
         })?;
 
         // Retrieve the user by user_id within the transaction
-        let user = fetch_model::<user::Entity>(
+        let mut credentials = fetch_model::<user_credentials::Entity>(
             &self.db,
             user::Column::UserId.eq(&user.user_id),
-            "User for email verification not found",
+            "User credentials for email verification not found",
         )
-        .await?;
+        .await?
+        .into_active_model();
+
+        // Update the user's email validation status
+        credentials.email_validated = Set(true);
 
         let mut confirmation = self
             .fetch_user_confirmation(&user.user_id)
             .await?
             .into_active_model();
-
         // Update the confirmation details to invalidate the OTP and expiry
         confirmation.activate_user_token_hash = Set(None);
         confirmation.activate_user_token_expiry = Set(None);
-
-        // Update the user's email validation status
-        let mut active_user: user::ActiveModel = user.into();
-        active_user.email_validated = Set(true);
 
         // Perform the updates within the transaction
         confirmation
@@ -155,7 +183,7 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
 
-        active_user
+        credentials
             .update(&txn)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;

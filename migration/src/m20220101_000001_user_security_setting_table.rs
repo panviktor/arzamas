@@ -45,11 +45,6 @@ impl MigrationTrait for Migration {
                             .default(false),
                     )
                     .col(
-                        ColumnDef::new(UserSecuritySettings::TotpSecret)
-                            .string()
-                            .null(),
-                    )
-                    .col(
                         ColumnDef::new(UserSecuritySettings::EmailOnSuccessEnabledAt)
                             .boolean()
                             .not_null()
@@ -66,6 +61,11 @@ impl MigrationTrait for Migration {
                             .boolean()
                             .not_null()
                             .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(UserSecuritySettings::UpdatedAt)
+                            .timestamp()
+                            .not_null(),
                     )
                     .to_owned(),
             )
@@ -90,8 +90,8 @@ pub enum UserSecuritySettings {
     UserId,
     TwoFactorEmail,
     TwoFactorAuthenticatorApp,
-    TotpSecret,
     EmailOnSuccessEnabledAt,
     EmailOnFailureEnabledAt,
     CloseSessionsOnChangePassword,
+    UpdatedAt,
 }

@@ -249,7 +249,7 @@ where
          Please remember to manually close any active sessions to ensure your account's security."
         };
 
-        Ok(UserRecoveryPasswdOutcome::ValidToken {
+        Ok(UserRecoveryPasswdOutcome {
             user_id: recovery_request.user_id,
             email: recovery_request.email,
             message: message.to_string(),

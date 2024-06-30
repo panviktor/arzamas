@@ -27,13 +27,6 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(User::Email).string().not_null())
                     .col(ColumnDef::new(User::Username).string().not_null())
-                    .col(ColumnDef::new(User::PassHash).string().not_null())
-                    .col(
-                        ColumnDef::new(User::EmailValidated)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
                     .col(ColumnDef::new(User::CreatedAt).timestamp().not_null())
                     .col(ColumnDef::new(User::UpdatedAt).timestamp().not_null())
                     .to_owned(),
@@ -57,8 +50,6 @@ pub enum User {
     UserId,
     Email,
     Username,
-    PassHash,
-    EmailValidated,
     CreatedAt,
     UpdatedAt,
 }

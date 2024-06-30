@@ -1,7 +1,7 @@
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::shared::Email;
 use crate::domain::entities::user::user_security_settings::{
-    DeleteUserConfirmation, User2FAAppConfirmation, User2FAEmailConfirmation,
+    ConfirmDisableApp2FA, DeleteUserConfirmation, User2FAAppConfirmation, User2FAEmailConfirmation,
     UserChangeEmailConfirmation, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
@@ -77,7 +77,6 @@ pub trait UserSecuritySettingsDomainRepository {
         email_token_hash: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError>;
-
     async fn get_app_2fa_token(&self, user: &UserId)
         -> Result<User2FAAppConfirmation, DomainError>;
     async fn toggle_app_2fa(
@@ -86,13 +85,17 @@ pub trait UserSecuritySettingsDomainRepository {
         enable: bool,
         update_time: DateTime<Utc>,
     ) -> Result<(), DomainError>;
-
     async fn store_token_for_remove_user(
         &self,
         user: UserId,
         token: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError>;
+    async fn get_token_for_disable_app_2fa(
+        &self,
+        user: &UserId,
+    ) -> Result<ConfirmDisableApp2FA, DomainError>;
+    async fn remove_app_2fa_secret(&self, user_id: &UserId) -> Result<(), DomainError>;
     async fn get_token_for_remove_user(
         &self,
         user: &UserId,

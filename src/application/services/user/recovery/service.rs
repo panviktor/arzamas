@@ -121,41 +121,18 @@ where
         &self,
         outcome: UserRecoveryPasswdOutcome,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        match outcome {
-            UserRecoveryPasswdOutcome::ValidToken {
-                user_id,
-                email,
-                message,
-                close_sessions_on_change_password,
-            } => {
-                if close_sessions_on_change_password {
-                    let user = UserId::new(&user_id);
-                    self.session_manager.invalidate_sessions(&user).await?;
-                }
-
-                self.email_service
-                    .send_email(email.value(), "Arzamas App", &message)
-                    .await
-                    .map_err(|e| ApplicationError::ExternalServiceError(e.to_string()))?;
-
-                Ok(UniversalApplicationResponse {
-                    title: "Password Reset Successful".to_string(),
-                    subtitle: Some(message.to_string()),
-                })
-            }
-            UserRecoveryPasswdOutcome::InvalidToken {
-                email,
-                message,
-                email_notifications_enabled,
-            } => {
-                if email_notifications_enabled {
-                    self.email_service
-                        .send_email(email.value(), "Arzamas App", &message)
-                        .await
-                        .map_err(|e| ApplicationError::ExternalServiceError(e.to_string()))?;
-                }
-                Err(ApplicationError::ValidationError(message))
-            }
+        if outcome.close_sessions_on_change_password {
+            let user = UserId::new(&outcome.user_id);
+            self.session_manager.invalidate_sessions(&user).await?;
         }
+        self.email_service
+            .send_email(outcome.email.value(), "Arzamas App", &outcome.message)
+            .await
+            .map_err(|e| ApplicationError::ExternalServiceError(e.to_string()))?;
+
+        Ok(UniversalApplicationResponse {
+            title: "Password Reset Successful".to_string(),
+            subtitle: Some(outcome.message.to_string()),
+        })
     }
 }

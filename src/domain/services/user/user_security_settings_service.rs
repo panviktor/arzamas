@@ -1,7 +1,7 @@
 use crate::domain::entities::shared::value_objects::OtpToken;
 use crate::domain::entities::shared::value_objects::UserId;
 use crate::domain::entities::user::user_security_settings::{
-    ConfirmDisableApp2FA, ConfirmEnableApp2FA, ConfirmEnableEmail2FA, InitiateDeleteUserResponse,
+    ConfirmEnableApp2FA, ConfirmEnableEmail2FA, DisableApp2FA, InitiateDeleteUserResponse,
     UserChangeEmail, UserSecuritySettings,
 };
 use crate::domain::entities::user::user_sessions::UserSession;
@@ -21,7 +21,6 @@ use crate::domain::services::shared::SharedDomainService;
 use crate::domain::services::user::{
     UserCredentialService, UserValidationService, ValidationServiceError,
 };
-use actix_web::web::to;
 use chrono::{DateTime, Duration, Utc};
 use getrandom::getrandom;
 use std::sync::Arc;
@@ -499,18 +498,77 @@ where
         }
     }
 
-    pub async fn disable_app_2fa(
-        &self,
-        user_id: UserId,
-    ) -> Result<ConfirmDisableApp2FA, DomainError> {
-        todo!()
+    pub async fn disable_app_2fa(&self, user_id: UserId) -> Result<DisableApp2FA, DomainError> {
+        let (user_result, security_settings_result) = join!(
+            self.user_repository.get_base_user_by_id(&user_id),
+            self.user_security_settings_repository
+                .get_security_settings(&user_id)
+        );
+
+        // Handle potential errors from the concurrent operations
+        let user = user_result?;
+        let security_settings = security_settings_result?;
+
+        // Check if email 2FA is already enabled
+        if !security_settings.two_factor_authenticator_app {
+            return Err(DomainError::ValidationError(BusinessRuleViolation(
+                "Two-factor authentication via App is already disable.".to_string(),
+            )));
+        }
+        let (confirmation_token, confirmation_token_hash, expiry) =
+            self.generate_email_token(32).await?;
+
+        self.user_security_settings_repository
+            .store_token_for_remove_user(user_id, confirmation_token_hash, expiry)
+            .await?;
+
+        Ok(DisableApp2FA::new(user.email, confirmation_token))
     }
 
     pub async fn confirm_disable_app_2fa(
         &self,
         request: ConfirmChangeApp2FADTO,
     ) -> Result<(), DomainError> {
-        todo!()
+        //
+        // Retrieve the 2FA token
+        let app_token = self
+            .user_security_settings_repository
+            .get_token_for_disable_app_2fa(&request.user_id)
+            .await
+            .map_err(|e| {
+                DomainError::PersistenceError(Retrieve(format!("Failed to retrieve user: {}", e)))
+            })?;
+
+        if SharedDomainService::validate_hash(request.email_code.value(), &app_token.token_hash) {
+            let now = Utc::now();
+            if app_token.expiry > now {
+                UserValidationService::verify_totp(&app_token.secret, request.app_code.value())?;
+                let disable_2fa_future = self.user_security_settings_repository.toggle_app_2fa(
+                    &request.user_id,
+                    false,
+                    now,
+                );
+                let remove_secret_future = self
+                    .user_security_settings_repository
+                    .remove_app_2fa_secret(&request.user_id);
+                let (disable_2fa_result, remove_secret_result) =
+                    join!(disable_2fa_future, remove_secret_future);
+
+                disable_2fa_result?;
+                remove_secret_result?;
+
+                Ok(())
+            } else {
+                Err(DomainError::ValidationError(ValidationError::InvalidData(
+                    "The disable confirmation token has expired. Please request a new token."
+                        .to_string(),
+                )))
+            }
+        } else {
+            Err(DomainError::ValidationError(ValidationError::InvalidData(
+                "The validation code you entered is incorrect. Please try again.".to_string(),
+            )))
+        }
     }
 
     pub async fn initiate_delete_user(

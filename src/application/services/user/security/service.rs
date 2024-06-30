@@ -391,14 +391,52 @@ where
         &self,
         request: UserByIdRequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        todo!()
+        let user_id = UserId::new(&request.user_id);
+        let response = self.user_security_service.disable_app_2fa(user_id).await?;
+
+        let subject = "Disable Two-Factor Authentication (2FA)";
+        let message = format!(
+            "Please confirm disabling Two-Factor Authentication by entering the following code: {}",
+            response.token.value()
+        );
+
+        self.email_service
+            .send_email(response.email.value(), &subject, &message)
+            .await
+            .map_err(|_| {
+                ApplicationError::ExternalServiceError(
+                    "Failed to send the confirmation email for disabling 2FA.".to_string(),
+                )
+            })?;
+
+        Ok(UniversalApplicationResponse::new(
+            "A confirmation code to disable Two-Factor Authentication (2FA) has been sent to your email.".to_string(),
+            None,
+        ))
     }
 
-    pub async fn confirm_app_2fa(
+    pub async fn confirm_disable_app_2fa(
         &self,
         request: ConfirmApp2FARequest,
     ) -> Result<UniversalApplicationResponse, ApplicationError> {
-        todo!()
+        self.user_security_service
+            .confirm_disable_app_2fa(request.into())
+            .await
+            .map_err(|e| {
+                ApplicationError::ExternalServiceError(format!(
+                    "Failed to confirm disabling 2FA: {}",
+                    e
+                ))
+            })?;
+
+        Ok(UniversalApplicationResponse::new(
+            "Two-Factor Authentication (2FA) has been successfully disabled.".to_string(),
+            Some(
+                "Note: Disabling 2FA reduces the security of your account. \
+                It's recommended to re-enable 2FA to keep your account secure."
+                    .to_string(),
+            ),
+        ))
     }
 
     pub async fn initiate_delete_user(

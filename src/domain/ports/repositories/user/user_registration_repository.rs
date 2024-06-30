@@ -8,8 +8,7 @@ use chrono::{DateTime, Utc};
 #[async_trait]
 pub trait UserRegistrationDomainRepository {
     /// Create the received user entity in the persistence system
-    async fn create_user(&self, user: UserRegistration) -> Result<UserRegistration, DomainError>;
-
+    async fn create_user(&self, user: &UserRegistration) -> Result<(), DomainError>;
     async fn store_main_primary_activation_token(
         &self,
         user: UserId,
@@ -20,6 +19,8 @@ pub trait UserRegistrationDomainRepository {
         &self,
         user_id: &UserId,
     ) -> Result<UserEmailConfirmation, DomainError>;
+
+    async fn get_user_email_validation_state(&self, user_id: &UserId) -> Result<bool, DomainError>;
 
     async fn complete_primary_email_verification(&self, user: &UserId) -> Result<(), DomainError>;
 }

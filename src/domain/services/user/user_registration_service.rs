@@ -63,7 +63,7 @@ where
         let confirmation_token_hash = SharedDomainService::hash_token(&token);
 
         let user_id = UserId::new(&user.user_id);
-        let user = self.user_registration_repository.create_user(user).await?;
+        self.user_registration_repository.create_user(&user).await?;
         let expiry = Utc::now() + Duration::days(1);
 
         self.user_registration_repository
@@ -76,41 +76,47 @@ where
         })
     }
 
-    pub async fn validate_user_primary_email_with_token(
+    pub async fn verify_primary_email_with_token(
         &self,
         email: Email,
         token: OtpToken,
     ) -> Result<(), DomainError> {
         let user = self.user_repository.get_base_user_by_email(email).await?;
-
-        if user.email_validated {
-            return Ok(());
-        }
-
         let user_id = UserId::new(&user.user_id);
+
+        let email_is_valid = self
+            .user_registration_repository
+            .get_user_email_validation_state(&user_id)
+            .await?;
+
+        if email_is_valid {
+            return Err(DomainError::ValidationError(ValidationError::InvalidData(
+                "Email is already validated.".to_string(),
+            )));
+        }
 
         let confirmation = self
             .user_registration_repository
             .get_primary_email_activation(&user_id)
             .await?;
 
-        if SharedDomainService::validate_hash(&token.value(), &confirmation.otp_hash) {
-            let now = Utc::now();
-            if confirmation.expiry > now {
-                self.user_registration_repository
-                    .complete_primary_email_verification(&user_id)
-                    .await
-            } else {
-                Err(DomainError::ValidationError(ValidationError::InvalidData(
-                    "Token has expired. \
-                    You need to log in to the app to generate a new confirmation token."
-                        .to_string(),
-                )))
-            }
-        } else {
-            Err(DomainError::ValidationError(ValidationError::InvalidData(
+        if !SharedDomainService::validate_hash(&token.value(), &confirmation.otp_hash) {
+            return Err(DomainError::ValidationError(ValidationError::InvalidData(
                 "Invalid validation code provided.".to_string(),
-            )))
+            )));
         }
+
+        let now = Utc::now();
+        if confirmation.expiry <= now {
+            return Err(DomainError::ValidationError(ValidationError::InvalidData(
+                "Token has expired. \
+            You need to log in to the app to generate a new confirmation token."
+                    .to_string(),
+            )));
+        }
+
+        self.user_registration_repository
+            .complete_primary_email_verification(&user_id)
+            .await
     }
 }

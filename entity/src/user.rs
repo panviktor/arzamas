@@ -11,8 +11,6 @@ pub struct Model {
     pub user_id: String,
     pub email: String,
     pub username: String,
-    pub pass_hash: String,
-    pub email_validated: bool,
     pub created_at: DateTime,
     pub updated_at: DateTime,
 }
@@ -25,6 +23,8 @@ pub enum Relation {
     UserAuthentication,
     #[sea_orm(has_one = "super::user_confirmation::Entity")]
     UserConfirmation,
+    #[sea_orm(has_one = "super::user_credentials::Entity")]
+    UserCredentials,
     #[sea_orm(has_one = "super::user_recovery_password::Entity")]
     UserRecoveryPassword,
     #[sea_orm(has_one = "super::user_security_settings::Entity")]
@@ -48,6 +48,12 @@ impl Related<super::user_authentication::Entity> for Entity {
 impl Related<super::user_confirmation::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserConfirmation.def()
+    }
+}
+
+impl Related<super::user_credentials::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserCredentials.def()
     }
 }
 

@@ -20,8 +20,11 @@ pub trait UserAuthenticationDomainRepository {
 
     async fn save_user_session(&self, session: &UserSession) -> Result<(), DomainError>;
 
-    async fn update_user_login_attempts(&self, user: UserId, count: i64)
-        -> Result<(), DomainError>;
+    async fn update_user_login_attempts(
+        &self,
+        user: &UserId,
+        count: i64,
+    ) -> Result<(), DomainError>;
 
     /// Blocks a user from logging in until a specified time.
     ///
@@ -39,7 +42,7 @@ pub trait UserAuthenticationDomainRepository {
 
     async fn prepare_user_for_2fa(
         &self,
-        user: UserId,
+        user: &UserId,
         otp_public_token: OtpToken,
         email_otp_code_hash: Option<String>,
         code_expiry: DateTime<Utc>,
@@ -59,7 +62,7 @@ pub trait UserAuthenticationDomainRepository {
     ///
     /// # Returns
     /// Result indicating success or an error if the verification fails.
-    async fn set_email_otp_verified(&self, user: UserId) -> Result<(), DomainError>;
+    async fn set_email_otp_verified(&self, user_id: &UserId) -> Result<(), DomainError>;
 
     /// Marks the app OTP token as verified for a user.
     ///
@@ -68,11 +71,11 @@ pub trait UserAuthenticationDomainRepository {
     ///
     /// # Returns
     /// Result indicating success or an error if the verification fails.
-    async fn set_app_otp_verified(&self, user: UserId) -> Result<(), DomainError>;
+    async fn set_app_otp_verified(&self, user_id: &UserId) -> Result<(), DomainError>;
 
     /// Resets the OTP validity flags for both email and app-based tokens for a user.
     /// This function is called to ensure that no stale or previously valid tokens
     /// can be used to authenticate, typically after a successful login or when new
     /// tokens are issued.
-    async fn reset_otp_validity(&self, user: UserId) -> Result<(), DomainError>;
+    async fn reset_otp_validity(&self, user_id: &UserId) -> Result<(), DomainError>;
 }
