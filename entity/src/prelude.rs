@@ -2,7 +2,9 @@
 
 pub use super::note::Entity as Note;
 pub use super::user::Entity as User;
+pub use super::user_authentication::Entity as UserAuthentication;
 pub use super::user_confirmation::Entity as UserConfirmation;
-pub use super::user_otp_token::Entity as UserOtpToken;
-pub use super::user_restore_password::Entity as UserRestorePassword;
+pub use super::user_credentials::Entity as UserCredentials;
+pub use super::user_recovery_password::Entity as UserRecoveryPassword;
 pub use super::user_security_settings::Entity as UserSecuritySettings;
+pub use super::user_session::Entity as UserSession;

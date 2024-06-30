@@ -1,3 +1,4 @@
+use crate::m20220101_000000_user_table::User;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -25,16 +26,57 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .unique_key(),
                     )
-                    .col(ColumnDef::new(UserConfirmation::Email).string().not_null())
-                    .col(
-                        ColumnDef::new(UserConfirmation::OTPHash)
-                            .string()
-                            .not_null(),
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_confirmation_user_id")
+                            .from(UserConfirmation::Table, UserConfirmation::UserId)
+                            .to(User::Table, User::UserId)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(
-                        ColumnDef::new(UserConfirmation::Expiry)
+                        ColumnDef::new(UserConfirmation::ActivateUserTokenHash)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::ActivateUserTokenExpiry)
                             .timestamp()
-                            .not_null(),
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::NewMainEmail)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::ActivateEmail2FAToken)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::ActivateEmail2FATokenExpiry)
+                            .timestamp()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::ActivateApp2FAToken)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::ActivateApp2FATokenExpiry)
+                            .timestamp()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::RemoveUserTokenHash)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserConfirmation::RemoveUserTokenExpiry)
+                            .timestamp()
+                            .null(),
                     )
                     .to_owned(),
             )
@@ -55,7 +97,13 @@ pub enum UserConfirmation {
     Id,
     Table,
     UserId,
-    Email,
-    OTPHash,
-    Expiry,
+    ActivateUserTokenHash,
+    ActivateUserTokenExpiry,
+    NewMainEmail,
+    ActivateEmail2FAToken,
+    ActivateEmail2FATokenExpiry,
+    ActivateApp2FAToken,
+    ActivateApp2FATokenExpiry,
+    RemoveUserTokenHash,
+    RemoveUserTokenExpiry,
 }

@@ -1,3 +1,5 @@
+mod application;
 pub mod core;
-pub mod models;
-pub mod modules;
+mod domain;
+pub mod infrastructure;
+mod user_interface;

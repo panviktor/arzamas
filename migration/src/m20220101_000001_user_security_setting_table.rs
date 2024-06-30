@@ -1,6 +1,5 @@
+use super::m20220101_000000_user_table::User;
 use sea_orm_migration::prelude::*;
-
-use super::m20220101_000001_user_table::User;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -28,7 +27,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_security_settings_assignee")
+                            .name("fk_security_settings_user_id")
                             .from(UserSecuritySettings::Table, UserSecuritySettings::UserId)
                             .to(User::Table, User::UserId)
                             .on_delete(ForeignKeyAction::Cascade),
@@ -44,11 +43,6 @@ impl MigrationTrait for Migration {
                             .boolean()
                             .not_null()
                             .default(false),
-                    )
-                    .col(
-                        ColumnDef::new(UserSecuritySettings::TotpSecret)
-                            .string()
-                            .null(),
                     )
                     .col(
                         ColumnDef::new(UserSecuritySettings::EmailOnSuccessEnabledAt)
@@ -67,6 +61,11 @@ impl MigrationTrait for Migration {
                             .boolean()
                             .not_null()
                             .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(UserSecuritySettings::UpdatedAt)
+                            .timestamp()
+                            .not_null(),
                     )
                     .to_owned(),
             )
@@ -91,8 +90,8 @@ pub enum UserSecuritySettings {
     UserId,
     TwoFactorEmail,
     TwoFactorAuthenticatorApp,
-    TotpSecret,
     EmailOnSuccessEnabledAt,
     EmailOnFailureEnabledAt,
     CloseSessionsOnChangePassword,
+    UpdatedAt,
 }
