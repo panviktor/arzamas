@@ -85,17 +85,17 @@ pub trait UserSecuritySettingsDomainRepository {
         enable: bool,
         update_time: DateTime<Utc>,
     ) -> Result<(), DomainError>;
+    async fn get_token_for_disable_app_2fa(
+        &self,
+        user: &UserId,
+    ) -> Result<ConfirmDisableApp2FA, DomainError>;
+    async fn remove_app_2fa_secret(&self, user_id: &UserId) -> Result<(), DomainError>;
     async fn store_token_for_remove_user(
         &self,
         user: UserId,
         token: String,
         expiry: DateTime<Utc>,
     ) -> Result<(), DomainError>;
-    async fn get_token_for_disable_app_2fa(
-        &self,
-        user: &UserId,
-    ) -> Result<ConfirmDisableApp2FA, DomainError>;
-    async fn remove_app_2fa_secret(&self, user_id: &UserId) -> Result<(), DomainError>;
     async fn get_token_for_remove_user(
         &self,
         user: &UserId,

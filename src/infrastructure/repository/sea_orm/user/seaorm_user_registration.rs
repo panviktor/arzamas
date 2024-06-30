@@ -3,7 +3,9 @@ use crate::domain::entities::user::user_security_settings::UserEmailConfirmation
 use crate::domain::entities::user::UserRegistration;
 use crate::domain::error::{DomainError, PersistenceError};
 use crate::domain::ports::repositories::user::user_registration_repository::UserRegistrationDomainRepository;
-use crate::infrastructure::repository::fetch_model;
+use crate::infrastructure::repository::{
+    fetch_model, fetch_user_confirmation, fetch_user_credentials,
+};
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
 use entity::{
@@ -38,6 +40,7 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
             email: Set(user.email.to_string()),
             username: Set(user_name_str),
             created_at: Set(user.created_at.naive_utc()),
+            updated_at: Set(user.created_at.naive_utc()),
             ..Default::default()
         };
 
@@ -49,6 +52,7 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
         let user_credentials = user_credentials::ActiveModel {
             user_id: Set(user.user_id.clone()),
             pass_hash: Set(user.pass_hash.to_string()),
+            updated_at: Set(user.created_at.naive_utc()),
             ..Default::default()
         };
 
@@ -59,6 +63,7 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
 
         let user_security_settings = user_security_settings::ActiveModel {
             user_id: Set(user.user_id.clone()),
+            updated_at: Set(user.created_at.naive_utc()),
             ..Default::default()
         };
 
@@ -142,48 +147,37 @@ impl UserRegistrationDomainRepository for SeaOrmUserRegistrationRepository {
     }
 
     async fn get_user_email_validation_state(&self, user_id: &UserId) -> Result<bool, DomainError> {
-        let uc = fetch_model::<user_credentials::Entity>(
-            &self.db,
-            user_confirmation::Column::UserId.eq(&user_id.user_id),
-            "User credentials",
-        )
-        .await?;
-
-        Ok(uc.email_validated)
+        let credentials = fetch_user_credentials(&self.db, &user_id).await?;
+        Ok(credentials.email_validated)
     }
 
-    async fn complete_primary_email_verification(&self, user: &UserId) -> Result<(), DomainError> {
+    async fn complete_primary_email_verification(
+        &self,
+        user_id: &UserId,
+    ) -> Result<(), DomainError> {
         let txn = self.db.begin().await.map_err(|e| {
             DomainError::PersistenceError(PersistenceError::Transaction(e.to_string()))
         })?;
 
-        // Retrieve the user by user_id within the transaction
-        let mut credentials = fetch_model::<user_credentials::Entity>(
-            &self.db,
-            user::Column::UserId.eq(&user.user_id),
-            "User credentials for email verification not found",
-        )
-        .await?
-        .into_active_model();
+        let mut credentials = fetch_user_credentials(&self.db, &user_id)
+            .await?
+            .into_active_model();
 
         // Update the user's email validation status
         credentials.email_validated = Set(true);
 
-        let mut confirmation = self
-            .fetch_user_confirmation(&user.user_id)
+        let mut confirmation = fetch_user_confirmation(&self.db, &user_id)
             .await?
             .into_active_model();
-        // Update the confirmation details to invalidate the OTP and expiry
-        confirmation.activate_user_token_hash = Set(None);
-        confirmation.activate_user_token_expiry = Set(None);
-
-        // Perform the updates within the transaction
-        confirmation
+        credentials
             .update(&txn)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
 
-        credentials
+        // Update the confirmation details to invalidate the OTP and expiry
+        confirmation.activate_user_token_hash = Set(None);
+        confirmation.activate_user_token_expiry = Set(None);
+        confirmation
             .update(&txn)
             .await
             .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;

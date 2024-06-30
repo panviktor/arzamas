@@ -324,6 +324,7 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         .await?;
 
         update_model(&txn, security, "Failed to update email 2FA setting").await?;
+        commit_transaction(txn).await?;
         Ok(())
     }
 
@@ -431,39 +432,6 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         Ok(())
     }
 
-    async fn remove_app_2fa_secret(&self, user_id: &UserId) -> Result<(), DomainError> {
-        let mut user_credentials = fetch_user_credentials(&self.db, &user_id)
-            .await?
-            .into_active_model();
-        user_credentials.totp_secret = Set(None);
-
-        user_credentials
-            .update(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
-
-        Ok(())
-    }
-
-    async fn store_token_for_remove_user(
-        &self,
-        user: UserId,
-        token_hash: String,
-        expiry: DateTime<Utc>,
-    ) -> Result<(), DomainError> {
-        let mut confirmation = fetch_user_confirmation(&self.db, &user)
-            .await?
-            .into_active_model();
-        confirmation.remove_user_token_hash = Set(Some(token_hash));
-        confirmation.activate_user_token_expiry = Set(Some(expiry.naive_utc()));
-        confirmation
-            .update(&*self.db)
-            .await
-            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
-
-        Ok(())
-    }
-
     async fn get_token_for_disable_app_2fa(
         &self,
         user: &UserId,
@@ -500,6 +468,38 @@ impl UserSecuritySettingsDomainRepository for SeaOrmUserSecurityRepository {
         })
     }
 
+    async fn remove_app_2fa_secret(&self, user_id: &UserId) -> Result<(), DomainError> {
+        let mut user_credentials = fetch_user_credentials(&self.db, &user_id)
+            .await?
+            .into_active_model();
+        user_credentials.totp_secret = Set(None);
+
+        user_credentials
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
+    }
+
+    async fn store_token_for_remove_user(
+        &self,
+        user: UserId,
+        token_hash: String,
+        expiry: DateTime<Utc>,
+    ) -> Result<(), DomainError> {
+        let mut confirmation = fetch_user_confirmation(&self.db, &user)
+            .await?
+            .into_active_model();
+        confirmation.remove_user_token_hash = Set(Some(token_hash));
+        confirmation.activate_user_token_expiry = Set(Some(expiry.naive_utc()));
+        confirmation
+            .update(&*self.db)
+            .await
+            .map_err(|e| DomainError::PersistenceError(PersistenceError::Update(e.to_string())))?;
+
+        Ok(())
+    }
     async fn get_token_for_remove_user(
         &self,
         user: &UserId,
@@ -574,8 +574,12 @@ impl SeaOrmUserSecurityRepository {
         &self,
         user_id: &UserId,
     ) -> Result<(user_confirmation::Model, user_security_settings::Model), DomainError> {
-        let user_confirmation = fetch_user_confirmation(&self.db, &user_id).await?;
-        let user_security_settings = fetch_user_security_settings(&self.db, &user_id).await?;
+        let user_confirmation_future = fetch_user_confirmation(&self.db, &user_id);
+        let user_security_settings_future = fetch_user_security_settings(&self.db, &user_id);
+        let (user_confirmation_result, user_security_settings_result) =
+            tokio::join!(user_confirmation_future, user_security_settings_future);
+        let user_confirmation = user_confirmation_result?;
+        let user_security_settings = user_security_settings_result?;
         Ok((user_confirmation, user_security_settings))
     }
 
@@ -583,8 +587,12 @@ impl SeaOrmUserSecurityRepository {
         &self,
         user_id: &UserId,
     ) -> Result<(user_confirmation::Model, user_credentials::Model), DomainError> {
-        let user_confirmation = fetch_user_confirmation(&self.db, &user_id).await?;
-        let user_credentials = fetch_user_credentials(&self.db, &user_id).await?;
+        let user_confirmation_future = fetch_user_confirmation(&self.db, &user_id);
+        let user_credentials_future = fetch_user_credentials(&self.db, &user_id);
+        let (user_confirmation_result, user_credentials_result) =
+            tokio::join!(user_confirmation_future, user_credentials_future);
+        let user_confirmation = user_confirmation_result?;
+        let user_credentials = user_credentials_result?;
         Ok((user_confirmation, user_credentials))
     }
 }
