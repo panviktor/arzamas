@@ -38,8 +38,8 @@ tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 tracing-appender = "0.2"
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_info"] }
 
-redis = { version = "0.25", features = ["tokio-comp", "tokio-native-tls-comp", "connection-manager"] }
-deadpool-redis = "0.15.1"
+redis = { version = "0.27", features = ["tokio-comp", "tokio-native-tls-comp", "connection-manager"] }
+deadpool-redis = "0.17.0"
 
 chrono = "0.4"
 hex = "0.4"

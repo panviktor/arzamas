@@ -5,8 +5,8 @@ use crate::domain::error::DomainError;
 use crate::domain::ports::caching::caching::CachingPort;
 use crate::infrastructure::cache::error::CachingError;
 use async_trait::async_trait;
+use deadpool_redis::redis::{AsyncCommands, AsyncIter};
 use deadpool_redis::{CreatePoolError, Pool, Runtime};
-use redis::{AsyncCommands, AsyncIter};
 use secrecy::ExposeSecret;
 
 pub fn create_redis_pool() -> Result<Pool, CreatePoolError> {
@@ -66,33 +66,22 @@ impl CachingPort for RedisAdapter {
             .map_err(|e| CachingError::ConnectionFailure(e.to_string()))?;
 
         let keys_pattern = format!("{}:*", user_id);
-        let mut iter: AsyncIter<String> = conn
-            .scan_match(&keys_pattern)
+
+        // **Use `keys` to retrieve all matching keys**
+        let keys: Vec<String> = conn
+            .keys(&keys_pattern)
             .await
             .map_err(|e| CachingError::ConnectionFailure(e.to_string()))?;
 
-        let mut keys = Vec::new();
-        while let Some(key) = iter.next().await {
-            keys.push(key);
-        }
-
-        drop(iter);
-
-        let mut pipe = redis::pipe();
-        for key in &keys {
-            pipe.get(key);
-        }
-
-        let tokens: Vec<Option<String>> = pipe
-            .query_async(&mut conn)
-            .await
-            .map_err(|e| CachingError::ConnectionFailure(e.to_string()))?;
-
-        let tokens: Vec<String> = tokens.into_iter().filter_map(|x| x).collect();
-
-        if tokens.is_empty() {
+        if keys.is_empty() {
             return Err(CachingError::NotFound("No sessions found for user".to_string()).into());
         }
+
+        // **Use `mget` to retrieve multiple values at once**
+        let tokens: Vec<String> = conn
+            .mget(&keys)
+            .await
+            .map_err(|e| CachingError::ConnectionFailure(e.to_string()))?;
 
         Ok(tokens)
     }

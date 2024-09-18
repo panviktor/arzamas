@@ -1,9 +1,11 @@
 use crate::core::constants::core_constants::RATE_LIMIT_KEY_PREFIX;
+use crate::infrastructure::error::error::InfrastructureError;
 use actix_http::body::BoxBody;
 use actix_service::{Service, Transform};
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::{web, Error, HttpResponse};
 use chrono::{Timelike, Utc};
+use deadpool_redis::redis::AsyncCommands;
 use deadpool_redis::Pool;
 use futures::future::{ok, Ready};
 use std::cell::RefCell;
@@ -11,8 +13,6 @@ use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll};
-
-use crate::infrastructure::error::error::InfrastructureError;
 
 pub struct RateLimitServices {
     pub requests_count: u64,
@@ -110,15 +110,22 @@ async fn validate_session(
         RATE_LIMIT_KEY_PREFIX, ip_address, current_minute
     );
 
-    let (count, _): (u64, u64) = redis::pipe()
-        .atomic()
+    // Increment the counter atomically
+    let count: u64 = conn
         .incr(&rate_limit_key, 1)
-        .expire(&rate_limit_key, 60)
-        .query_async::<_, (u64, u64)>(&mut conn)
         .await
         .map_err(|e| InfrastructureError::NetworkError(format!("Redis error: {}", e)))?;
 
-    Ok(requests_count > count)
+    // Set expiration if this is the first increment
+    if count == 1 {
+        let _: bool = conn
+            .expire(&rate_limit_key, 60)
+            .await
+            .map_err(|e| InfrastructureError::NetworkError(format!("Redis error: {}", e)))?;
+    }
+
+    // Return whether the request is allowed
+    Ok(count <= requests_count)
 }
 
 fn get_ip_addr(req: &ServiceRequest) -> Result<String, InfrastructureError> {
