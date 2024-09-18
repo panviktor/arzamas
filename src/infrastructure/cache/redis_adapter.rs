@@ -50,7 +50,8 @@ impl CachingPort for RedisAdapter {
 
         let key = format!("{}:{}", user_id, session_id);
 
-        conn.set_ex(&key, token, expiration_secs)
+        let _: () = conn
+            .set_ex(&key, token, expiration_secs)
             .await
             .map_err(|e| CachingError::SerializationError(e.to_string()))?;
 
@@ -119,7 +120,8 @@ impl CachingPort for RedisAdapter {
 
         drop(iter);
 
-        conn.del(keys)
+        let _: u64 = conn
+            .del(keys)
             .await
             .map_err(|e| CachingError::ConnectionFailure(e.to_string()))?;
 

@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::{ExposeSecret, SecretBox};
 use serde::Deserialize;
 use std::env;
 
@@ -21,13 +21,13 @@ pub struct Settings {
     pub app_domain: String,
     pub email_settings: EmailSettings,
     pub redis_settings: RedisSettings,
-    pub jwt_secret: Secret<String>,
+    pub jwt_secret: SecretBox<String>,
 }
 
 #[derive(Deserialize)]
 pub struct DatabaseSettings {
     pub username: String,
-    pub password: Secret<String>,
+    pub password: SecretBox<String>,
     pub port: u16,
     pub host: String,
     pub database_name: String,
@@ -39,14 +39,14 @@ pub struct EmailSettings {
     pub email_from: String,
     pub email_server: String,
     pub email_user: String,
-    pub email_pass: Secret<String>,
+    pub email_pass: SecretBox<String>,
 }
 
 #[derive(Deserialize)]
 pub struct RedisSettings {
     pub host: String,
     pub port: u16,
-    pub password: Secret<String>,
+    pub password: SecretBox<String>,
 }
 
 impl DatabaseSettings {
@@ -60,8 +60,8 @@ impl DatabaseSettings {
             SslMode::VerifyFull => "verify-full".to_owned(),
         }
     }
-    pub fn connection_string(&self) -> Secret<String> {
-        Secret::new(format!(
+    pub fn connection_string(&self) -> SecretBox<String> {
+        let address = format!(
             "postgres://{}:{}@{}:{}/{}?sslmode={}",
             self.username,
             self.password.expose_secret(),
@@ -69,7 +69,9 @@ impl DatabaseSettings {
             self.port,
             self.database_name,
             self.parse_ssl_mode()
-        ))
+        );
+
+        SecretBox::new(Box::from(address))
     }
 }
 
@@ -120,7 +122,7 @@ pub fn get_config() -> Result<Settings, dotenv::Error> {
     Ok(Settings {
         database: DatabaseSettings {
             username: db_username,
-            password: Secret::new(db_password),
+            password: SecretBox::new(Box::from(db_password)),
             port: db_port,
             host: db_host,
             database_name: db_name,
@@ -132,14 +134,14 @@ pub fn get_config() -> Result<Settings, dotenv::Error> {
             email_from,
             email_server,
             email_user,
-            email_pass: Secret::new(email_pass),
+            email_pass: SecretBox::new(Box::from(email_pass)),
         },
         redis_settings: RedisSettings {
             host: redis_url,
             port: redis_port,
-            password: Secret::new(redis_password),
+            password: SecretBox::new(Box::from(redis_password)),
         },
-        jwt_secret: Secret::new(jwt_secret),
+        jwt_secret: SecretBox::new(Box::from(jwt_secret)),
     })
 }
 
