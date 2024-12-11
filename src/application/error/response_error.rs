@@ -5,7 +5,6 @@ use actix_web::{HttpRequest, HttpResponse, ResponseError};
 use log::error;
 use serde::Serialize;
 use std::fmt;
-use utoipa::ToSchema;
 
 /// A generic error for the web server.
 #[derive(Debug)]
@@ -40,13 +39,10 @@ impl AppResponseError {
     }
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 pub struct ServiceErrorSerialized {
-    #[schema(default = String::default, example = "404 Not Found")]
     pub code: String,
-    #[schema(default = String::default, example = "path/item")]
     pub path: String,
-    #[schema(default = String::default, example = "Item not found")]
     pub message: String,
     pub show_message: bool,
 }
@@ -120,12 +116,10 @@ impl ResponseError for AppResponseError {
 impl ApplicationError {
     pub fn into_service_error(self, req: &HttpRequest) -> AppResponseError {
         match self {
-            ApplicationError::ValidationError(msg) => {
-                AppResponseError::unauthorized(req, msg, true)
-            }
+            ApplicationError::ValidationError(msg) => AppResponseError::bad_request(req, msg, true),
             ApplicationError::NotFound(msg) => AppResponseError::not_found(req, msg, true),
             ApplicationError::BadRequest(msg) => AppResponseError::bad_request(req, msg, true),
-            ApplicationError::DatabaseError(msg) => AppResponseError::general(req, msg, true),
+            ApplicationError::DatabaseError(msg) => AppResponseError::not_found(req, msg, true),
             ApplicationError::ExternalServiceError(msg) => {
                 AppResponseError::general(req, msg, true)
             }

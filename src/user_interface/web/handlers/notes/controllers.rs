@@ -12,32 +12,6 @@ use crate::user_interface::web::handlers::notes::note_request_dto::{
 use actix_web::{web, HttpRequest, HttpResponse};
 use std::sync::Arc;
 
-/// Creates a new note.
-///
-/// This function takes a `HttpRequest`, `LoginUser`, and `DTONote` as input
-/// and attempts to create a new note in the system.
-///
-/// # Arguments
-/// * `req` - The HTTP request information.
-/// * `user` - The logged-in user information.
-/// * `params` - The note data to be created.
-///
-/// # Returns
-/// This function returns a `Result` which is either an `HttpResponse` indicating
-/// successful creation of the note, or a `ServiceError` in case of failure.
-#[utoipa::path(
-    post,
-    path = "/api/v1/note/create",
-    request_body = CreateNoteRequestWeb,
-    responses(
-        (status = 201, description = "Note created successfully", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests")
-    ),
-    security(
-    ("token" = [])
-    )
-)]
 pub async fn create_note(
     req: HttpRequest,
     data: web::Data<Arc<ServiceContainer>>,
@@ -55,40 +29,6 @@ pub async fn create_note(
     Ok(HttpResponse::Created().json(response))
 }
 
-/// Retrieves all notes.
-///
-/// This function is an API endpoint for fetching all notes available to the logged-in user.
-/// It takes an HTTP request, pagination query parameters, and the logged-in user's details as input.
-///
-/// The API responds with an HTTP response. If the note are retrieved successfully,
-/// it returns a 200 status code with the note' data. If the retrieval fails,
-/// it returns an appropriate error message and status code, such as 401 for unauthorized access
-/// or 404 for not found.
-///
-/// # Arguments
-/// * `req` - The HTTP request information.
-/// * `info` - The pagination query parameters.
-/// * `user` - The logged-in user information.
-///
-/// # Returns
-/// This function returns a `Result` which is either an `HttpResponse` with the note data,
-/// or a `ServiceError` in case of failure.
-#[utoipa::path(
-    get,
-    path = "/api/v1/note/get_all_notes",
-    params(
-        PageQuery
-    ),
-    responses(
-        (status = 200, description = "Note information retrieved successfully", body = PaginatedResultNotes),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Not found", body = ServiceErrorSerialized),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
-)]
 pub async fn get_all_notes(
     req: HttpRequest,
     data: web::Data<Arc<ServiceContainer>>,
@@ -106,39 +46,6 @@ pub async fn get_all_notes(
     Ok(HttpResponse::Ok().json(result))
 }
 
-/// Retrieves a note by its ID.
-///
-/// This function is an API endpoint for fetching a specific note by its unique identifier.
-/// It requires the note's ID, the HTTP request information, and the logged-in user's details.
-///
-/// The API responds with an HTTP response. If the note is found, it returns a 200 status code with
-/// the note data. If the note is not found or an error occurs, it returns an appropriate error
-/// message and status code.
-///
-/// # Arguments
-/// * `req` - The HTTP request information.
-/// * `user` - The logged-in user information.
-/// * `query` - The query parameters containing the note's ID.
-///
-/// # Returns
-/// This function returns a `Result` which is either an `HttpResponse` with the note data,
-/// or a `ServiceError` in case of failure.
-#[utoipa::path(
-    get,
-    path = "/api/v1/note/get_by_id",
-    params(
-        ("id" = i64, Query, description = "Unique identifier of the note")
-    ),
-    responses(
-        (status = 200, description = "Note information retrieved successfully", body = Note),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Not found", body = ServiceErrorSerialized),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
-)]
 pub async fn get_by_id(
     req: HttpRequest,
     data: web::Data<Arc<ServiceContainer>>,
@@ -155,38 +62,6 @@ pub async fn get_by_id(
     Ok(HttpResponse::Ok().json(result))
 }
 
-/// Deletes a note.
-///
-/// This function is an API endpoint for deleting a specific note identified by the provided parameters.
-/// It requires the note's identifying information, the HTTP request, and the logged-in user's details.
-///
-/// The API responds with an HTTP response. If the note is deleted successfully, it returns a 200 status
-/// code with a success message. If the deletion fails, it returns an appropriate error message and status code.
-///
-/// # Arguments
-/// * `req` - The HTTP request information.
-/// * `user` - The logged-in user information.
-/// * `params` - The query parameters identifying the note to be deleted.
-///
-/// # Returns
-/// This function returns a `Result` which is either an `HttpResponse` confirming the deletion,
-/// or a `ServiceError` in case of failure.
-#[utoipa::path(
-    delete,
-    path = "/api/v1/v1/note/delete",
-    params(
-        NoteIdRequestWeb
-    ),
-    responses(
-        (status = 200, description = "Note was deleted", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Not found", body = ServiceErrorSerialized),
-        (status = 429, description = "Too Many Requests"),
-    ),
-    security(
-        ("token" = [])
-    )
-)]
 pub async fn delete(
     req: HttpRequest,
     data: web::Data<Arc<ServiceContainer>>,
@@ -203,39 +78,6 @@ pub async fn delete(
     Ok(HttpResponse::Ok().json(response))
 }
 
-/// Updates a note.
-///
-/// This function is an API endpoint for updating an existing note.
-/// It takes the note's ID, new data for the note, the HTTP request, and the logged-in user's details.
-///
-/// The API responds with an HTTP response. If the update is successful, it returns a 200 status code
-/// with a success message. If the update fails, it returns an appropriate error message and status code.
-///
-/// # Arguments
-/// * `req` - The HTTP request information.
-/// * `user` - The logged-in user information.
-/// * `note_id` - The query parameters containing the ID of the note to be updated.
-/// * `body` - The new data for the note.
-///
-/// # Returns
-/// This function returns a `Result` which is either an `HttpResponse` confirming the update,
-/// or a `ServiceError` in case of failure.
-#[utoipa::path(
-    put,
-    path = "/api/v1/v1/note/update",
-    request_body = NoteRequestWeb,
-        params(
-            NoteIdRequestWeb
-    ),
-    responses(
-        (status = 200, description = "Note was updated", body = UniversalResponse),
-        (status = 401, description = "Unauthorized"),
-        (status = 429, description = "Too Many Requests")
-    ),
-    security(
-        ("token" = [])
-    )
-)]
 pub async fn update(
     req: HttpRequest,
     data: web::Data<Arc<ServiceContainer>>,

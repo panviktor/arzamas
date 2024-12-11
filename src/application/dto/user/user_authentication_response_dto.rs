@@ -4,6 +4,7 @@ pub enum LoginResponse {
     OTPResponse {
         public_token: String,
         message: String,
+        needed_types: Vec<AuthType>,
     },
     TokenResponse {
         token: String,
@@ -12,4 +13,10 @@ pub enum LoginResponse {
     PendingResponse {
         message: String,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum AuthType {
+    Email,
+    App,
 }

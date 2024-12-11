@@ -1,7 +1,7 @@
 use crate::application::dto::user::user_authentication_request_dto::{
     LoginUserRequest, OTPVerificationRequest, UserToken,
 };
-use crate::application::dto::user::user_authentication_response_dto::LoginResponse;
+use crate::application::dto::user::user_authentication_response_dto::{AuthType, LoginResponse};
 use crate::application::error::error::ApplicationError;
 use crate::application::services::user::shared::shared_service::SharedService;
 use crate::domain::entities::shared::value_objects::{IPAddress, OtpCode, UserAgent};
@@ -203,6 +203,7 @@ where
         Ok(LoginResponse::OTPResponse {
             public_token: otp_token.into_inner(),
             message: "Please check the code sent to your email.".to_string(),
+            needed_types: vec![AuthType::Email],
         })
     }
 
@@ -225,6 +226,7 @@ where
         Ok(LoginResponse::OTPResponse {
             public_token: otp_token.into_inner(),
             message: "Please check your email and the OTP app for codes.".to_string(),
+            needed_types: vec![AuthType::App, AuthType::Email],
         })
     }
 
@@ -246,6 +248,7 @@ where
         Ok(LoginResponse::OTPResponse {
             public_token: otp_token.into_inner(),
             message: "Please authenticate using your app.".to_string(),
+            needed_types: vec![AuthType::App],
         })
     }
 
