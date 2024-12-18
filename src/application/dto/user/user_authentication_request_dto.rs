@@ -31,7 +31,7 @@ impl LoginUserRequest {
         }
     }
 }
-
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum APIVerificationMethod {
     EmailOTP,
     AuthenticatorApp,

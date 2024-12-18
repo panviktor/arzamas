@@ -1,10 +1,12 @@
+use crate::application::dto::user::user_authentication_request_dto::APIVerificationMethod;
 use serde_derive::{Deserialize, Serialize};
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum LoginResponse {
     OTPResponse {
         public_token: String,
         message: String,
-        needed_types: Vec<AuthType>,
+        needed_types: Vec<APIVerificationMethod>,
     },
     TokenResponse {
         token: String,
@@ -13,10 +15,4 @@ pub enum LoginResponse {
     PendingResponse {
         message: String,
     },
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum AuthType {
-    Email,
-    App,
 }
