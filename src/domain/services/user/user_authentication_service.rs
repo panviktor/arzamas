@@ -483,6 +483,7 @@ where
         Ok(AuthenticationOutcome::AuthenticatedWithPreferences {
             session,
             email: user.email.clone(),
+            user_id: user.user_id.clone(),
             message: "Login successful.".to_string(),
             email_notifications_enabled: user.security_setting.email_on_success_enabled_at,
         })

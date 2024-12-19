@@ -7,8 +7,12 @@ pub trait CachingPort {
         user_id: &str,
         session_id: &str,
         token: &str,
-        expiration_secs: u64,
+        expiration_timestamp: u64,
     ) -> Result<(), DomainError>;
+    async fn get_user_session_token(
+        &self,
+        session_id: &str,
+    ) -> Result<(String, String), DomainError>;
     async fn get_user_sessions_tokens(&self, user_id: &str) -> Result<Vec<String>, DomainError>;
 
     async fn invalidate_sessions(&self, user_id: &str) -> Result<(), DomainError>;

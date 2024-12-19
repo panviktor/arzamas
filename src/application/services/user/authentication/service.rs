@@ -4,7 +4,7 @@ use crate::application::dto::user::user_authentication_request_dto::{
 use crate::application::dto::user::user_authentication_response_dto::LoginResponse;
 use crate::application::error::error::ApplicationError;
 use crate::application::services::user::shared::shared_service::SharedService;
-use crate::domain::entities::shared::value_objects::{IPAddress, OtpCode, UserAgent};
+use crate::domain::entities::shared::value_objects::{IPAddress, OtpCode, UserAgent, UserId};
 use crate::domain::entities::shared::{Email, OtpToken};
 use crate::domain::entities::user::user_sessions::UserSession;
 use crate::domain::entities::user::AuthenticationOutcome;
@@ -106,12 +106,14 @@ where
             AuthenticationOutcome::AuthenticatedWithPreferences {
                 session,
                 email,
+                user_id,
                 message,
                 email_notifications_enabled,
             } => {
                 self.process_authenticated_with_preferences(
                     session,
                     email,
+                    user_id,
                     message,
                     email_notifications_enabled,
                 )
@@ -162,17 +164,17 @@ where
         &self,
         session: UserSession,
         email: Email,
+        user_id: UserId,
         message: String,
         email_notifications_enabled: bool,
     ) -> Result<LoginResponse, ApplicationError> {
         let payload = Self::create_user_token(session).await?;
         let exp = payload.exp;
-        let user_id = payload.user_id.clone();
         let session_id = payload.session_id.clone();
         let token = SharedService::generate_token(payload).await?;
 
         self.caching_service
-            .store_user_token(&user_id, &session_id, &token, exp)
+            .store_user_token(&user_id.user_id, &session_id, &token, exp)
             .await?;
 
         if email_notifications_enabled {
@@ -306,12 +308,14 @@ where
             AuthenticationOutcome::AuthenticatedWithPreferences {
                 session,
                 email,
+                user_id,
                 message,
                 email_notifications_enabled,
             } => {
                 self.process_authenticated_with_preferences(
                     session,
                     email,
+                    user_id,
                     message,
                     email_notifications_enabled,
                 )
@@ -360,12 +364,7 @@ where
         let exp_seconds = Self::seconds_until(session.expiry)?;
         let exp = Utc::now().timestamp() as u64 + exp_seconds;
         let payload = UserToken {
-            user_id: session.user_id,
             session_id: session.session_id,
-            session_name: session.session_name,
-            login_timestamp: session.login_timestamp,
-            user_agent: session.user_agent.into_inner(),
-            ip_address: session.ip_address.into_inner(),
             exp,
         };
         Ok(payload)

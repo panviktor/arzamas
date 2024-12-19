@@ -3,7 +3,6 @@ use crate::domain::entities::shared::OtpToken;
 use crate::domain::ports::repositories::user::user_authentication_dto::{
     ContinueLoginRequestDTO, DomainVerificationMethod,
 };
-use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
 
 pub struct LoginUserRequest {
@@ -86,11 +85,6 @@ impl From<OTPVerificationRequest> for ContinueLoginRequestDTO {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UserToken {
-    pub user_id: String,
     pub session_id: String,
-    pub session_name: String,
-    pub login_timestamp: DateTime<Utc>,
-    pub ip_address: String,
-    pub user_agent: String,
     pub exp: u64,
 }

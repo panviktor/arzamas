@@ -47,14 +47,14 @@ where
 {
     async fn validate_session_for_user(&self, token: &str) -> Result<String, ApplicationError> {
         let decoded_token = SharedService::decode_token(token)?;
-        let user_id = &decoded_token.user_id;
-        let active_tokens = self
+        let session_id = &decoded_token.session_id;
+        let (stored_token, user_id) = self
             .caching_service
-            .get_user_sessions_tokens(user_id)
+            .get_user_session_token(session_id)
             .await?;
 
-        if active_tokens.contains(&token.to_string()) {
-            Ok(user_id.to_string())
+        if stored_token == token {
+            Ok(user_id)
         } else {
             Err(ApplicationError::ValidationError(
                 "Invalid session token".to_string(),

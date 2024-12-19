@@ -28,6 +28,7 @@ pub enum AuthenticationOutcome {
     AuthenticatedWithPreferences {
         session: UserSession,
         email: Email,
+        user_id: UserId,
         message: String,
         email_notifications_enabled: bool,
     },
