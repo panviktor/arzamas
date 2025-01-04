@@ -42,6 +42,8 @@ pub enum AuthenticationOutcome {
     PendingVerification { message: String },
     /// User hasn't activated email token after registration
     UserEmailConfirmation { email: Email, token: OtpToken },
+    /// User try login without email confirmation
+    UserEmailNotConfirmed { message: String },
 }
 
 #[derive(Debug)]

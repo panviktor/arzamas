@@ -503,11 +503,9 @@ where
             self.generate_new_confirmation_token(user_result.user_id, user_result.email)
                 .await
         } else {
-            Err(DomainError::ValidationError(
-                ValidationError::BusinessRuleViolation(
-                    "Your account email is not validated yet!".to_string(),
-                ),
-            ))
+            Ok(AuthenticationOutcome::UserEmailNotConfirmed {
+                message: "Your account email is not validated yet!".to_string(),
+            })
         }
     }
 

@@ -157,6 +157,9 @@ where
             AuthenticationOutcome::UserEmailConfirmation { email, token } => {
                 self.process_user_email_confirmation(email, token).await
             }
+            AuthenticationOutcome::UserEmailNotConfirmed { message } => {
+                Ok(LoginResponse::UserEmailNotConfirmedResponse { message })
+            }
         }
     }
 

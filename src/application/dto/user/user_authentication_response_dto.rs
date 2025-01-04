@@ -15,4 +15,7 @@ pub enum LoginResponse {
     PendingResponse {
         message: String,
     },
+    UserEmailNotConfirmedResponse {
+        message: String,
+    },
 }
